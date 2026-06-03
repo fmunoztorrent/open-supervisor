@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.pnpm-store/
+coverage/
+*.generated.ts
+android/app/build/
+ios/build/
+.git/

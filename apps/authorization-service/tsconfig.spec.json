@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@open-supervisor/shared-types": ["node_modules/@open-supervisor/shared-types/src"],
+      "@open-supervisor/shared-messaging": ["node_modules/@open-supervisor/shared-messaging/src"]
+    }
+  },
+  "include": ["src/**/*"]
+}

@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@open-supervisor/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@open-supervisor/shared-messaging": ["../../packages/shared-messaging/src/index.ts"]
+    },
+    "jsx": "react-native",
+    "lib": ["es2019"],
+    "target": "ES2019",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "noEmit": true,
+    "types": ["jest", "@testing-library/react-native/extend-expect"]
+  },
+  "include": ["src"]
+}

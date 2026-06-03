@@ -1,0 +1,9 @@
+# Local SDK path — generado por setup-android.sh, no commitear
+local.properties
+
+# Build artifacts
+.gradle
+.idea
+build/
+app/build/
+captures/

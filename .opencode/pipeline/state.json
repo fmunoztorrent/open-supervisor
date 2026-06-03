@@ -1,0 +1,14 @@
+{
+  "global": {
+    "pipeline_active": false
+  },
+  "scopes": {
+    "main": {
+      "active": false,
+      "type": null,
+      "step": 0,
+      "started_at": null,
+      "completed_at": null
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": true,
+  "instructions": ["CLAUDE.md"],
+  "default_agent": "pipeline",
+  "plugins": [
+    {
+      "path": ".opencode/plugins/pipeline-enforcer.js"
+    }
+  ],
+  "agents": {
+    "paths": [".opencode/agents"]
+  },
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "command": {
+    "task": {
+      "template": "Clasifica y ejecuta el pipeline correspondiente para esta tarea siguiendo las instrucciones en CLAUDE.md (triaje, pipeline, todowrite + anuncios de transición):\n\n{{input}}",
+      "description": "Invoca el pipeline automático (feature/bugfix/debug/chore) con todowrite + anuncios de transición",
+      "subtask": false
+    }
+  }
+}

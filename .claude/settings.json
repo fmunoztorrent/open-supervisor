@@ -1,0 +1,73 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/fabianmunoz/.claude/**)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(pnpm --filter authorization-service test --passWithNoTests)",
+      "Bash(./node_modules/.bin/jest --passWithNoTests)",
+      "Bash(ls /Users/fabianmunoz/Workspace/open-supervisor/apps/authorization-service/src/../../packages/shared-types/src/index.ts 2>/dev/null && echo \"path ok\" || echo \"path broken\")",
+      "Read(//Users/fabianmunoz/Workspace/open-supervisor/apps/packages/shared-types/src/**)",
+      "Bash(./node_modules/.bin/jest --showConfig)",
+      "Bash(pnpm --filter authorization-service test)",
+      "Bash(pnpm approve-builds *)",
+      "Bash(echo \"enable-pre-post-scripts=true\")",
+      "Bash(echo \"approve-builds=@nestjs/core\")",
+      "Bash(pnpm --filter @open-supervisor/authorization-service add @nestjs/axios axios --ignore-scripts)",
+      "Bash(pnpm --filter authorization-service typecheck)",
+      "Bash(tsc --noEmit --project /Users/fabianmunoz/Workspace/open-supervisor/apps/authorization-service/tsconfig.json)",
+      "Bash(pnpm --filter authorization-service test --coverage)",
+      "Bash(pnpm --filter sse-server test)",
+      "Bash(npx jest *)",
+      "Bash(pnpm --filter authorization-service test -- --verbose)",
+      "Bash(pnpm --filter authorization-service test --forceExit)",
+      "Bash(pnpm --filter sse-server test --forceExit)",
+      "Bash(pnpm --filter bff test --forceExit)",
+      "Bash(pnpm --filter shared-types test --forceExit)",
+      "Bash(pnpm --filter sse-server typecheck)",
+      "Bash(pnpm --filter shared-types typecheck)",
+      "Bash(pnpm --filter shared-messaging typecheck)",
+      "Bash(pnpm lint *)",
+      "Bash(chmod +x /Users/fabianmunoz/Workspace/open-supervisor/setup-android.sh)",
+      "Read(//private/var/folders/sx/wlchnl3d5k9_2y_k1z72y1480000gn/T/tmp.VUChRqzRS4/**)",
+      "Bash(node /Users/fabianmunoz/Workspace/open-supervisor/apps/mobile/node_modules/.bin/react-native init OpenSupervisor --skip-install)",
+      "Bash(/Users/fabianmunoz/Workspace/open-supervisor/apps/mobile/node_modules/.bin/react-native init *)",
+      "Bash(npx @react-native-community/cli@15.1.3 init OpenSupervisor --skip-install)"
+    ]
+  },
+  "hooks": {
+    "Start": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'HOOK: Iniciando sesion en open-supervisor. Node $(node -v), pnpm $(pnpm -v). Dependencias OK.' > /dev/null"
+          }
+        ]
+      }
+    ],
+    "Pre-Command": [
+      {
+        "matcher": "bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".opencode/pipeline/check.sh 2>/dev/null || (echo '⚠️  Pipeline check: no hay pipeline activo. Ejecuta todowrite primero para desbloquear ediciones.' && exit 1)"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'HOOK: Tarea completada. Antes de cerrar: (1) actualiza el spec en spec/ marcando tareas completadas y agrega seccion ## Resultado; (2) agrega una entrada en .claude/LEARNINGS.md si aprendiste algo no obvio; (3) actualiza CLAUDE.md si hay cambios arquitecturales, nuevas convenciones o decisiones que deben persistir.'"
+          }
+        ]
+      }
+    ]
+  }
+}
