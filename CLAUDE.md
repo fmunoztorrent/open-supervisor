@@ -235,10 +235,30 @@ El plugin `pipeline-enforcer` (`.opencode/plugins/pipeline-enforcer.js`) bloquea
 
 El pre-command hook en `.claude/settings.json` ejecuta `.opencode/pipeline/check.sh` antes de cada comando bash. Si no hay pipeline activo, bloquea comandos destructivos.
 
-### Git pre-commit hook (cuando exista repo)
+## Git workflow
+
+### Branching strategy
+
+> **REGLA:** Toda tarea nueva que requiera un spec se debe trabajar en una rama ad-hoc. No se trabaja directamente sobre `main`.
+
+| Tipo de tarea | Branch desde | Convención de nombre | Merge a |
+|---|---|---|---|
+| `feature` (con spec) | `main` | `feature/<descripcion-corta>` | PR → `main` |
+| `bugfix` | `main` | `fix/<descripcion-corta>` | PR → `main` |
+| `chore` | `main` | `chore/<descripcion-corta>` | PR → `main` |
+
+**Flujo:**
+1. Crear rama desde `main`: `git checkout -b feature/mi-feature main`
+2. Trabajar en la rama siguiendo el pipeline
+3. Al completar el pipeline (paso 6), abrir un Pull Request
+4. El PR se mergea a `main` (squash o merge convencional)
+
+No se permite merge directo a `main`. Todo cambio entra vía PR.
+
+### Git pre-commit hook
 
 ```bash
-# Una vez que exista .git:
+# Ya ejecutado:
 git init
 git config core.hooksPath .opencode/pipeline
 ```
