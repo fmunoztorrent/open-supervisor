@@ -156,6 +156,70 @@ describe('AuthorizationDetailScreen', () => {
     });
   });
 
+  describe('cabecera de tipo y fecha', () => {
+    it('muestra la etiqueta legible del tipo PRICE_CHANGE', () => {
+      renderWithProvider(
+        <AuthorizationDetailScreen
+          request={basePriceChangeRequest}
+          isLoading={false}
+          onDecide={jest.fn()}
+        />,
+      );
+      expect(screen.getByText(/cambio de precio/i)).toBeOnTheScreen();
+    });
+
+    it('muestra el created_at formateado en el encabezado', () => {
+      renderWithProvider(
+        <AuthorizationDetailScreen
+          request={basePriceChangeRequest}
+          isLoading={false}
+          onDecide={jest.fn()}
+        />,
+      );
+      // created_at: '2026-06-03T10:30:00.000Z' → '03/06/2026 10:30'
+      expect(screen.getByTestId('detail-created-at')).toBeOnTheScreen();
+      expect(screen.getByText(/03\/06\/2026/)).toBeOnTheScreen();
+    });
+
+    it('muestra la etiqueta "Descuento" para tipo DISCOUNT', () => {
+      renderWithProvider(
+        <AuthorizationDetailScreen
+          request={discountRequest}
+          isLoading={false}
+          onDecide={jest.fn()}
+        />,
+      );
+      expect(screen.getByText(/descuento/i)).toBeOnTheScreen();
+    });
+  });
+
+  describe('banner de error', () => {
+    it('no muestra el banner de error cuando error es null', () => {
+      renderWithProvider(
+        <AuthorizationDetailScreen
+          request={basePriceChangeRequest}
+          isLoading={false}
+          onDecide={jest.fn()}
+          error={null}
+        />,
+      );
+      expect(screen.queryByTestId('detail-error')).toBeNull();
+    });
+
+    it('muestra el banner de error con el mensaje cuando error es un string', () => {
+      renderWithProvider(
+        <AuthorizationDetailScreen
+          request={basePriceChangeRequest}
+          isLoading={false}
+          onDecide={jest.fn()}
+          error="Error al enviar la decisión"
+        />,
+      );
+      expect(screen.getByTestId('detail-error')).toBeOnTheScreen();
+      expect(screen.getByText(/error al enviar la decisión/i)).toBeOnTheScreen();
+    });
+  });
+
   describe('solicitud ya resuelta', () => {
     it('ambos botones están deshabilitados cuando resolved=APPROVED', () => {
       renderWithProvider(

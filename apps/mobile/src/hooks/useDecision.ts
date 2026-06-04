@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { bffClient } from '../api/bffClient';
 
 interface UseDecisionResult {
-  decide: (decision: 'APPROVE' | 'REJECT') => Promise<void>;
+  decide: (decision: 'APPROVE' | 'REJECT') => Promise<boolean>;
   isLoading: boolean;
   error: string | null;
 }
@@ -15,7 +15,7 @@ export function useDecision(
   const [error, setError] = useState<string | null>(null);
 
   const decide = useCallback(
-    async (decision: 'APPROVE' | 'REJECT') => {
+    async (decision: 'APPROVE' | 'REJECT'): Promise<boolean> => {
       setIsLoading(true);
       setError(null);
       try {
@@ -23,10 +23,12 @@ export function useDecision(
           decision,
           supervisor_id: supervisorId,
         });
+        return true;
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Error al enviar la decisión';
         setError(message);
+        return false;
       } finally {
         setIsLoading(false);
       }

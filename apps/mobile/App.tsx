@@ -22,11 +22,13 @@ interface DetailViewProps {
 }
 
 function DetailView({ request, supervisorId, onBack }: DetailViewProps) {
-  const { decide, isLoading } = useDecision(request.correlation_id, supervisorId);
+  const { decide, isLoading, error } = useDecision(request.correlation_id, supervisorId);
 
   const handleDecide = async (decision: 'APPROVE' | 'REJECT') => {
-    await decide(decision);
-    onBack();
+    const success = await decide(decision);
+    if (success) {
+      onBack();
+    }
   };
 
   return (
@@ -41,6 +43,7 @@ function DetailView({ request, supervisorId, onBack }: DetailViewProps) {
         request={request}
         isLoading={isLoading}
         onDecide={handleDecide}
+        error={error}
       />
     </SafeAreaView>
   );
