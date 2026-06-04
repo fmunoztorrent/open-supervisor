@@ -11,15 +11,20 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.29.7",
+    "@gluestack-style/react": "^1.0.57",
+    "@gluestack-ui/config": "^1.1.20",
+    "@gluestack-ui/themed": "^1.1.73",
     "@open-supervisor/shared-types": "workspace:*",
     "react": "18.3.1",
     "react-native": "0.76.9",
     "react-native-config": "^1.5.3",
     "react-native-sse": "^1.2.0",
+    "react-native-svg": "^15.15.5",
     "react-native-url-polyfill": "^2.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@babel/plugin-transform-class-static-block": "^7.29.7",
     "@babel/preset-env": "^7.24.0",
     "@babel/preset-react": "^7.23.3",
     "@babel/preset-typescript": "^7.23.3",

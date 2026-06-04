@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { config } from '@gluestack-ui/config';
+import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { SessionProvider, useSession } from './src/context/SessionContext';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
@@ -20,11 +22,13 @@ interface DetailViewProps {
 }
 
 function DetailView({ request, supervisorId, onBack }: DetailViewProps) {
-  const { decide, isLoading } = useDecision(request.correlation_id, supervisorId);
+  const { decide, isLoading, error } = useDecision(request.correlation_id, supervisorId);
 
   const handleDecide = async (decision: 'APPROVE' | 'REJECT') => {
-    await decide(decision);
-    onBack();
+    const success = await decide(decision);
+    if (success) {
+      onBack();
+    }
   };
 
   return (
@@ -39,6 +43,7 @@ function DetailView({ request, supervisorId, onBack }: DetailViewProps) {
         request={request}
         isLoading={isLoading}
         onDecide={handleDecide}
+        error={error}
       />
     </SafeAreaView>
   );
@@ -46,7 +51,7 @@ function DetailView({ request, supervisorId, onBack }: DetailViewProps) {
 
 function SupervisorApp() {
   const { storeId, supervisorId } = useSession();
-  const { requests, isLoading, isReconnecting } = useSSERequests(storeId);
+  const { requests, isLoading, isReconnecting, isRefreshingBackground } = useSSERequests(storeId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedRequest = selectedId
@@ -75,6 +80,7 @@ function SupervisorApp() {
         requests={requests}
         onPressRequest={setSelectedId}
         isLoading={isLoading}
+        isRefreshingBackground={isRefreshingBackground}
       />
     </SafeAreaView>
   );
@@ -82,10 +88,12 @@ function SupervisorApp() {
 
 export default function App() {
   return (
-    <SessionProvider>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <SupervisorApp />
-    </SessionProvider>
+    <GluestackUIProvider config={config}>
+      <SessionProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <SupervisorApp />
+      </SessionProvider>
+    </GluestackUIProvider>
   );
 }
 

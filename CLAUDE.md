@@ -20,6 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `apps/mobile/` | React Native (Android) — app del supervisor |
 | `packages/shared-types/` | DTOs, interfaces, enums compartidos entre servicios |
 | `packages/shared-messaging/` | Ports: IMessagePublisher, IMessageConsumer, INotificationSubscriber |
+| `scripts/` | Tooling de desarrollo: `inject-request.ts` para simular solicitudes POS sin infraestructura de tienda |
 
 ## Arquitectura
 
@@ -30,7 +31,7 @@ apps/
   authorization-service/   # Consume auth.requests desde Kafka, lógica de negocio, publica auth.response.{store_id}
   sse-server/              # Suscribe Redis pub/sub, emite SSE hacia el BFF
   bff/                     # Backend for Frontend: proxy SSE + REST API para la app móvil
-  mobile/                  # React Native (Android) — app del supervisor (pendiente de bootstrap)
+  mobile/                  # React Native (Android) — app del supervisor
 
 packages/
   shared-types/            # Interfaces, DTOs y enums compartidos entre servicios backend
@@ -92,6 +93,7 @@ Las tiendas viven en redes privadas. El único canal de retorno es Kafka. El `in
 | Capa | Tecnología |
 |---|---|
 | App móvil | React Native (Android primero) + TypeScript |
+| UI system mobile | `@gluestack-ui/themed` v1 — componentes: Box, HStack, VStack, Pressable, Text, Badge, Spinner, Button, ButtonText, ButtonSpinner |
 | Backend services | NestJS + TypeScript |
 | Mensajería | Kafka (`@nestjs/microservices` + `kafkajs`) |
 | Notificaciones realtime | Redis pub/sub → SSE (`@Sse()` NestJS) → `react-native-sse` en la app |
@@ -110,10 +112,16 @@ Las tiendas viven en redes privadas. El único canal de retorno es Kafka. El `in
 # 2. Recargar el shell para activar ANDROID_HOME y platform-tools en el PATH:
 source ~/.zshrc   # o ~/.bashrc según tu shell
 
+# 3. Compilar los paquetes compartidos (OBLIGATORIO antes del primer nest start):
+cd packages/shared-types && node_modules/.bin/tsc && cd ../shared-messaging && node_modules/.bin/tsc && cd ../..
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Instalar dependencias (ya lo hace setup-android.sh; correr manualmente si se clona sin el script)
 pnpm install
+
+# Levantar infraestructura (Kafka + Redis) con Podman:
+DOCKER_HOST=unix:///Users/fabianmunoz/.local/share/containers/podman/machine/podman.sock podman compose up -d
 
 # Backend — levantar servicio específico
 pnpm --filter authorization-service dev
@@ -139,6 +147,16 @@ cd apps/mobile && pnpm detox:test            # E2E Detox
 # Lint / typecheck
 pnpm lint
 pnpm typecheck
+
+# Script de inyección de solicitudes (desarrollo / QA)
+# Simula el flujo completo POS → Kafka → authorization-service → SSE → app
+pnpm inject --type DISCOUNT --store-id store-1 --pos-id pos-1
+pnpm inject --type PRICE_CHANGE --product-id P42 --original-price 100 --requested-price 80
+pnpm inject --type DISCOUNT --verify   # verifica llegada al SSE del BFF (requiere servicios corriendo)
+pnpm inject --type DISCOUNT --verbose  # muestra configuración activa
+
+# Tests del script de inyección (node --test + tsx, sin Jest)
+npx tsx --test scripts/inject-request.spec.ts
 ```
 
 ## Flujo de trabajo (pipeline automático)
@@ -191,6 +209,13 @@ Cada vez que se inicia, avanza o termina un paso del pipeline, se DEBE:
 2. architect agent        → valida viabilidad técnica, enriquece paths y escenarios de test
 3. qa agent (RED)         → escribe tests que fallan por la razón correcta
 4. backend / frontend     → implementa hasta que los tests pasen en verde
+                           ⚠️ FRONTEND: el paso 4 no está completo hasta que la app cargue
+                           correctamente en el emulador Android sin pantalla roja. Pasos
+                           obligatorios antes de marcar el paso 4 como completado:
+                             (a) Metro corriendo: `cd apps/mobile && pnpm start`
+                             (b) App instalada: `pnpm android` (emulador debe estar activo)
+                             (c) `adb logcat | grep ReactNativeJS` sin errores críticos
+                             (d) Screenshot del emulador confirma UI correcta (sin red screen)
 5. qa agent (GREEN)       → corre la suite completa y reporta
 6. cierre                 → (a) actualizar spec con tareas completadas,
                            (b) entrada en .claude/LEARNINGS.md,
@@ -360,5 +385,7 @@ Revisar la configuración del harness (CLAUDE.md, hooks, skills, .claudeignore, 
 - **Ports en `shared-messaging`**: `IMessagePublisher`, `IMessageConsumer` e `INotificationSubscriber` definidos en el package compartido; adapters Kafka en cada servicio bajo `infrastructure/messaging/kafka/`.
 - **DTOs en `shared-types`**: `AuthorizationRequestDto`, `AuthorizationResponseDto`, enums de tipo de solicitud. Importados tanto por servicios backend como por la app mobile. Patrón vigente: **campos opcionales** (`amount?`, `employee_id?`, `product_id?`, etc.) — NO discriminated unions. Migrar a unions discriminadas requiere un spec de refactor separado.
 - **SSE en mobile**: usar `react-native-sse` (polyfill de EventSource para React Native); el BFF expone el endpoint SSE que la app consume.
+- **UI en mobile**: usar `@gluestack-ui/themed` v1 para todos los componentes visuales. No usar `StyleSheet.create` en componentes migrados. Imports desde `@gluestack-ui/themed`: `Box`, `HStack`, `VStack`, `Pressable`, `Text`, `Badge`, `BadgeText`, `Center`, `Spinner`, `ScrollView`, `Button`, `ButtonText`, `ButtonSpinner`. El `GluestackUIProvider` con `config` de `@gluestack-ui/config` está en `App.tsx` como wrapper raíz. Los tests requieren `renderWithProvider` (definido en `jest.setup.js`) en lugar de `render` directo para componentes Gluestack.
 - **Variables de entorno**: backend via `ConfigModule` NestJS; mobile via `react-native-config`.
 - **Módulos NestJS**: cada feature es un módulo; el binding port → adapter va en el module, no en los use-cases.
+- **Skills operativos en el repo (agnósticos)**: `open-supervisor-infra` (contenedores + servicios backend + inyección + Kafka) y `open-supervisor-emulator` (validación e2e de la app Android) viven en `.claude/skills/` dentro del repo (git-trackeados), por lo que cualquiera que clone el proyecto los recibe. **Son agnósticos de máquina**: no contienen rutas absolutas — derivan la raíz con `git rev-parse --show-toplevel`, detectan el motor de contenedores (Podman/Docker) y resuelven el socket y el serial del emulador dinámicamente. opencode los lee vía `.claude/skills` agregado a `skills.paths` en `opencode.json` (fuente única, sin duplicar). Los agentes `qa`, `backend` y `frontend` tienen el tool `Skill` habilitado y deben **delegar en estos skills** en vez de improvisar comandos crudos de Podman/Docker/adb. Regla: ningún skill ni script de tooling debe contener `/Users/<quien-sea>/...` ni nombres de contenedor con prefijo de proyecto (`open-supervisor-kafka-1`); usar `$COMPOSE exec <servicio>`.

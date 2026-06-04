@@ -9,13 +9,18 @@
     "typecheck": "pnpm -r typecheck",
     "inject": "tsx scripts/inject-request.ts"
   },
+  "pnpm": {
+    "allowBuilds": ["esbuild", "@nestjs/core"]
+  },
   "devDependencies": {
     "@types/eventsource": "^1.1.15",
     "@types/node": "^20.0.0",
-    "dotenv": "^17.4.2",
+    "@types/uuid": "^9.0.8",
+    "dotenv": "^16.4.5",
     "eventsource": "^2.0.2",
     "kafkajs": "^2.2.4",
     "tsx": "^4.22.4",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "uuid": "^9.0.1"
   }
 }

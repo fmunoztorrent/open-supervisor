@@ -113,8 +113,18 @@ describe('useSSERequests', () => {
         expect.any(Function),
       );
     });
+  });
 
-    it('agrega la nueva solicitud al inicio de requests cuando llega authorization_request', async () => {
+  describe('background refresh al recibir SSE (US-01)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('NO hace prepend directo — dispara refetch GET /pending cuando llega authorization_request', async () => {
       const initial = [makePendingRequest('corr-existing')];
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
@@ -138,10 +148,156 @@ describe('useSSERequests', () => {
         listener({ data: JSON.stringify(newRequest) });
       });
 
-      expect(result.current.requests).toHaveLength(2);
-      // La nueva solicitud queda al inicio
+      // NO debe haber prepend directo — los datos actuales se mantienen
+      expect(result.current.requests).toHaveLength(1);
+      expect(result.current.requests[0].correlation_id).toBe('corr-existing');
+
+      // isRefreshingBackground se activa inmediatamente
+      expect(result.current.isRefreshingBackground).toBe(true);
+
+      // Avanzamos timers para que el debounce se cumpla
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [newRequest, ...initial],
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+
+      await waitFor(() => {
+        expect(result.current.requests).toHaveLength(2);
+      });
+
+      // Los datos se actualizan con la respuesta del servidor
       expect(result.current.requests[0].correlation_id).toBe('corr-new');
-      expect(result.current.requests[1].correlation_id).toBe('corr-existing');
+
+      // isRefreshingBackground vuelve a false
+      expect(result.current.isRefreshingBackground).toBe(false);
+    });
+
+    it('isRefreshingBackground se activa durante refetch y se desactiva al completar', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makePendingRequest('corr-1')],
+      });
+
+      const { result } = renderHook(() => useSSERequests(STORE_ID));
+
+      await waitFor(() => {
+        expect(result.current.requests).toHaveLength(1);
+      });
+
+      const instance = MockEventSource.mock.instances[0] as jest.Mocked<
+        InstanceType<typeof EventSource>
+      >;
+      const listener = getEventSourceListener(instance, 'authorization_request');
+
+      // Estado inicial
+      expect(result.current.isRefreshingBackground).toBe(false);
+
+      await act(async () => {
+        listener({ data: JSON.stringify(makePendingRequest('corr-2')) });
+      });
+
+      // Se activa inmediatamente
+      expect(result.current.isRefreshingBackground).toBe(true);
+
+      // Simular respuesta del refetch
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makePendingRequest('corr-2'), makePendingRequest('corr-1')],
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isRefreshingBackground).toBe(false);
+      });
+    });
+
+    it('refetch fallido mantiene datos actuales y oculta el indicador', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makePendingRequest('corr-1')],
+      });
+
+      const { result } = renderHook(() => useSSERequests(STORE_ID));
+
+      await waitFor(() => {
+        expect(result.current.requests).toHaveLength(1);
+      });
+
+      const instance = MockEventSource.mock.instances[0] as jest.Mocked<
+        InstanceType<typeof EventSource>
+      >;
+      const listener = getEventSourceListener(instance, 'authorization_request');
+
+      await act(async () => {
+        listener({ data: JSON.stringify(makePendingRequest('corr-2')) });
+      });
+
+      expect(result.current.isRefreshingBackground).toBe(true);
+
+      // El refetch falla
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+
+      // Debe esperar a que la promesa se resuelva (rechazada)
+      await waitFor(() => {
+        expect(result.current.isRefreshingBackground).toBe(false);
+      });
+
+      // Los datos originales se mantienen
+      expect(result.current.requests).toHaveLength(1);
+      expect(result.current.requests[0].correlation_id).toBe('corr-1');
+    });
+
+    it('debounce de 2s: múltiples SSE consecutivos disparan solo un refetch', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makePendingRequest('corr-1')],
+      });
+
+      renderHook(() => useSSERequests(STORE_ID));
+
+      await waitFor(() => {
+        expect(MockEventSource).toHaveBeenCalledTimes(1);
+      });
+
+      const instance = MockEventSource.mock.instances[0] as jest.Mocked<
+        InstanceType<typeof EventSource>
+      >;
+      const listener = getEventSourceListener(instance, 'authorization_request');
+
+      // Limpiar contador de fetch para ignorar la llamada inicial
+      (global.fetch as jest.Mock).mockClear();
+      // Mock para el refetch
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makePendingRequest('corr-4')],
+      });
+
+      // 3 eventos SSE en rápida sucesión — dentro de act
+      await act(async () => {
+        listener({ data: JSON.stringify(makePendingRequest('corr-2')) });
+        jest.advanceTimersByTime(500);
+        listener({ data: JSON.stringify(makePendingRequest('corr-3')) });
+        jest.advanceTimersByTime(500);
+        listener({ data: JSON.stringify(makePendingRequest('corr-4')) });
+        // Avanzar más allá del debounce de 2s para que se ejecute el timer
+        jest.advanceTimersByTime(2000);
+      });
+
+      // Solo debería haber 1 llamado a fetch (el debounce reinicia cada vez)
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      });
     });
   });
 
@@ -166,6 +322,34 @@ describe('useSSERequests', () => {
 
       expect(instance.removeAllEventListeners).toHaveBeenCalled();
       expect(instance.close).toHaveBeenCalled();
+    });
+
+    it('limpia el timeout del debounce al desmontar', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makePendingRequest('corr-1')],
+      });
+
+      const { result, unmount } = renderHook(() => useSSERequests(STORE_ID));
+
+      await waitFor(() => {
+        expect(result.current.requests).toHaveLength(1);
+      });
+
+      const instance = MockEventSource.mock.instances[0] as jest.Mocked<
+        InstanceType<typeof EventSource>
+      >;
+      const listener = getEventSourceListener(instance, 'authorization_request');
+
+      await act(async () => {
+        listener({ data: JSON.stringify(makePendingRequest('corr-2')) });
+      });
+
+      // Desmontar mientras hay un refetch pendiente — no debe haber errores
+      expect(result.current.isRefreshingBackground).toBe(true);
+      unmount();
+
+      // No debe haber excepciones — el cleanup del timeout funciona
     });
   });
 

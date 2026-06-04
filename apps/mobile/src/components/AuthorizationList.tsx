@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import {
+  Box,
+  Center,
+  HStack,
+  ScrollView,
+  Spinner,
+  Text,
+} from '@gluestack-ui/themed';
 import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
 import { AuthorizationCard } from './AuthorizationCard';
 
@@ -11,49 +18,70 @@ interface AuthorizationListProps {
   requests: RequestWithResolved[];
   onPressRequest: (correlationId: string) => void;
   isLoading?: boolean;
+  isRefreshingBackground?: boolean;
 }
 
 export const AuthorizationList: React.FC<AuthorizationListProps> = ({
   requests,
   onPressRequest,
   isLoading = false,
+  isRefreshingBackground = false,
 }) => {
   if (isLoading) {
     return (
-      <View style={styles.centered}>
-        <Text>Cargando...</Text>
-      </View>
+      <Center style={{ flex: 1 }}>
+        <Spinner testID="list-spinner" />
+      </Center>
     );
   }
 
   if (requests.length === 0) {
     return (
-      <View style={styles.centered}>
+      <Center style={{ flex: 1 }}>
         <Text>Sin solicitudes pendientes</Text>
-      </View>
+      </Center>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {requests.map(request => (
-        <AuthorizationCard
-          key={request.correlation_id}
-          request={request}
-          onPress={() => onPressRequest(request.correlation_id)}
-        />
-      ))}
-    </ScrollView>
+    <Box style={{ flex: 1 }}>
+      <ScrollView style={{ flex: 1 }}>
+        {requests.map(request => (
+          <AuthorizationCard
+            key={request.correlation_id}
+            request={request}
+            onPress={() => onPressRequest(request.correlation_id)}
+          />
+        ))}
+      </ScrollView>
+
+      {isRefreshingBackground && (
+        <Box
+          testID="background-refresh-indicator"
+          accessible={true}
+          accessibilityLabel="Indicador de sincronización"
+          style={{
+            opacity: 0.7,
+            height: 32,
+            backgroundColor: '#E3F2FD',
+            borderTopWidth: 1,
+            borderTopColor: '#BBDEFB',
+          }}
+        >
+          <HStack
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Spinner size="small" color="#1976D2" />
+            <Text style={{ marginLeft: 8, fontSize: 12, color: '#1976D2' }}>
+              Sincronizando...
+            </Text>
+          </HStack>
+        </Box>
+      )}
+    </Box>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
