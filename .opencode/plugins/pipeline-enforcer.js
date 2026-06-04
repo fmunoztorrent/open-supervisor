@@ -87,85 +87,103 @@ function writeClosePending(scopeName, state) {
 export default async () => {
   let previousScopeState = {}
 
-  return {
-    "todo.updated": async (input) => {
-      const todos = input?.todos
-      if (!todos) return
+  // Helper: extrae la lógica de update de state (usada por el hook de tracking)
+  // Lê todos de múltiples paths defensivamente porque la forma exacta del input
+  // de tool.execute.after no está 100% documentada en opencode.
+  const updateStateFromTodos = (todos) => {
+    if (!Array.isArray(todos) || todos.length === 0) return
 
-      const parsed = parseScopeGroups(todos)
-      if (!parsed) return
+    const parsed = parseScopeGroups(todos)
+    if (!parsed) return
 
-      const { groups, order } = parsed
-      const state = loadState()
-      const prevScopes = { ...previousScopeState }
+    const { groups, order } = parsed
+    const state = loadState()
+    const prevScopes = { ...previousScopeState }
 
-      // Ensure all current scopes exist in state
-      for (const name of order) {
-        if (!state.scopes[name]) {
-          state.scopes[name] = {
-            active: false,
-            type: null,
-            step: 0,
-            started_at: null,
-            completed_at: null,
-          }
+    // Ensure all current scopes exist in state
+    for (const name of order) {
+      if (!state.scopes[name]) {
+        state.scopes[name] = {
+          active: false,
+          type: null,
+          step: 0,
+          started_at: null,
+          completed_at: null,
         }
       }
+    }
 
-      // Detect transitions and update state per scope
-      for (const [name, data] of Object.entries(groups)) {
-        const wasActive = prevScopes[name]?.hasActive || state.scopes[name]?.active || false
-        const nowActive = data.hasActive
+    // Detect transitions and update state per scope
+    for (const [name, data] of Object.entries(groups)) {
+      const wasActive = prevScopes[name]?.hasActive || state.scopes[name]?.active || false
+      const nowActive = data.hasActive
 
-        // Transition: was active → now all completed → trigger close
-        if (wasActive && !nowActive && data.allDone && !state.scopes[name]?.completed_at) {
+      // Transition: was active → now all completed → trigger close
+      if (wasActive && !nowActive && data.allDone && !state.scopes[name]?.completed_at) {
+        state.scopes[name].type = state.scopes[name]?.type || detectPipelineType(data.todos)
+        state.scopes[name].completed_at = new Date().toISOString()
+        state.scopes[name].active = false
+        state.scopes[name].step = 6
+        writeClosePending(name, state)
+      } else {
+        // Normal update
+        state.scopes[name].active = nowActive
+        if (nowActive) {
           state.scopes[name].type = state.scopes[name]?.type || detectPipelineType(data.todos)
+          state.scopes[name].started_at = state.scopes[name]?.started_at || new Date().toISOString()
+          state.scopes[name].completed_at = null
+        }
+        if (data.allDone && !state.scopes[name]?.completed_at) {
           state.scopes[name].completed_at = new Date().toISOString()
           state.scopes[name].active = false
           state.scopes[name].step = 6
-          writeClosePending(name, state)
-        } else {
-          // Normal update
-          state.scopes[name].active = nowActive
-          if (nowActive) {
-            state.scopes[name].type = state.scopes[name]?.type || detectPipelineType(data.todos)
-            state.scopes[name].started_at = state.scopes[name]?.started_at || new Date().toISOString()
-            state.scopes[name].completed_at = null
-          }
-          if (data.allDone && !state.scopes[name]?.completed_at) {
-            state.scopes[name].completed_at = new Date().toISOString()
-            state.scopes[name].active = false
-            state.scopes[name].step = 6
-          }
-          if (!data.allDone && data.hasActive) {
-            state.scopes[name].step = detectCurrentStep(data.todos)
-          }
+        }
+        if (!data.allDone && data.hasActive) {
+          state.scopes[name].step = detectCurrentStep(data.todos)
         }
       }
+    }
 
-      // Remove stale scopes from state
-      for (const name of Object.keys(state.scopes)) {
-        if (!groups[name] && name !== "main") {
-          delete state.scopes[name]
-        }
+    // Remove stale scopes from state
+    for (const name of Object.keys(state.scopes)) {
+      if (!groups[name] && name !== "main") {
+        delete state.scopes[name]
       }
+    }
 
-      // Global active flag: true if ANY scope is active
-      state.global.pipeline_active = Object.values(state.scopes).some((s) => s.active)
+    // Global active flag: true if ANY scope is active
+    state.global.pipeline_active = Object.values(state.scopes).some((s) => s.active)
 
-      // Mark global completed if all scopes done
-      const allScopesDone = Object.values(state.scopes).every((s) => s.completed_at)
-      if (allScopesDone && Object.keys(state.scopes).length > 0) {
-        state.global.pipeline_active = false
-      }
+    // Mark global completed if all scopes done
+    const allScopesDone = Object.values(state.scopes).every((s) => s.completed_at)
+    if (allScopesDone && Object.keys(state.scopes).length > 0) {
+      state.global.pipeline_active = false
+    }
 
-      saveState(state)
+    saveState(state)
 
-      // Track current state for next transition detection
-      previousScopeState = {}
-      for (const [name, data] of Object.entries(groups)) {
-        previousScopeState[name] = { hasActive: data.hasActive, allDone: data.allDone }
-      }
+    // Track current state for next transition detection
+    previousScopeState = {}
+    for (const [name, data] of Object.entries(groups)) {
+      previousScopeState[name] = { hasActive: data.hasActive, allDone: data.allDone }
+    }
+  }
+
+  return {
+    // Hook de tracking de scopes. Reemplaza el antiguo "todo.updated" (que
+    // no era un evento válido en opencode). Ahora disparamos desde
+    // tool.execute.after del tool `todowrite` con la lista actualizada.
+    "tool.execute.after": async (input, output) => {
+      if (input?.tool !== "todowrite") return
+      // El tool todowrite recibe { todos: [...] } como arg. Leemos de
+      // múltiples paths por si la forma exacta varía entre versiones de opencode.
+      const todos =
+        input?.args?.todos ??
+        output?.args?.todos ??
+        input?.output?.todos ??
+        output?.output?.todos ??
+        []
+      updateStateFromTodos(todos)
     },
 
     "tool.execute.before": async (input, output) => {
