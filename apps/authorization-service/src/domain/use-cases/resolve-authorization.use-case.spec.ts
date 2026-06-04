@@ -28,6 +28,7 @@ beforeEach(() => {
   mockRepository = {
     save: jest.fn().mockResolvedValue(undefined),
     findById: jest.fn(),
+    findByCorrelationId: jest.fn(),
     findPendingByStore: jest.fn(),
   };
   mockPublisher = { publish: jest.fn().mockResolvedValue(undefined) };
@@ -41,9 +42,9 @@ describe('ResolveAuthorizationUseCase', () => {
   describe('Resolución de DISCOUNT — flujo base (no regresión)', () => {
     it('publica en Kafka con status APPROVED cuando decision es APPROVE', async () => {
       const entity = makeRequestEntity(RequestType.DISCOUNT);
-      mockRepository.findById.mockResolvedValue(entity);
+      mockRepository.findByCorrelationId.mockResolvedValue(entity);
 
-      await useCase.execute(entity.id, 'APPROVE', 'sup-01');
+      await useCase.execute(entity.correlationId, 'APPROVE', 'sup-01');
 
       expect(mockPublisher.publish).toHaveBeenCalledWith(
         `auth.response.${entity.storeId}`,
@@ -55,7 +56,7 @@ describe('ResolveAuthorizationUseCase', () => {
     });
 
     it('lanza NotFoundException cuando la solicitud no existe', async () => {
-      mockRepository.findById.mockResolvedValue(null);
+      mockRepository.findByCorrelationId.mockResolvedValue(null);
 
       await expect(useCase.execute('not-found-id', 'APPROVE', 'sup-01')).rejects.toThrow();
     });
@@ -68,9 +69,9 @@ describe('ResolveAuthorizationUseCase', () => {
         original_price: 1000,
         requested_price: 700,
       });
-      mockRepository.findById.mockResolvedValue(entity);
+      mockRepository.findByCorrelationId.mockResolvedValue(entity);
 
-      await useCase.execute(entity.id, 'APPROVE', 'sup-01');
+      await useCase.execute(entity.correlationId, 'APPROVE', 'sup-01');
 
       expect(mockPublisher.publish).toHaveBeenCalledWith(
         `auth.response.${entity.storeId}`,
@@ -88,9 +89,9 @@ describe('ResolveAuthorizationUseCase', () => {
         original_price: 1000,
         requested_price: 700,
       });
-      mockRepository.findById.mockResolvedValue(entity);
+      mockRepository.findByCorrelationId.mockResolvedValue(entity);
 
-      await useCase.execute(entity.id, 'REJECT', 'sup-01');
+      await useCase.execute(entity.correlationId, 'REJECT', 'sup-01');
 
       expect(mockPublisher.publish).toHaveBeenCalledWith(
         `auth.response.${entity.storeId}`,
@@ -109,9 +110,9 @@ describe('ResolveAuthorizationUseCase', () => {
       [RequestType.SUSPEND],
     ])('incluye type: %s en el payload cuando se resuelve', async (type) => {
       const entity = makeRequestEntity(type);
-      mockRepository.findById.mockResolvedValue(entity);
+      mockRepository.findByCorrelationId.mockResolvedValue(entity);
 
-      await useCase.execute(entity.id, 'APPROVE', 'sup-01');
+      await useCase.execute(entity.correlationId, 'APPROVE', 'sup-01');
 
       expect(mockPublisher.publish).toHaveBeenCalledWith(
         expect.any(String),
@@ -127,9 +128,9 @@ describe('ResolveAuthorizationUseCase', () => {
         original_price: 1000,
         requested_price: 700,
       });
-      mockRepository.findById.mockResolvedValue(entity);
+      mockRepository.findByCorrelationId.mockResolvedValue(entity);
 
-      await useCase.execute(entity.id, 'APPROVE', 'sup-01');
+      await useCase.execute(entity.correlationId, 'APPROVE', 'sup-01');
 
       expect(mockRepository.save).toHaveBeenCalledTimes(1);
       const saved = (mockRepository.save as jest.Mock).mock.calls[0][0] as AuthorizationRequest;

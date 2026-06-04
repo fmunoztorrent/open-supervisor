@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Observable, Subject } from 'rxjs';
-import EventSource from 'eventsource';
+// eventsource es CJS: usar require para evitar "default is not a constructor"
+// cuando NestJS compila a CommonJS.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const EventSource = require('eventsource');
 
 export interface SseEvent {
   data: string;

@@ -35,6 +35,7 @@ beforeEach(() => {
   mockRepository = {
     save: jest.fn().mockResolvedValue(undefined),
     findById: jest.fn(),
+    findByCorrelationId: jest.fn(),
     findPendingByStore: jest.fn(),
   };
   mockEventEmitter = { emit: jest.fn().mockResolvedValue(undefined) };
@@ -123,14 +124,15 @@ describe('ProcessPriceChangeUseCase', () => {
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         `store:${dto.store_id}:requests`,
         expect.objectContaining({
-          storeId: dto.store_id,
-          posId: dto.pos_id,
-          correlationId: dto.correlation_id,
+          store_id: dto.store_id,
+          pos_id: dto.pos_id,
+          correlation_id: dto.correlation_id,
           type: RequestType.PRICE_CHANGE,
-          productId: dto.product_id,
-          originalPrice: dto.original_price,
-          requestedPrice: dto.requested_price,
+          product_id: dto.product_id,
+          original_price: dto.original_price,
+          requested_price: dto.requested_price,
           status: AuthorizationStatus.PENDING,
+          created_at: dto.created_at,
         }),
       );
     });

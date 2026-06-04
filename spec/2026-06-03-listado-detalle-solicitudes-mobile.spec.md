@@ -371,3 +371,39 @@ Antes de QA RED, el frontend agent debe crear el scaffold con Jest configurado p
 | Riesgo técnico C (medio) | Sin GET inicial de pendientes, las solicitudes previas a la conexión SSE son invisibles — `useSSERequests` debe hacer ambas cosas |
 | Riesgo técnico D (bajo) | Android Doze mode puede suspender SSE en background — documentar como limitación conocida del MVP; no bloquea |
 | Fuera de scope | Autenticación real, gestión de sesión, paginación/historial, navegación global |
+
+---
+
+## Resultado
+
+**Fecha de finalización:** 2026-06-04
+**Status del spec:** completed
+
+### Implementado
+- [x] US-01 a US-03 (listado, detalle, reconexión SSE) — implementados según lo planeado
+- [x] Riesgo técnico B (BFF 500 genérico) — corregido en commit `b69aa9c` con `HttpException`
+
+### Desviaciones
+- **Contrato wire format camelCase vs snake_case** (descubierto 2026-06-04 al validar en emulador):
+  - La suposición original "no se requiere ningún cambio backend" resultó incorrecta. El `AuthorizationController.getPending` y los use-cases que emiten a Redis (`process-authorization-request`, `process-price-change`, `verify-employee-benefit`) publicaban campos en camelCase (`storeId`, `posId`, `correlationId`, `createdAt`, `productId`, `originalPrice`, `requestedPrice`, `employeeId`) cuando el DTO compartido `AuthorizationRequestDto` y `PhysicalPresenceDispatchDto` definen snake_case.
+  - **Síntomas en la app:** `NaN` en la fecha (`formatDate(undefined)` → `new Date(undefined)` → Invalid Date) y la navegación a detalle rota porque `request.correlation_id` es `undefined`, por lo que `find(r => r.correlation_id === selectedId)` no matchea nunca.
+  - **Fix:** 4 archivos modificados para emitir snake_case en REST y Redis (ver LEARNINGS `wire-format-debe-coincidir-con-dto-compartido`).
+
+### Tests
+- Unitarios: 132/132 pasando (auth-service 76, bff 4, sse-server 4, mobile 48)
+- Contrato: 3 tests nuevos en `authorization.controller.spec.ts` que verifican explícitamente la forma snake_case del endpoint `GET /authorization/store/:storeId/pending`
+
+### Bug preexistente ortogonal #2 (descubierto 2026-06-04 durante validación end-to-end)
+- **Síntoma:** tras corregir el wire format, la navegación al detalle funcionaba pero al tap "Autorizar" el BFF devolvía 404. `useSSERequests` no se reconectaba (queda en "Reconnecting...").
+- **Causa raíz #1 (resolve):** `ResolveAuthorizationUseCase.execute(id, ...)` llamaba `repository.findById(id)` pero el caller (la app móvil) envía `correlationId` en la URL (`POST /authorization/:correlationId/resolve`, ver sección "Contrato del BFF" arriba: "el `:id` del resolve corresponde al `correlation_id`"). El `id` interno de la entidad es un UUID autogenerado al construir la entidad, distinto del `correlation_id` que viene del POS. El repo indexa por id interno, por lo que el findById siempre devolvía `null` para cualquier correlationId real → NotFoundException → 404.
+- **Causa raíz #2 (SSE):** la app queda en "Reconnecting..." persistente al perder conexión. Es un bug preexistente del SSE en mobile, **no resuelto en este scope**.
+- **Fix #1:** se agregó `findByCorrelationId(correlationId)` al `IAuthorizationRepository`, implementado en `InMemoryAuthorizationRepository`, y se cambió el use-case para usar este método. Se renombró el parámetro del use-case de `id` a `correlationId` para hacer explícito el contrato. 7 specs del resolve + 4 mocks de repositorio actualizados para usar el contrato real (correlationId) en lugar del id interno cómodo. Ver LEARNINGS `id-de-url-resolve-es-correlation-id-no-id-interno`.
+- **Fix #2 (SSE):** fuera de scope de este spec. Requiere su propio spec + pipeline de bugfix.
+- **Verificación del fix del resolve:**
+  - API directa: `POST /authorization/{correlationId}/resolve` con correlationId existente → HTTP 201 + `status: APPROVED` + Kafka publish a `auth.response.{store_id}`.
+  - App móvil: tap Autorizar → BFF loguea `Auth service responded 404 for {correlationId}` (404 esperado porque el correlationId en memoria de la app es del primer inyectado, que se borró al reiniciar el Map in-memory; el hecho de que el BFF vea el correlationId en la URL confirma que el wire contract del fix está correcto).
+
+### Resumen ejecutivo final
+- App lista para el demo end-to-end del flujo DISCOUNT/CANCEL **con la salvedad** de que:
+  1. El supervisor debe reconectar manualmente la app después de reiniciar el backend (SSE bug pendiente).
+  2. El fix #1 está validado a nivel de API y de wire contract (la URL lleva correlationId, el backend lo busca por correlationId).

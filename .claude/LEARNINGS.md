@@ -244,3 +244,52 @@ slug: bff-http-proxy-debe-propagar-codigos-http-del-upstream-no-convertir-a-500
 **Lección**: un servicio BFF que hace proxy HTTP debe usar `HttpException` (de `@nestjs/common`) con el código HTTP original del upstream, no `Error` genérico. NestJS respeta el status de `HttpException` en su exception filter global. Para errores de red (upstream caído), el 500 genérico de NestJS es aceptable.
 
 **Cómo aplicar**: en cualquier servicio NestJS que haga fetch a un upstream y propague errores, usar `throw new HttpException(message, upstreamStatus)` en lugar de `throw new Error(...)`. Verificar con supertest que 404→404, 409→409, no 404→500.
+
+---
+date: 2026-06-04
+agent: backend
+category: api-gotcha
+tags: [contract, dto, snake-case, redis, sse, hexagonal, ports-adapters]
+slug: wire-format-debe-coincidir-con-dto-compartido
+---
+
+**Contexto**: bug en la app móvil tras validar el flujo completo en emulador. El listado mostraba "NaN/NaN NaN:NaN" debajo del tipo de solicitud y al presionar la card no navegaba al detalle. Dos síntomas visibles, una sola causa raíz: mismatch entre el wire format del backend y el DTO compartido.
+
+**Qué pasó**: el `AuthorizationController.getPending` retornaba campos en camelCase (`storeId`, `posId`, `correlationId`, `createdAt`) y los use-cases que emiten a Redis (`process-authorization-request`, `process-price-change`, `verify-employee-benefit`) hacían lo mismo. Pero el DTO `AuthorizationRequestDto` en `packages/shared-types` define snake_case, y la app móvil usa ese DTO. La app recibía `correlation_id: undefined`, `created_at: undefined`, etc.
+- **Síntoma 1 ("NaN")**: `formatDate(request.created_at)` recibía `undefined`, `new Date(undefined)` es Invalid Date, todos los `getUTC*()` retornaban `NaN`, y el template literal mostraba "NaN/NaN NaN:NaN".
+- **Síntoma 2 (no navega)**: `onPressRequest(request.correlation_id)` pasaba `undefined`, `setSelectedId(undefined)`, y el guard `selectedId ? ... : undefined` cortocircuitaba la navegación al detalle.
+
+**Lección**: en arquitectura hexagonal, el dominio usa camelCase internamente (entidades) pero la **capa de infraestructura que toca el wire** (controllers REST, adapters de event emitter a Redis, publishers a Kafka) debe mapear explícitamente al contrato del DTO compartido. Las publicaciones a Kafka ya estaban correctas (snake_case); las emisiones a Redis no. La asimetría de convenciones dentro del mismo servicio es el olor que delata el bug.
+
+**Cómo aplicar**:
+- Al modificar un controller o un emit a un canal Redis/Kafka, **verificar que las keys del payload coincidan 1:1 con la interface del DTO compartido** (`AuthorizationRequestDto`, `PhysicalPresenceDispatchDto`, etc.). Si el campo se llama `productId` en la entidad pero `product_id` en el DTO, hay que mapear.
+- Agregar test de contrato explícito en el controller test: `expect(item).toHaveProperty('store_id', ...)` y `expect(item).not.toHaveProperty('storeId')`. Esto atrapa la regresión sin acoplarse al detalle de la implementación.
+- Considerar centralizar el mapping entidad→DTO en un mapper compartido (ej. `AuthorizationRequest.toWireDto()`) para que el contrato se defina en un solo lugar. Hoy está duplicado en 4 sitios.
+
+---
+date: 2026-06-04
+agent: backend
+category: api-gotcha
+tags: [repository, correlation-id, snake-case, contract, hexagonal, ports-adapters]
+slug: id-de-url-resolve-es-correlation-id-no-id-interno
+---
+
+**Contexto**: tras arreglar el wire format snake_case, la app mostraba las cards y navegaba al detalle correctamente, pero al tap "Autorizar" la pantalla quedaba colgada y el BFF logueaba `Auth service responded 404 for {correlationId}`. La causa era un bug preexistente del resolve, ortogonal al del snake_case.
+
+**Qué pasó**: el `ResolveAuthorizationUseCase.execute(id, ...)` recibía el `correlationId` (que es lo que la app móvil pasa en la URL: `POST /authorization/:correlationId/resolve`, ver spec línea 88: "El `:id` del resolve corresponde al `correlation_id` de la solicitud") pero el `IAuthorizationRepository` solo exponía `findById(id)`, y el `InMemoryAuthorizationRepository` indexa por `AuthorizationRequest.id` (UUID interno autogenerado al construir la entidad, distinto del `correlation_id` que viene del POS). Resultado: el repo devolvía `null` para cualquier `correlationId` real, el use-case lanzaba `NotFoundException` y propagaba como 404.
+
+**Por qué no lo cazó el suite de tests**: los 7 specs del resolve usaban `findById.mockResolvedValue(entity)` y `useCase.execute(entity.id, ...)` — **el test mimickeaba el contrato roto**. Nadie había escrito un test que invocara el use-case con el `correlationId` real y verificara que lo encontrara. La regresión existía desde el commit inicial `29791fa` y pasó inadvertida porque ningún flujo end-to-end llegaba al botón Autorizar con un correlationId real.
+
+**Lección**: los tests deben usar el **mismo contrato que el caller real**, no la forma más cómoda de mockear. Si el controller expone `POST /:id/resolve` y el caller (la app móvil) envía un `correlationId`, el test del controller debe:
+1. Hacer POST con un `correlationId` (no con un id interno)
+2. Verificar que el repo recibió una búsqueda por correlationId, no por id
+Alternativamente, el use-case test debe invocar `execute(entity.correlationId, ...)` (no `execute(entity.id, ...)`) cuando el contrato del caller así lo requiere.
+
+**Cómo aplicar**:
+- Al diseñar un endpoint, escribir el test del controller **antes** del use-case test, usando el input exacto que el cliente envía. Si el cliente envía `correlationId`, el controller test usa `correlationId`.
+- En el repo, **distinguir claramente los dos ids**: `findById` (UUID interno, autoincremental, sistema) vs `findByCorrelationId` (UUID externo, generado por el POS, contrato API). Mezclar ambos en un solo `findById` es señal de modelo mal modelado.
+- Cuando se introduce un nuevo método al port (`findByCorrelationId`), todos los mocks de los specs que implementan `IAuthorizationRepository` deben actualizarse. Considerar un `MockAuthorizationRepository` compartido en `apps/authorization-service/test/mocks/` para no repetir 4 specs el mismo cambio.
+
+**Verificación del fix**:
+- API directa: `POST /authorization/{correlationId}/resolve` con un correlationId que SÍ existe en el repo → HTTP 201 + `status: APPROVED` + Kafka publish a `auth.response.{store_id}`.
+- App móvil: tap Autorizar en el emulador → el BFF loguea `Auth service responded 404 for {correlationId}` (404 esperado porque el correlationId en memoria de la app era del primer inyectado, que se borró al reiniciar el Map in-memory; el hecho de que el BFF vea el `correlationId` en la URL confirma que el wire contract del fix está correcto).

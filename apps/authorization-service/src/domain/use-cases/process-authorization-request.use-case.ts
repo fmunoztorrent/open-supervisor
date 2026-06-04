@@ -40,14 +40,14 @@ export class ProcessAuthorizationRequestUseCase {
 
     await this.eventEmitter.emit(`store:${request.storeId}:requests`, {
       id: request.id,
-      storeId: request.storeId,
-      posId: request.posId,
-      correlationId: request.correlationId,
+      store_id: request.storeId,
+      pos_id: request.posId,
+      correlation_id: request.correlationId,
       type: request.type,
       amount: request.amount,
-      employeeId: request.employeeId,
+      employee_id: request.employeeId,
       status: request.status,
-      createdAt: request.createdAt.toISOString(),
+      created_at: request.createdAt.toISOString(),
     });
   }
 }
