@@ -48,11 +48,16 @@ Si no está claro, pregunta al usuario.
 
 Cuando marques el **último todo de un scope** como `completed`:
 
-1. **Inmediatamente** lee `.opencode/pipeline/close.md` y ejecuta sus 5 pasos
+1. **Inmediatamente** lee `.opencode/pipeline/close.md` y ejecuta los pasos del checklist
 2. **No continúes** al siguiente scope ni respondas al usuario sin cerrar
 3. **No asumas** que el plugin lo hará por ti — el close.md es tu checklist
 4. Después de cerrar, si hay más scopes pendientes, avanza al siguiente
 5. Si todos los scopes están cerrados, responde al usuario con un resumen
+
+> El paso 2 del close.md (`Fusionar rama actual en dev local`) es **obligatorio**
+> para scopes `feature` y `bugfix` con spec. Si hay conflicto al fusionar a
+> `dev`, **no avances** a los pasos siguientes — reportá al usuario y esperá
+> que resuelva manualmente.
 
 ### Ejemplo de todowrite multi-scope
 

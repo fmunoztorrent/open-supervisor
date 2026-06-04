@@ -266,19 +266,50 @@ El pre-command hook en `.claude/settings.json` ejecuta `.opencode/pipeline/check
 
 > **REGLA:** Toda tarea nueva que requiera un spec se debe trabajar en una rama ad-hoc. No se trabaja directamente sobre `main`.
 
-| Tipo de tarea | Branch desde | Convención de nombre | Merge a |
-|---|---|---|---|
-| `feature` (con spec) | `main` | `feature/<descripcion-corta>` | PR → `main` |
-| `bugfix` | `main` | `fix/<descripcion-corta>` | PR → `main` |
-| `chore` | `main` | `chore/<descripcion-corta>` | PR → `main` |
+| Tipo de tarea | Branch desde | Convención de nombre | Integración local | PR (remoto) |
+|---|---|---|---|---|
+| `feature` (con spec) | `main` | `feature/<descripcion-corta>` | merge a `dev` local | PR → `main` |
+| `bugfix` | `main` | `fix/<descripcion-corta>` | merge a `dev` local | PR → `main` |
+| `chore` | `main` | `chore/<descripcion-corta>` | merge a `dev` local | PR → `main` |
 
 **Flujo:**
 1. Crear rama desde `main`: `git checkout -b feature/mi-feature main`
 2. Trabajar en la rama siguiendo el pipeline
-3. Al completar el pipeline (paso 6), abrir un Pull Request
-4. El PR se mergea a `main` (squash o merge convencional)
+3. Al completar el pipeline (paso 6), la rama actual se **fusiona automáticamente** a `dev` local (ver siguiente subsección)
+4. Abrir un Pull Request apuntando a `main`
+5. El PR se mergea a `main` (squash o merge convencional)
 
 No se permite merge directo a `main`. Todo cambio entra vía PR.
+
+### Integración local con `dev`
+
+> **REGLA:** Al terminar un spec (paso 6 del pipeline), la rama actual se
+> fusiona a la rama `dev` local **antes** de abrir el PR. `dev` es la
+> rama de integración local — no se pushea automáticamente al remoto.
+
+**Cómo funciona:**
+
+- Si la rama `dev` no existe: se crea desde `main` (`git branch dev main`).
+- Si ya existe: se hace `git merge --no-ff` de la rama actual hacia `dev`.
+- Si la rama actual es `main` o `dev`: no se hace nada (evita noop).
+- Si hay conflicto al fusionar: el merge se aborta, el worktree vuelve a la
+  rama original, y el cierre se detiene para que el humano resuelva.
+
+**Implementación:** `.opencode/pipeline/merge-to-dev.sh`. Es invocado por
+el paso 2 de `.opencode/pipeline/close.md` durante el cierre automático de
+un scope.
+
+**Para qué sirve `dev` local:**
+
+- Punto de integración temprana: validás que la rama actual convive con
+  lo que ya hay integrado (detecta conflictos antes del PR).
+- Compuerta antes de review: si algo se rompe al integrar, lo arreglás
+  acá, no durante la review en `main`.
+- Historial legible: `--no-ff` preserva la topología de la feature branch
+  dentro de `dev`.
+
+**Push a `origin/dev`:** se hace manualmente, nunca durante el cierre del
+spec. Si querés sincronizar, `git push origin dev` cuando lo decidas.
 
 ### Git pre-commit hook
 
@@ -332,7 +363,7 @@ Formato de la sección `## Resultado`:
 3. architect (opcional)  → si el fix requiere cambios arquitecturales
 4. fix                   → implementar la corrección
 5. verify                → correr suite completa + typecheck
-6. cierre                → entrada en LEARNINGS.md si aplica
+6. cierre                → leer `.opencode/pipeline/close.md` y ejecutar instrucciones
 ```
 
 ### Cierre automático (close-agent)
@@ -340,10 +371,12 @@ Formato de la sección `## Resultado`:
 Al marcar el último todo de un scope como `completed`, el **agente debe ejecutar inmediatamente** las instrucciones de `.opencode/pipeline/close.md`. Este checklist cubre:
 
 1. Actualizar spec si existe
-2. Entrada en LEARNINGS.md
-3. Revisar si CLAUDE.md necesita actualización
-4. Limpiar close-pending
-5. Anunciar cierre
+2. **Fusionar la rama actual a `dev` local** (creando `dev` desde `main` si no existe)
+3. Abrir Pull Request apuntando a `main`
+4. Entrada en LEARNINGS.md
+5. Revisar si CLAUDE.md necesita actualización
+6. Limpiar close-pending
+7. Anunciar cierre
 
 **El plugin no ejecuta el cierre automáticamente** — solo marca que hay un cierre pendiente. El agente es responsable de leer y ejecutar `close.md`.
 
