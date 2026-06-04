@@ -14,11 +14,18 @@ import { ProcessPriceChangeUseCase } from '../domain/use-cases/process-price-cha
 import { AUTHORIZATION_REPOSITORY } from '../domain/ports/authorization-repository.port';
 import { EVENT_EMITTER } from '../domain/ports/event-emitter.port';
 import { ACTIVE_DIRECTORY } from '../domain/ports/active-directory.port';
+import { OUTBOX_REPOSITORY } from '../domain/ports/outbox-repository.port';
+import { UNIT_OF_WORK } from '../domain/ports/unit-of-work.port';
 import { KafkaConsumerAdapter } from '../infrastructure/messaging/kafka/kafka-consumer.adapter';
 import { KafkaPublisherAdapter } from '../infrastructure/messaging/kafka/kafka-publisher.adapter';
 import { RedisPublisherAdapter } from '../infrastructure/events/redis-publisher.adapter';
-import { InMemoryAuthorizationRepository } from '../infrastructure/persistence/in-memory-authorization.repository';
+import { DrizzleModule } from '../infrastructure/persistence/drizzle/drizzle.provider';
+import { DrizzleAuthorizationRepository } from '../infrastructure/persistence/drizzle/drizzle-authorization.repository';
+import { DrizzleOutboxRepository } from '../infrastructure/persistence/drizzle/drizzle-outbox.repository';
+import { DrizzleUnitOfWork } from '../infrastructure/persistence/drizzle/drizzle-unit-of-work';
 import { HttpActiveDirectoryAdapter } from '../infrastructure/active-directory/http-active-directory.adapter';
+import { OutboxPublisherService } from '../infrastructure/outbox/outbox-publisher.service';
+import { OutboxStatsController } from '../infrastructure/outbox/outbox-stats.controller';
 import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
 
 @Module({
@@ -30,10 +37,13 @@ import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
         timeout: config.get<number>('AD_LOOKUP_TIMEOUT_MS', 60000),
       }),
     }),
+    DrizzleModule,
   ],
-  controllers: [AuthorizationController],
+  controllers: [AuthorizationController, OutboxStatsController],
   providers: [
-    { provide: AUTHORIZATION_REPOSITORY, useClass: InMemoryAuthorizationRepository },
+    { provide: AUTHORIZATION_REPOSITORY, useClass: DrizzleAuthorizationRepository },
+    { provide: OUTBOX_REPOSITORY, useClass: DrizzleOutboxRepository },
+    { provide: UNIT_OF_WORK, useClass: DrizzleUnitOfWork },
     { provide: MESSAGE_PUBLISHER, useClass: KafkaPublisherAdapter },
     { provide: MESSAGE_CONSUMER, useClass: KafkaConsumerAdapter },
     { provide: EVENT_EMITTER, useClass: RedisPublisherAdapter },
@@ -94,6 +104,7 @@ import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
       inject: [AUTHORIZATION_REPOSITORY, EVENT_EMITTER, VERIFY_EMPLOYEE_BENEFIT, PROCESS_PRICE_CHANGE],
     },
     ResolveAuthorizationUseCase,
+    OutboxPublisherService,
   ],
 })
 export class AuthorizationModule implements OnModuleInit {

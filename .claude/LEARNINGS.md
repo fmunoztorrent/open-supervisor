@@ -504,3 +504,94 @@ slug: bff-base-url-android-emulator-10-0-2-2
 **Leccion**: localhost en Android emulator != host machine. Usar 10.0.2.2 en su lugar. react-native-config compila las variables en build time. adb reverse se pierde al reiniciar el emulador.
 
 **Como aplicar**: siempre verificar BFF_BASE_URL cuando se prueba en emulador. Si se reinicia el emulador, ejecutar adb reverse. Documentar esto en el .env.example.
+
+
+---
+
+## 2026-06-04 — Outbox pattern: setInterval programatico + OnModuleInit/OnModuleDestroy vs @nestjs/schedule
+
+**Categoria**: pattern / nestjs / testing
+
+**Que paso**: el spec original proponia @nestjs/schedule con @Cron para el emisor del outbox. La implementacion termino con setInterval programatico disparado en OnModuleInit y clearInterval en OnModuleDestroy, configurable por OUTBOX_TICK_INTERVAL_MS.
+
+**Por que funciono mejor**:
+- Cero dependencias nuevas (vs @nestjs/schedule que requiere imports en el modulo).
+- Lifecycle de NestJS garantiza cleanup sin riesgo de intervals zombies.
+- Tests con jest.useFakeTimers() + jest.advanceTimersByTime(...) son triviales — no hay que mockear el scheduler.
+- start() y stop() idempotentes (guard con if (this.intervalHandle)) evitan registros duplicados si onModuleInit corre mas de una vez (e.g. en hot-reload de tests).
+
+**Leccion**: para workers sencillos (tick periodico < 5 minutos) en NestJS, setInterval + OnModuleInit/OnModuleDestroy es preferible a @nestjs/schedule salvo que se necesite sintaxis cron declarativa. La simplicidad operativa y la testabilidad compensan la perdida de declaratividad.
+
+**Como aplicar**: en cualquier servicio NestJS que necesite un worker recurrente de baja frecuencia (cleanup, polling, health-check, emisor de outbox), empezar con setInterval programatico. Migrar a @nestjs/schedule solo si se necesita sintaxis cron declarativa o multiples schedules heterogeneos.
+
+---
+
+## 2026-06-04 — Outbox + UnitOfWork: repositorios bound a tx, no a db
+
+**Categoria**: pattern / drizzle / hexagonal / testing
+
+**Que paso**: la TX atomica entre IAuthorizationRepository.save() y IOutboxRepository.save() requeria que ambos repositorios operaran en la misma conexion de Postgres dentro de db.transaction(async (tx) => { ... }). La implementacion del DrizzleUnitOfWork crea nuevas instancias de los repositorios pasandoles tx (no db) en el callback de la TX.
+
+**Por que importa**: los repositorios son @Injectable() con @Inject(DRIZZLE) en su constructor. Si no se re-instancian dentro del db.transaction(...), todas las llamadas usan la conexion del pool principal — la TX atomica es decorativa, no real. Postgres hace COMMIT/ROLLBACK por conexion, no por query.
+
+**Leccion**: en Drizzle/Prisma/Kysely con db.transaction, los repositorios DENTRO del callback de la TX deben recibir el tx (no el db global). El IUnitOfWork port abstrae esto del dominio: el use-case solo conoce ctx.authorizationRepository y ctx.outboxRepository, no Drizzle. Los tests pueden mockear IUnitOfWork.transaction con (work) => work(ctxMockeado) sin tocar Drizzle.
+
+**Como aplicar**: para cualquier feature que requiera TX atomica entre dos repos, agregar un IUnitOfWork port + DrizzleUnitOfWork adapter (o equivalente). Nunca instanciar dos repositorios en el use-case y llamarlos secuencialmente — pierden la garantia de atomicidad.
+
+---
+
+## 2026-06-04 — Outbox: FOR UPDATE SKIP LOCKED solo tiene sentido dentro de una TX
+
+**Categoria**: pattern / sql / postgres
+
+**Que paso**: el spec original pedia SELECT ... WHERE status=PENDING ... FOR UPDATE SKIP LOCKED LIMIT N en findPending(limit) del DrizzleOutboxRepository. La implementacion MVP (single-instance) usa SELECT simple sin lock. Razon: FOR UPDATE SKIP LOCKED requiere que la query se ejecute DENTRO de una transaccion (BEGIN; SELECT ...; UPDATE ...; COMMIT;). Si se ejecuta sin TX (auto-commit), el lock se libera al final del statement y no protege nada.
+
+**Leccion**: FOR UPDATE SKIP LOCKED no es una query bonita — es un lock transaccional. Si el emisor no envuelve findPending + markPublished/incrementAttempts en db.transaction(...), el lock no se sostiene.
+
+**Como aplicar**: cualquier adapter con findPending para workers concurrentes debe documentar explicitamente si la query es lock-less (MVP) o con SKIP LOCKED dentro de TX (multi-instancia). El spec del outbox documenta la desviacion y deja un comentario en el adapter con la instruccion de migrar.
+
+---
+
+## 2026-06-04 — Test mock de ConfigService.get en NestJS: tipar defaultValue como unknown, no T
+
+**Categoria**: api-gotcha / nestjs / typescript / testing
+
+**Que paso**: al mockear ConfigService en un test, TypeScript rechaza pasar def: number porque la firma real de ConfigService.get es (propertyPath: never, defaultValue: unknown, options: ConfigGetOptions) => unknown.
+
+**Leccion**: el overload de ConfigService.get esta tipado con defaultValue: unknown por diseno (NestJS no puede inferir el tipo del env var en compile-time). Los mocks deben respetar esa firma y castear dentro del body.
+
+**Como aplicar**:
+```typescript
+config = { get: jest.fn() } as unknown as ConfigService;
+config.get.mockImplementation((key: string, def?: unknown) => {
+  if (key === 'OUTBOX_TICK_INTERVAL_MS') return 1000;
+  return def as number;
+});
+```
+
+---
+
+## 2026-06-04 — NestJS DI: usar tokens del port (OUTBOX_REPOSITORY) en @Inject(), no strings
+
+**Categoria**: bugfix / nestjs / typescript
+
+**Que paso**: el OutboxPublisherService y OutboxStatsController usaban @Inject('IOutboxRepository') y @Inject('IMessagePublisher') (strings hardcodeados). Funcionaron solo porque el AuthorizationModule proveia esos strings literales, pero si el provider cambiaba su provide: a la constante del port, el @Inject del consumidor quedaba apuntando al string equivocado y la inyeccion fallaba silenciosamente en runtime.
+
+**Leccion**: en arquitectura hexagonal con ports NestJS, los tokens de DI son constantes exportadas del port (export const OUTBOX_REPOSITORY = 'OUTBOX_REPOSITORY'). El consumidor hace @Inject(OUTBOX_REPOSITORY) y el provider hace provide: OUTBOX_REPOSITORY. Si los strings se hardcodean en el @Inject, se pierde la trazabilidad compile-time y cualquier refactor del provider rompe la inyeccion sin error de TypeScript.
+
+**Como aplicar**: regla de oro — nunca escribir @Inject('NombreDeInterface') ni @Inject('NombreDeClase'). Siempre @Inject(TOKEN_CONSTANTE) donde TOKEN_CONSTANTE esta exportada del archivo del port.
+
+---
+
+## 2026-06-04 — Jest mockResolvedValue(undefined) requiere valor del tipo de retorno
+
+**Categoria**: api-gotcha / jest / typescript
+
+**Que paso**: jest.spyOn(service, 'tick').mockResolvedValue(undefined) fallaba con TS2345: Argument of type undefined is not assignable to parameter of type { pending, published, failed, durationMs } | Promise<...>. El metodo tick() retornaba un objeto de stats, no void.
+
+**Leccion**: cuando se usa jest.spyOn(obj, 'method') y el metodo tiene un return type no-void, mockResolvedValue exige un valor que satisfaga ese return type. .mockResolvedValue(undefined) solo funciona para metodos void/Promise<void>.
+
+**Como aplicar**:
+- Si el metodo retorna void/Promise<void>: mockResolvedValue(undefined).
+- Si retorna un objeto: mockResolvedValue({ ...mockshape }) o mockImplementation(() => Promise.resolve({ ... })).
+- Si solo necesitamos evitar la llamada real: mockResolvedValue({} as ReturnType<typeof service.tick>) con cast.
