@@ -1,5 +1,5 @@
 import { Module, OnModuleInit, Inject, Logger } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
+import { HttpModule, HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { MESSAGE_CONSUMER, IMessageConsumer, MESSAGE_PUBLISHER } from '@open-supervisor/shared-messaging';
 import { AuthorizationController } from './authorization.controller';
@@ -44,7 +44,7 @@ import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
           httpService,
           config.get<string>('AD_BASE_URL', 'http://localhost:8080'),
         ),
-      inject: ['HttpService', ConfigService],
+      inject: [HttpService, ConfigService],
     },
     {
       provide: VerifyEmployeeBenefitUseCase,

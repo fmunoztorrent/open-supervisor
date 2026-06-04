@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Observable, Subject } from 'rxjs';
-import EventSource from 'eventsource';
+// eventsource@2.x CJS: default import fails at runtime; require() returns the constructor directly
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const EventSource: any = require('eventsource');
 
 export interface SseEvent {
   data: string;
@@ -12,7 +14,7 @@ export interface SseEvent {
 export class StreamService {
   private readonly logger = new Logger(StreamService.name);
   private readonly subjects = new Map<string, Subject<SseEvent>>();
-  private readonly sources = new Map<string, EventSource>();
+  private readonly sources = new Map<string, any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   private readonly sseServerUrl: string;
 
   constructor(private readonly config: ConfigService) {
@@ -33,12 +35,12 @@ export class StreamService {
     const url = `${this.sseServerUrl}/events/store/${storeId}`;
     const source = new EventSource(url);
 
-    source.addEventListener('authorization_request', (event) => {
+    source.addEventListener('authorization_request', (event: { data: string }) => {
       subject.next({ data: event.data, type: 'authorization_request' });
     });
 
-    source.onerror = (err) => {
-      this.logger.error(`SSE connection error for store ${storeId}`, err);
+    source.onerror = (_err: unknown) => {
+      this.logger.error(`SSE connection error for store ${storeId}`);
     };
 
     this.sources.set(storeId, source);
