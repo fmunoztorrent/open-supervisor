@@ -32,32 +32,14 @@
       "Read(//private/var/folders/sx/wlchnl3d5k9_2y_k1z72y1480000gn/T/tmp.VUChRqzRS4/**)",
       "Bash(node /Users/fabianmunoz/Workspace/open-supervisor/apps/mobile/node_modules/.bin/react-native init OpenSupervisor --skip-install)",
       "Bash(/Users/fabianmunoz/Workspace/open-supervisor/apps/mobile/node_modules/.bin/react-native init *)",
-      "Bash(npx @react-native-community/cli@15.1.3 init OpenSupervisor --skip-install)"
+      "Bash(npx @react-native-community/cli@15.1.3 init OpenSupervisor --skip-install)",
+      "Bash(mkdir -p /Users/fabianmunoz/.claude/skills/task/.claude)"
+    ],
+    "additionalDirectories": [
+      "/Users/fabianmunoz/.claude/skills/task"
     ]
   },
   "hooks": {
-    "Start": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'HOOK: Iniciando sesion en open-supervisor. Node $(node -v), pnpm $(pnpm -v). Dependencias OK.' > /dev/null"
-          }
-        ]
-      }
-    ],
-    "Pre-Command": [
-      {
-        "matcher": "bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".opencode/pipeline/check.sh 2>/dev/null || (echo '⚠️  Pipeline check: no hay pipeline activo. Ejecuta todowrite primero para desbloquear ediciones.' && exit 1)"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "matcher": "",

@@ -3,14 +3,9 @@
   "lsp": true,
   "instructions": ["CLAUDE.md"],
   "default_agent": "pipeline",
-  "plugins": [
-    {
-      "path": ".opencode/plugins/pipeline-enforcer.js"
-    }
+  "plugin": [
+    ".opencode/plugins/pipeline-enforcer.js"
   ],
-  "agents": {
-    "paths": [".opencode/agents"]
-  },
   "skills": {
     "paths": [".opencode/skills"]
   },
