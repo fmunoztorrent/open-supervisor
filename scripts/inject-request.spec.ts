@@ -201,15 +201,15 @@ describe('buildDto', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('waitForSseEvent', () => {
-  // Test 9 — resuelve cuando llega evento authorization_request con correlationId camelCase correcto
-  it('resuelve cuando llega un evento "authorization_request" con correlationId camelCase correcto', async () => {
+  // Test 9 — resuelve cuando llega evento authorization_request con correlation_id snake_case correcto
+  it('resuelve cuando llega un evento "authorization_request" con correlation_id snake_case correcto', async () => {
     const mockEs = createMockEventSource();
     const correlationId = 'test-corr-id-9';
 
     const promise = waitForSseEvent(mockEs as unknown as EventSource, correlationId, 500);
 
-    // Emitir el evento esperado con camelCase
-    mockEs.emit('authorization_request', JSON.stringify({ correlationId }));
+    // Emitir el evento esperado con snake_case (formato real del DTO compartido)
+    mockEs.emit('authorization_request', JSON.stringify({ correlation_id: correlationId }));
 
     // Debe resolver sin rechazar
     await assert.doesNotReject(promise);
@@ -233,17 +233,18 @@ describe('waitForSseEvent', () => {
     );
   });
 
-  // Test 11 — NO resuelve si el event.data tiene correlation_id snake_case (trampa crítica)
-  // El authorization-service remapea a camelCase antes de emitir a Redis.
-  // Si el script acepta snake_case sería un falso positivo en verificación SSE.
-  it('NO resuelve si el evento lleva correlation_id snake_case en el data JSON (debe ignorarlo)', async () => {
+  // Test 11 — NO resuelve si el event.data tiene correlationId camelCase (regresión histórica)
+  // El wire format del DTO es snake_case. Si el script aceptara camelCase
+  // (versión vieja del código) sería un falso positivo en verificación SSE
+  // porque el authorization-service NUNCA publica camelCase.
+  it('NO resuelve si el evento lleva correlationId camelCase en el data JSON (debe ignorarlo)', async () => {
     const mockEs = createMockEventSource();
     const correlationId = 'test-corr-id-11';
 
     const promise = waitForSseEvent(mockEs as unknown as EventSource, correlationId, 80);
 
-    // Emitir evento con snake_case — debe ser descartado
-    mockEs.emit('authorization_request', JSON.stringify({ correlation_id: correlationId }));
+    // Emitir evento con camelCase — debe ser descartado (no es el wire real)
+    mockEs.emit('authorization_request', JSON.stringify({ correlationId: correlationId }));
 
     // La promise debe rechazar por timeout, no resolver
     await assert.rejects(
@@ -252,25 +253,25 @@ describe('waitForSseEvent', () => {
         assert.ok(err instanceof Error, 'debe rechazar con Error');
         assert.ok(
           err.message.includes('Timeout') || err.message.includes('timeout'),
-          `debe rechazar por timeout cuando solo llega snake_case, mensaje: "${(err as Error).message}"`,
+          `debe rechazar por timeout cuando solo llega camelCase, mensaje: "${(err as Error).message}"`,
         );
         return true;
       },
     );
   });
 
-  // Test 12 — descarta eventos con correlationId distinto (no resuelve antes de tiempo)
-  it('descarta eventos con correlationId distinto y no resuelve hasta recibir el correcto', async () => {
+  // Test 12 — descarta eventos con correlation_id distinto (no resuelve antes de tiempo)
+  it('descarta eventos con correlation_id distinto y no resuelve hasta recibir el correcto', async () => {
     const mockEs = createMockEventSource();
     const correlationId = 'expected-id';
 
     const promise = waitForSseEvent(mockEs as unknown as EventSource, correlationId, 500);
 
-    // Emitir evento con correlationId incorrecto — debe ser descartado
-    mockEs.emit('authorization_request', JSON.stringify({ correlationId: 'wrong-id' }));
+    // Emitir evento con correlation_id incorrecto — debe ser descartado
+    mockEs.emit('authorization_request', JSON.stringify({ correlation_id: 'wrong-id' }));
 
     // Emitir el correcto a continuación
-    mockEs.emit('authorization_request', JSON.stringify({ correlationId: 'expected-id' }));
+    mockEs.emit('authorization_request', JSON.stringify({ correlation_id: 'expected-id' }));
 
     // Debe resolver (el evento correcto llegó después del descartado)
     await assert.doesNotReject(promise);
@@ -282,7 +283,7 @@ describe('waitForSseEvent', () => {
     const correlationId = 'test-corr-id-13-resolve';
 
     const promise = waitForSseEvent(mockEs as unknown as EventSource, correlationId, 500);
-    mockEs.emit('authorization_request', JSON.stringify({ correlationId }));
+    mockEs.emit('authorization_request', JSON.stringify({ correlation_id: correlationId }));
     await promise;
 
     assert.ok(mockEs.closed, 'eventSource.close() debe haber sido llamado al resolver');

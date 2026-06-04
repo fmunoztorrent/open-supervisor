@@ -37,11 +37,18 @@ export class AuthorizationController {
   ) {
     try {
       const request = await this.resolveUseCase.execute(id, dto.decision, dto.supervisor_id);
+      // Wire format snake_case consistente con el resto del API y con
+      // el DTO compartido `AuthorizationResponseDto`. Ver bugfix
+      // `e2e-outbox-fixes` (2026-06-04) — Bug 6.
       return {
         id: request.id,
+        store_id: request.storeId,
+        pos_id: request.posId,
+        correlation_id: request.correlationId,
         status: request.status,
-        resolvedBy: request.resolvedBy,
-        resolvedAt: request.resolvedAt?.toISOString(),
+        resolved_by: request.resolvedBy,
+        resolved_at: request.resolvedAt?.toISOString(),
+        type: request.type,
       };
     } catch (error) {
       if (error instanceof Error && error.message.includes('is already')) {

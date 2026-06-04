@@ -35,8 +35,17 @@ export class StreamService {
     const url = `${this.sseServerUrl}/events/store/${storeId}`;
     const source = new EventSource(url);
 
+    // authorization_request: solicitudes de autorización (DISCOUNT, CANCEL, etc.)
     source.addEventListener('authorization_request', (event: { data: string }) => {
       subject.next({ data: event.data, type: 'authorization_request' });
+    });
+
+    // physical_presence_dispatch: notificaciones de presencia física
+    // (PRICE_CHANGE auto-rechazado por SYSTEM). Ver bugfix
+    // `e2e-outbox-fixes` (2026-06-04) — Bug 4. Antes, este listener
+    // faltaba y el sse-server descartaba los eventos.
+    source.addEventListener('physical_presence_dispatch', (event: { data: string }) => {
+      subject.next({ data: event.data, type: 'physical_presence_dispatch' });
     });
 
     source.onerror = (_err: unknown) => {

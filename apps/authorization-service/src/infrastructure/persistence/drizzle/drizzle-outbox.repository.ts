@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, sql, gte, isNull, desc } from 'drizzle-orm';
+import { Pool } from 'pg';
 import { DrizzleDb, DRIZZLE } from './drizzle.provider';
 import { outbox, OutboxRow, OutboxInsert } from './schema';
 import {
@@ -38,7 +39,10 @@ function toInsert(entry: OutboxEntry): OutboxInsert {
 
 @Injectable()
 export class DrizzleOutboxRepository implements IOutboxRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
+  private readonly db: DrizzleDb;
+  constructor(@Inject(DRIZZLE) provider: { db: DrizzleDb; pool: Pool }) {
+    this.db = provider.db;
+  }
 
   async save(entry: OutboxEntry): Promise<void> {
     await this.db.insert(outbox).values(toInsert(entry));
