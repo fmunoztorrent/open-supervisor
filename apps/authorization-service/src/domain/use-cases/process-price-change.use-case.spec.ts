@@ -35,6 +35,7 @@ beforeEach(() => {
   mockRepository = {
     save: jest.fn().mockResolvedValue(undefined),
     findById: jest.fn(),
+      findByCorrelationId: jest.fn(),
     findPendingByStore: jest.fn(),
   };
   mockEventEmitter = { emit: jest.fn().mockResolvedValue(undefined) };

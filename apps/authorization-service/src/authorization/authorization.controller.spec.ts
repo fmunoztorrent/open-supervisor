@@ -40,6 +40,7 @@ async function setupApp(resolveExecute: jest.Mock) {
         useValue: {
           save: jest.fn(),
           findById: jest.fn(),
+      findByCorrelationId: jest.fn(),
           findPendingByStore: jest.fn().mockResolvedValue([]),
         },
       },

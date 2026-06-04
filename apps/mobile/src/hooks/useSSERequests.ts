@@ -7,6 +7,23 @@ export type RequestWithResolved = AuthorizationRequestDto & {
   resolved?: 'APPROVED' | 'REJECTED';
 };
 
+// BFF and SSE server return camelCase; normalize to the snake_case DTO contract.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeRequest(raw: any): AuthorizationRequestDto {
+  return {
+    store_id: raw.store_id ?? raw.storeId,
+    pos_id: raw.pos_id ?? raw.posId,
+    correlation_id: raw.correlation_id ?? raw.correlationId,
+    type: raw.type,
+    created_at: raw.created_at ?? raw.createdAt,
+    amount: raw.amount,
+    employee_id: raw.employee_id ?? raw.employeeId,
+    product_id: raw.product_id ?? raw.productId,
+    original_price: raw.original_price ?? raw.originalPrice,
+    requested_price: raw.requested_price ?? raw.requestedPrice,
+  };
+}
+
 interface UseSSERequestsResult {
   requests: RequestWithResolved[];
   isLoading: boolean;
@@ -25,11 +42,11 @@ export function useSSERequests(storeId: string): UseSSERequestsResult {
     const init = async () => {
       setIsLoading(true);
       try {
-        const pending: AuthorizationRequestDto[] = await bffClient.get(
+        const raw: unknown[] = await bffClient.get(
           `/authorization/store/${storeId}/pending`,
         );
         if (!cancelled) {
-          setRequests(pending);
+          setRequests(raw.map(normalizeRequest));
         }
       } catch {
         // silently handle; requests stays []
@@ -50,7 +67,7 @@ export function useSSERequests(storeId: string): UseSSERequestsResult {
       es.addEventListener('authorization_request', (event) => {
         if (cancelled || event.data == null) return;
         try {
-          const newRequest: RequestWithResolved = JSON.parse(event.data);
+          const newRequest: RequestWithResolved = normalizeRequest(JSON.parse(event.data));
           setRequests(prev => [newRequest, ...prev]);
         } catch {
           // malformed JSON — skip

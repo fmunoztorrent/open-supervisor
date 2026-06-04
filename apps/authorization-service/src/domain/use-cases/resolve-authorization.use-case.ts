@@ -22,7 +22,7 @@ export class ResolveAuthorizationUseCase {
     decision: ResolutionDecision,
     supervisorId: string,
   ): Promise<AuthorizationRequest> {
-    const request = await this.repository.findById(id);
+    const request = await this.repository.findByCorrelationId(id);
     if (!request) throw new NotFoundException(`Authorization ${id} not found`);
 
     if (decision === 'APPROVE') {
