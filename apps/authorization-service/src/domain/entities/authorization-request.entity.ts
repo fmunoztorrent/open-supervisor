@@ -64,6 +64,49 @@ export class AuthorizationRequest {
     });
   }
 
+  /**
+   * Reconstruye la entidad desde una fila de Postgres. Usado por los
+   * adapters de Drizzle para mapear row → entidad del dominio.
+   */
+  static fromRow(row: {
+    id: string;
+    storeId: string;
+    posId: string;
+    correlationId: string;
+    type: string;
+    status: string;
+    amount: number | null;
+    employeeId: string | null;
+    productId: string | null;
+    originalPrice: number | null;
+    requestedPrice: number | null;
+    resolvedBy: string | null;
+    resolvedAt: Date | null;
+    createdAt: Date;
+  }): AuthorizationRequest {
+    const entity = new AuthorizationRequest({
+      id: row.id,
+      storeId: row.storeId,
+      posId: row.posId,
+      correlationId: row.correlationId,
+      type: row.type as RequestType,
+      amount: row.amount ?? undefined,
+      employeeId: row.employeeId ?? undefined,
+      productId: row.productId ?? undefined,
+      originalPrice: row.originalPrice ?? undefined,
+      requestedPrice: row.requestedPrice ?? undefined,
+      createdAt: row.createdAt,
+      status: row.status as AuthorizationStatus,
+    });
+    if (row.resolvedBy) {
+      entity._resolvedBy = row.resolvedBy;
+    }
+    if (row.resolvedAt) {
+      entity._resolvedAt = row.resolvedAt;
+    }
+    return entity;
+  }
+
   get status(): AuthorizationStatus {
     return this._status;
   }
