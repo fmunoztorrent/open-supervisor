@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { Pool } from 'pg';
 import { DrizzleDb, DRIZZLE } from './drizzle.provider';
 import { IUnitOfWork, UnitOfWorkContext } from '../../../domain/ports/unit-of-work.port';
 import { IAuthorizationRepository } from '../../../domain/ports/authorization-repository.port';
@@ -18,14 +19,18 @@ import { DrizzleOutboxRepository } from './drizzle-outbox.repository';
  */
 @Injectable()
 export class DrizzleUnitOfWork implements IUnitOfWork {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
+  private readonly db: DrizzleDb;
+  constructor(@Inject(DRIZZLE) provider: { db: DrizzleDb; pool: Pool }) {
+    this.db = provider.db;
+  }
 
   async transaction<T>(work: (ctx: UnitOfWorkContext) => Promise<T>): Promise<T> {
     return this.db.transaction(async (tx) => {
       const txDb = tx as unknown as DrizzleDb;
+      const txWrapper = { db: txDb, pool: null as unknown as Pool };
       const ctx: UnitOfWorkContext = {
-        authorizationRepository: new DrizzleAuthorizationRepository(txDb) as IAuthorizationRepository,
-        outboxRepository: new DrizzleOutboxRepository(txDb) as IOutboxRepository,
+        authorizationRepository: new DrizzleAuthorizationRepository(txWrapper) as IAuthorizationRepository,
+        outboxRepository: new DrizzleOutboxRepository(txWrapper) as IOutboxRepository,
       };
       return work(ctx);
     });

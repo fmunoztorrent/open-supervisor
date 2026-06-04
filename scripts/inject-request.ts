@@ -229,18 +229,20 @@ export function waitForSseEvent(
         return;
       }
 
-      // Must use camelCase correlationId — NOT snake_case correlation_id
-      if (
-        parsed !== null &&
-        typeof parsed === 'object' &&
-        'correlationId' in parsed &&
-        (parsed as Record<string, unknown>)['correlationId'] === correlationId
-      ) {
-        settled = true;
-        clearTimeout(timeoutHandle);
-        eventSource.close();
-        resolve();
-      }
+  // El wire format del DTO es snake_case (ver shared-types/CLAUDE.md):
+  // el authorization-service publica a Redis con `correlation_id`. Por
+  // eso el match debe ser contra `correlation_id` snake_case, no camelCase.
+  if (
+    parsed !== null &&
+    typeof parsed === 'object' &&
+    'correlation_id' in parsed &&
+    (parsed as Record<string, unknown>)['correlation_id'] === correlationId
+  ) {
+    settled = true;
+    clearTimeout(timeoutHandle);
+    eventSource.close();
+    resolve();
+  }
     };
 
     eventSource.addEventListener('authorization_request', handler as EventListener);

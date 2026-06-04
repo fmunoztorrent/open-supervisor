@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
+import { Pool } from 'pg';
 import { DrizzleDb, DRIZZLE } from './drizzle.provider';
 import { authorizationRequests, AuthorizationRequestRow, AuthorizationRequestInsert } from './schema';
 import { AuthorizationRequest } from '../../../domain/entities/authorization-request.entity';
@@ -46,7 +47,10 @@ function toEntity(row: AuthorizationRequestRow): AuthorizationRequest {
 
 @Injectable()
 export class DrizzleAuthorizationRepository implements IAuthorizationRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
+  private readonly db: DrizzleDb;
+  constructor(@Inject(DRIZZLE) provider: { db: DrizzleDb; pool: Pool }) {
+    this.db = provider.db;
+  }
 
   async save(request: AuthorizationRequest): Promise<void> {
     const row = toInsert(request);
