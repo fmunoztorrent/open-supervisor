@@ -228,3 +228,19 @@ slug: babel-runtime-necesario-para-rn-con-pnpm
 **Lección**: al bootstrap o clonar la app mobile, instalar `@babel/runtime` explícitamente con `pnpm --filter @open-supervisor/mobile add @babel/runtime`. Sin esta dependencia, Metro falla al resolver `interopRequireDefault` aunque esté presente en `node_modules/.pnpm` del monorepo.
 
 **Cómo aplicar**: después de `pnpm install` inicial del monorepo, verificar que `apps/mobile/package.json` contenga `@babel/runtime` como dependencia. Si no está, agregarlo antes de arrancar Metro. Si se regenera el scaffolding de la app mobile, incluir `@babel/runtime` como post-install step.
+
+---
+date: 2026-06-04
+agent: backend
+category: api-gotcha
+tags: [nestjs, bff, http-status, error-handling, upstream]
+slug: bff-http-proxy-debe-propagar-codigos-http-del-upstream-no-convertir-a-500
+---
+
+**Contexto**: bugfix de Error 500 al presionar Autorizar/Rechazar en la app móvil. El BFF recibía 404/409 del authorization-service pero los convertía a 500 para el cliente.
+
+**Qué pasó**: el `AuthorizationService` del BFF usaba `throw new Error(...)` para errores upstream. NestJS atrapa cualquier `Error` genérico no manejado y lo convierte en HTTP 500, incluso cuando el upstream retornaba correctamente 404 (not found) o 409 (already resolved). La app móvil mostraba "Error 500" sin distinción.
+
+**Lección**: un servicio BFF que hace proxy HTTP debe usar `HttpException` (de `@nestjs/common`) con el código HTTP original del upstream, no `Error` genérico. NestJS respeta el status de `HttpException` en su exception filter global. Para errores de red (upstream caído), el 500 genérico de NestJS es aceptable.
+
+**Cómo aplicar**: en cualquier servicio NestJS que haga fetch a un upstream y propague errores, usar `throw new HttpException(message, upstreamStatus)` en lugar de `throw new Error(...)`. Verificar con supertest que 404→404, 409→409, no 404→500.

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export interface ResolvePayload {
@@ -25,7 +25,10 @@ export class AuthorizationService {
 
     if (!response.ok) {
       this.logger.error(`Auth service responded ${response.status} for ${id}`);
-      throw new Error(`Auth service error: ${response.status}`);
+      throw new HttpException(
+        `Auth service error: ${response.status}`,
+        response.status,
+      );
     }
 
     return response.json();
@@ -36,7 +39,10 @@ export class AuthorizationService {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`Auth service error: ${response.status}`);
+      throw new HttpException(
+        `Auth service error: ${response.status}`,
+        response.status,
+      );
     }
 
     return response.json();

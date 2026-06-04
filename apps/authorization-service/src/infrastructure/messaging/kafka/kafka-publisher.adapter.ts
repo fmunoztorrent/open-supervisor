@@ -22,10 +22,20 @@ export class KafkaPublisherAdapter implements IMessagePublisher, OnModuleDestroy
   }
 
   async publish(topic: string, message: unknown): Promise<void> {
-    await this.producer.send({
-      topic,
-      messages: [{ value: JSON.stringify(message) }],
-    });
+    try {
+      await this.producer.send({
+        topic,
+        messages: [{ value: JSON.stringify(message) }],
+      });
+      this.logger.debug(`Published to ${topic}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish to Kafka topic ${topic}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw new Error(
+        `Kafka publish failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
   }
 
   async disconnect(): Promise<void> {
