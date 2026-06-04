@@ -18,7 +18,13 @@ function makeResolvedRequest(status: AuthorizationStatus): AuthorizationRequest 
     type: RequestType.DISCOUNT,
     created_at: new Date().toISOString(),
   };
-  return AuthorizationRequest.fromDto(dto);
+  const req = AuthorizationRequest.fromDto(dto);
+  if (status === AuthorizationStatus.APPROVED) {
+    req.approve('sup-001');
+  } else if (status === AuthorizationStatus.REJECTED) {
+    req.reject('sup-001');
+  }
+  return req;
 }
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
@@ -187,6 +193,30 @@ describe('AuthorizationController', () => {
         .send({ decision: 'APPROVE', supervisor_id: 'sup-01' });
 
       expect(response.status).toBe(HttpStatus.CREATED);
+    });
+
+    it('responde con snake_case (resolved_by, resolved_at) consistente con AuthorizationResponseDto', async () => {
+      const fakeRequest = makeResolvedRequest(AuthorizationStatus.APPROVED);
+      const resolveExecute = jest.fn().mockResolvedValue(fakeRequest);
+      await setupApp(resolveExecute);
+
+      const response = await request(app.getHttpServer())
+        .post(`/authorization/${fakeRequest.id}/resolve`)
+        .send({ decision: 'APPROVE', supervisor_id: 'sup-01' });
+
+      expect(response.status).toBe(HttpStatus.CREATED);
+      // Campos snake_case esperados
+      expect(response.body).toHaveProperty('correlation_id');
+      expect(response.body).toHaveProperty('resolved_by');
+      expect(response.body).toHaveProperty('resolved_at');
+      expect(response.body).toHaveProperty('store_id');
+      expect(response.body).toHaveProperty('pos_id');
+      // NO debe haber camelCase en la respuesta
+      expect(response.body).not.toHaveProperty('resolvedBy');
+      expect(response.body).not.toHaveProperty('resolvedAt');
+      expect(response.body).not.toHaveProperty('storeId');
+      expect(response.body).not.toHaveProperty('posId');
+      expect(response.body).not.toHaveProperty('correlationId');
     });
   });
 });

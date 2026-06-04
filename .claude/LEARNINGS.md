@@ -595,3 +595,50 @@ config.get.mockImplementation((key: string, def?: unknown) => {
 - Si el metodo retorna void/Promise<void>: mockResolvedValue(undefined).
 - Si retorna un objeto: mockResolvedValue({ ...mockshape }) o mockImplementation(() => Promise.resolve({ ... })).
 - Si solo necesitamos evitar la llamada real: mockResolvedValue({} as ReturnType<typeof service.tick>) con cast.
+
+---
+
+---
+date: 2026-06-04
+agent: pipeline
+category: setup
+tags: [opencode, plugin, hooks, todo.updated, tool.execute.after, state-tracking]
+slug: opencode-plugin-hook-todo-updated-no-existe-usar-tool-execute-after
+---
+
+**Contexto**: el plugin `pipeline-enforcer.js` registraba `"todo.updated"` como hook para actualizar `state.json` cuando el agente hace `todowrite`. En la versión actual de opencode, este hook nunca disparaba — el `tool.execute.before` sí funcionaba (bloqueaba ediciones), pero el tracking de scopes quedaba muerto y `pipeline_active` quedaba en `false` para siempre.
+
+**Que paso**: investigación del bug reveló que los eventos válidos en opencode son `event`, `config`, `chat.*`, `tool.execute.*`, `tool.definition`, `command.execute.before`, `shell.env`, `permission.ask`, `experimental.*`. NO hay eventos `todo.*`. El plugin quedó inservible silenciosamente — la única forma de activarlo era manipular `state.json` a mano con `jq`.
+
+**Fix**: reemplazar el hook `"todo.updated"` por `"tool.execute.after"` y leer los todos actualizados de `input.args.todos ?? input.output.todos ?? []` (defensivo porque la forma exacta del input no está 100% documentada). Después del fix + reinicio de opencode, el plugin actualiza `state.json` automáticamente en cada `todowrite`.
+
+**Leccion**: en opencode, los nombres de eventos de plugin deben ser los de la lista oficial (`event`, `config`, `tool.execute.*`, etc.). `todo.updated` no existe aunque sea un nombre intuitivo. La forma del input de `tool.execute.after` para `todowrite` debe leerse defensivamente (múltiples paths) hasta confirmar la firma exacta de opencode.
+
+**Como aplicar**: al escribir o debuggear plugins de opencode que necesiten tracking de cambios, usar `tool.execute.after` con check de `input.tool === "<nombre>"` en lugar de asumir eventos de dominio (`todo.*`, `file.*`, etc.). Verificar siempre contra la lista oficial de eventos del schema. Reiniciar opencode después de cambiar plugins — no hay hot-reload.
+
+---
+
+---
+date: 2026-06-04
+agent: pipeline
+category: spec-process
+tags: [scope-decomposition, parallelization, task-tool, multi-scope, topologico]
+slug: descomposicion-multi-scope-y-paralelizacion-de-usts-independientes
+---
+
+**Contexto**: el pipeline trata un spec como una unidad atómica. Si el spec tiene 5 USTs, se procesan en un solo flujo continuo — contextos que se llenan, feedback loop lento, USTs independientes en serie.
+
+**Directiva del usuario (Fabian, 2026-06-04)**: "Si una conversación o spec tiene muchas USTs, completarlas paso a paso, no un solo flujo. Si una UST no depende de otra, paralelizarla."
+
+**Solución implementada**:
+1. Regla de descomposición: ≥3 USTs independientes → N scopes via `todowrite` con prefijo `[scope:id]`. 1-2 USTs → un solo scope.
+2. Análisis de dependencias: sección `## Dependencias entre USTs` en todo spec, con tabla `UST → Depende de → ¿Paralelizable?`.
+3. Agrupamiento topológico: capa 1 = USTs sin deps; capa N = USTs cuyas deps están en capas <N.
+4. Paralelización real: `task` tool de opencode invocado N veces en una sola respuesta (paralelismo a nivel de tool calls).
+5. Skill `scope-orchestrator` codifica el patrón completo (5 pasos).
+
+**Convención de nombres de scope**: el plugin regex `[\w.-]+` no soporta `/`. Usar `feature-nombre-corto` o `bugfix.nombre-corto`. `feature/nombre` falla silenciosamente (el scope cae al default `main`).
+
+**Leccion**: el plugin multi-scope ya existía técnicamente, pero la documentación y el comportamiento del agente no lo aprovechaban. La mejora es 90% documentación + 10% tooling (skill + script de validación). La paralelización real entre scopes requiere que el `task` tool procese invocaciones concurrentes — esto se valida empíricamente en el primer uso real con N task tools.
+
+**Como aplicar**: al recibir un spec o conversación con muchas tareas, primero contar USTs/tareas y detectar dependencias. Si ≥3 independientes, descomponer y procesar por capas. Si 1-2, mantener un solo scope. Para validar empíricamente, crear un spec de prueba controlado (4 USTs en 2 capas) y un script bash con `jq` que verifique timestamps de `state.json`.

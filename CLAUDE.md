@@ -404,6 +404,54 @@ El bloque va como sección propia (`## REASONS Canvas`) inmediatamente después 
 
 Revisar la configuración del harness (CLAUDE.md, hooks, skills, .claudeignore, permisos) **cada 3-6 meses** o después de un release mayor del modelo. Las instrucciones escritas para una versión anterior del modelo pueden volverse ruido o restricciones innecesarias cuando el modelo mejora.
 
+## Descomposición y paralelización de scopes
+
+**Regla obligatoria al iniciar un pipeline de feature/bugfix cuando el spec tiene muchas USTs:**
+
+| Spec tiene... | Acción |
+|---|---|
+| **≥3 USTs independientes** (sin dependencias entre sí) | **Descomponer** en N scopes, uno por UST, usando prefijo `[scope:id]` en `todowrite` |
+| 1–2 USTs | Un solo scope (no descomponer — overhead > beneficio) |
+| USTs mixtas (independientes + dependientes) | Descomponer y procesar por **capas topológicas** |
+
+**Convención de nombres de scope** (el regex del plugin es `[\w.-]+`, NO soporta `/`):
+- ✅ `feature-nombre-corto-kebab` o `bugfix.nombre-corto-kebab`
+- ❌ `feature/nombre` (rompe el regex — usar `-` o `.` como separador)
+
+**Formato multi-scope en todowrite** (ver también sección "Pipeline enforcement automático" arriba):
+
+```
+[feature-login-google]
+[▶] 1/6 Spec Generator → spec con REASONS Canvas
+[ ] 2/6 Architect → validar viabilidad
+[ ] 3/6 QA (RED) → tests que fallan
+[ ] 4/6 Backend → implementar
+[ ] 5/6 QA (GREEN) → suite completa
+[ ] 6/6 Cierre → close.md
+
+[bugfix.sse-reconnect]
+[▶] 1/5 Triage → confirmar error
+[ ] 2/5 Reproducir → test que falla
+[ ] 3/5 Fix → corregir
+[ ] 4/5 Verify → tests + typecheck
+[ ] 5/5 Cierre → close.md
+```
+
+**Paralelización de scopes independientes:** cuando hay N scopes en la misma capa topológica (sin dependencias entre sí), se procesan **en paralelo** vía `task` tool:
+- Invocar `task` tool N veces en **una sola respuesta** (paralelismo a nivel de tool calls)
+- Cada `task` recibe un prompt con: spec path, scope name, USTs a implementar, dependencias satisfechas
+- Esperar a que **todos** los sub-agentes de la capa actual terminen antes de procesar la siguiente capa
+
+**Análisis de dependencias:** todo spec debe incluir una sección `## Dependencias entre USTs` con tabla `UST → Depende de → ¿Paralelizable?`. Si el spec no la tiene, el architect la agrega en el paso 2 como enriquecimiento.
+
+**Skill `scope-orchestrator`:** invocar `.opencode/skills/scope-orchestrator/SKILL.md` cuando se detecta un spec con ≥3 USTs. El skill codifica el patrón completo: análisis de dependencias, cálculo de capas, prompt template para sub-agentes.
+
+**Resumen:**
+- Spec chico (1-2 USTs) → 1 scope, secuencial
+- Spec grande (≥3 USTs) → descomponer + paralelizar por capas
+
+**Spec de referencia:** `spec/2026-06-04-descomposicion-paralelizacion-scopes.spec.md`
+
 ## Code Navigation
 
 - **LSP (opencode):** LSP está habilitado via `"lsp": true` en `opencode.json`. Usa tsserver built-in para go-to-definition, find-references y diagnostics.
