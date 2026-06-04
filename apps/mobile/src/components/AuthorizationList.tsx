@@ -1,5 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import {
+  Center,
+  ScrollView,
+  Spinner,
+  Text,
+} from '@gluestack-ui/themed';
 import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
 import { AuthorizationCard } from './AuthorizationCard';
 
@@ -20,22 +25,22 @@ export const AuthorizationList: React.FC<AuthorizationListProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <View style={styles.centered}>
-        <Text>Cargando...</Text>
-      </View>
+      <Center style={{ flex: 1 }}>
+        <Spinner testID="list-spinner" />
+      </Center>
     );
   }
 
   if (requests.length === 0) {
     return (
-      <View style={styles.centered}>
+      <Center style={{ flex: 1 }}>
         <Text>Sin solicitudes pendientes</Text>
-      </View>
+      </Center>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={{ flex: 1 }}>
       {requests.map(request => (
         <AuthorizationCard
           key={request.correlation_id}
@@ -46,14 +51,3 @@ export const AuthorizationList: React.FC<AuthorizationListProps> = ({
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

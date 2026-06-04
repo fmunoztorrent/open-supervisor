@@ -1,6 +1,9 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { screen, fireEvent } from '@testing-library/react-native';
 import { AuthorizationRequestDto, RequestType } from '@open-supervisor/shared-types';
+
+// renderWithProvider is injected by jest.setup.js
+declare const renderWithProvider: (ui: React.ReactElement, options?: any) => ReturnType<typeof import('@testing-library/react-native').render>;
 
 // Este import fallará con "Cannot find module" hasta que la pantalla sea implementada.
 import { AuthorizationDetailScreen } from '../AuthorizationDetailScreen';
@@ -37,7 +40,7 @@ const employeeBenefitRequest: AuthorizationRequestDto = {
 describe('AuthorizationDetailScreen', () => {
   describe('renderizado de campos según tipo', () => {
     it('muestra product_id, original_price y requested_price para PRICE_CHANGE', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={basePriceChangeRequest}
           isLoading={false}
@@ -50,7 +53,7 @@ describe('AuthorizationDetailScreen', () => {
     });
 
     it('muestra amount para tipo DISCOUNT', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={discountRequest}
           isLoading={false}
@@ -61,7 +64,7 @@ describe('AuthorizationDetailScreen', () => {
     });
 
     it('muestra employee_id para tipo EMPLOYEE_BENEFIT', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={employeeBenefitRequest}
           isLoading={false}
@@ -74,7 +77,7 @@ describe('AuthorizationDetailScreen', () => {
 
   describe('botones de acción', () => {
     it('ambos botones "Autorizar" y "Rechazar" están presentes', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={basePriceChangeRequest}
           isLoading={false}
@@ -87,7 +90,7 @@ describe('AuthorizationDetailScreen', () => {
 
     it('presionar "Autorizar" llama a onDecide con "APPROVE"', () => {
       const onDecide = jest.fn();
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={basePriceChangeRequest}
           isLoading={false}
@@ -100,7 +103,7 @@ describe('AuthorizationDetailScreen', () => {
 
     it('presionar "Rechazar" llama a onDecide con "REJECT"', () => {
       const onDecide = jest.fn();
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={basePriceChangeRequest}
           isLoading={false}
@@ -114,7 +117,7 @@ describe('AuthorizationDetailScreen', () => {
 
   describe('estado de carga', () => {
     it('ambos botones tienen accessibilityState.disabled=true cuando isLoading=true', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={basePriceChangeRequest}
           isLoading={true}
@@ -125,8 +128,23 @@ describe('AuthorizationDetailScreen', () => {
       expect(screen.getByRole('button', { name: /rechazar/i })).toBeDisabled();
     });
 
+    it('muestra ButtonSpinner en botón Autorizar cuando isLoading es true', () => {
+      // FASE RED: este test DEBE FALLAR porque el componente actual no usa ButtonSpinner
+      // de @gluestack-ui/themed. El frontend debe reemplazar el TouchableOpacity del botón
+      // Autorizar por un Button de Gluestack con ButtonSpinner interno asignado
+      // testID='approve-button-spinner' para que este test pase.
+      renderWithProvider(
+        <AuthorizationDetailScreen
+          request={basePriceChangeRequest}
+          isLoading={true}
+          onDecide={jest.fn()}
+        />,
+      );
+      expect(screen.getByTestId('approve-button-spinner')).toBeTruthy();
+    });
+
     it('los botones están habilitados cuando isLoading=false y la solicitud está pendiente', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={basePriceChangeRequest}
           isLoading={false}
@@ -140,7 +158,7 @@ describe('AuthorizationDetailScreen', () => {
 
   describe('solicitud ya resuelta', () => {
     it('ambos botones están deshabilitados cuando resolved=APPROVED', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={{ ...basePriceChangeRequest, resolved: 'APPROVED' }}
           isLoading={false}
@@ -152,7 +170,7 @@ describe('AuthorizationDetailScreen', () => {
     });
 
     it('muestra texto de estado cuando resolved=APPROVED', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={{ ...basePriceChangeRequest, resolved: 'APPROVED' }}
           isLoading={false}
@@ -164,7 +182,7 @@ describe('AuthorizationDetailScreen', () => {
     });
 
     it('ambos botones están deshabilitados cuando resolved=REJECTED', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={{ ...basePriceChangeRequest, resolved: 'REJECTED' }}
           isLoading={false}
@@ -176,7 +194,7 @@ describe('AuthorizationDetailScreen', () => {
     });
 
     it('muestra texto de estado cuando resolved=REJECTED', () => {
-      render(
+      renderWithProvider(
         <AuthorizationDetailScreen
           request={{ ...basePriceChangeRequest, resolved: 'REJECTED' }}
           isLoading={false}

@@ -1,6 +1,9 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { screen } from '@testing-library/react-native';
 import { AuthorizationRequestDto, RequestType } from '@open-supervisor/shared-types';
+
+// renderWithProvider is injected by jest.setup.js
+declare const renderWithProvider: (ui: React.ReactElement, options?: any) => ReturnType<typeof import('@testing-library/react-native').render>;
 
 // Este import fallará con "Cannot find module" hasta que el componente sea implementado.
 import { AuthorizationList } from '../AuthorizationList';
@@ -26,14 +29,14 @@ const makeRequest = (correlationId: string): AuthorizationRequestDto => ({
 describe('AuthorizationList', () => {
   describe('estado vacío', () => {
     it('muestra "Sin solicitudes pendientes" cuando requests es []', () => {
-      render(
+      renderWithProvider(
         <AuthorizationList requests={[]} onPressRequest={jest.fn()} />,
       );
       expect(screen.getByText('Sin solicitudes pendientes')).toBeOnTheScreen();
     });
 
     it('no renderiza ninguna card cuando requests es []', () => {
-      render(
+      renderWithProvider(
         <AuthorizationList requests={[]} onPressRequest={jest.fn()} />,
       );
       expect(screen.queryByTestId(/^card-/)).toBeNull();
@@ -47,7 +50,7 @@ describe('AuthorizationList', () => {
         makeRequest('corr-2'),
         makeRequest('corr-3'),
       ];
-      render(
+      renderWithProvider(
         <AuthorizationList requests={requests} onPressRequest={jest.fn()} />,
       );
       expect(screen.getByTestId('card-corr-1')).toBeOnTheScreen();
@@ -57,7 +60,7 @@ describe('AuthorizationList', () => {
 
     it('no muestra el mensaje de estado vacío cuando hay requests', () => {
       const requests = [makeRequest('corr-1')];
-      render(
+      renderWithProvider(
         <AuthorizationList requests={requests} onPressRequest={jest.fn()} />,
       );
       expect(screen.queryByText('Sin solicitudes pendientes')).toBeNull();
@@ -65,12 +68,25 @@ describe('AuthorizationList', () => {
 
     it('la primera card en pantalla corresponde al primer elemento del array', () => {
       const requests = [makeRequest('corr-first'), makeRequest('corr-second')];
-      render(
+      renderWithProvider(
         <AuthorizationList requests={requests} onPressRequest={jest.fn()} />,
       );
       const cards = screen.queryAllByTestId(/^card-/);
       // El primer elemento renderizado debe corresponder al primer request del array.
       expect(cards[0].props.testID).toBe('card-corr-first');
+    });
+  });
+
+  describe('estado de carga', () => {
+    it('muestra Spinner de Gluestack cuando isLoading es true', () => {
+      // FASE RED: este test DEBE FALLAR porque el componente actual renderiza
+      // <Text>Cargando...</Text>, no un Spinner de Gluestack con testID 'list-spinner'.
+      // El frontend debe reemplazar el Text por el componente Spinner de @gluestack-ui/themed
+      // y asignarle testID='list-spinner' para que este test pase.
+      renderWithProvider(
+        <AuthorizationList requests={[]} onPressRequest={() => {}} isLoading={true} />,
+      );
+      expect(screen.getByTestId('list-spinner')).toBeTruthy();
     });
   });
 });

@@ -1,11 +1,13 @@
 import React from 'react';
 import {
-  View,
+  Box,
+  Button,
+  ButtonSpinner,
+  ButtonText,
+  HStack,
   Text,
-  TouchableOpacity,
-  StyleSheet,
-  AccessibilityState,
-} from 'react-native';
+  VStack,
+} from '@gluestack-ui/themed';
 import { AuthorizationRequestDto, RequestType } from '@open-supervisor/shared-types';
 
 type RequestWithResolved = AuthorizationRequestDto & {
@@ -24,122 +26,112 @@ export const AuthorizationDetailScreen: React.FC<
   const isDisabled = isLoading || !!request.resolved;
 
   return (
-    <View style={styles.container}>
-      {/* Common fields */}
-      <Text style={styles.label}>Tipo: <Text style={styles.value}>{request.type}</Text></Text>
-      <Text style={styles.label}>POS: <Text style={styles.value}>{request.pos_id}</Text></Text>
-      <Text style={styles.label}>Tienda: <Text style={styles.value}>{request.store_id}</Text></Text>
-      <Text style={styles.label}>Correlación: <Text style={styles.value}>{request.correlation_id}</Text></Text>
-
-      {/* Conditional fields by type */}
-      {request.type === RequestType.PRICE_CHANGE && (
-        <View>
-          <Text style={styles.label}>
-            Producto: <Text style={styles.value}>{request.product_id}</Text>
-          </Text>
-          <Text style={styles.label}>
-            Precio original: <Text style={styles.value}>{request.original_price}</Text>
-          </Text>
-          <Text style={styles.label}>
-            Precio solicitado: <Text style={styles.value}>{request.requested_price}</Text>
-          </Text>
-        </View>
-      )}
-
-      {request.type === RequestType.DISCOUNT && request.amount !== undefined && (
-        <Text style={styles.label}>
-          Descuento: <Text style={styles.value}>{request.amount}</Text>
+    <Box style={{ flex: 1, padding: 16, backgroundColor: '#FFFFFF' }}>
+      <VStack>
+        {/* Common fields */}
+        <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+          Tipo: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.type}</Text>
         </Text>
-      )}
-
-      {request.type === RequestType.EMPLOYEE_BENEFIT && request.employee_id !== undefined && (
-        <Text style={styles.label}>
-          Empleado: <Text style={styles.value}>{request.employee_id}</Text>
+        <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+          POS: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.pos_id}</Text>
         </Text>
-      )}
+        <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+          Tienda: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.store_id}</Text>
+        </Text>
+        <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+          Correlación: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.correlation_id}</Text>
+        </Text>
 
-      {/* Resolved state text */}
-      {request.resolved === 'APPROVED' && (
-        <Text style={styles.resolvedText}>Ya autorizada</Text>
-      )}
-      {request.resolved === 'REJECTED' && (
-        <Text style={styles.resolvedText}>Ya rechazada</Text>
-      )}
+        {/* Conditional fields by type */}
+        {request.type === RequestType.PRICE_CHANGE && (
+          <VStack>
+            <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+              Producto: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.product_id}</Text>
+            </Text>
+            <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+              Precio original: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.original_price}</Text>
+            </Text>
+            <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+              Precio solicitado: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.requested_price}</Text>
+            </Text>
+          </VStack>
+        )}
 
-      {/* Action buttons */}
-      <View style={styles.buttonsContainer}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Autorizar"
-          accessibilityState={{ disabled: isDisabled } as AccessibilityState}
-          disabled={isDisabled}
-          onPress={() => onDecide('APPROVE')}
-          style={[styles.button, styles.approveButton, isDisabled && styles.disabledButton]}
+        {request.type === RequestType.DISCOUNT && request.amount !== undefined && (
+          <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+            Descuento: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.amount}</Text>
+          </Text>
+        )}
+
+        {request.type === RequestType.EMPLOYEE_BENEFIT && request.employee_id !== undefined && (
+          <Text style={{ fontSize: 14, color: '#616161', marginVertical: 4 }}>
+            Empleado: <Text style={{ fontWeight: '600', color: '#212121' }}>{request.employee_id}</Text>
+          </Text>
+        )}
+
+        {/* Resolved state text */}
+        {request.resolved === 'APPROVED' && (
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: '700',
+              color: '#4CAF50',
+              marginVertical: 8,
+              textAlign: 'center',
+            }}
+          >
+            Ya autorizada
+          </Text>
+        )}
+        {request.resolved === 'REJECTED' && (
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: '700',
+              color: '#4CAF50',
+              marginVertical: 8,
+              textAlign: 'center',
+            }}
+          >
+            Ya rechazada
+          </Text>
+        )}
+
+        {/* Action buttons */}
+        <HStack
+          style={{
+            justifyContent: 'space-between',
+            marginTop: 24,
+            gap: 12,
+          }}
         >
-          <Text style={styles.buttonText}>Autorizar</Text>
-        </TouchableOpacity>
+          <Button
+            accessibilityRole="button"
+            accessibilityLabel="Autorizar"
+            accessibilityState={{ disabled: isDisabled }}
+            isDisabled={isDisabled}
+            onPress={() => onDecide('APPROVE')}
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 8 }}
+          >
+            {isLoading ? (
+              <ButtonSpinner testID="approve-button-spinner" />
+            ) : (
+              <ButtonText>Autorizar</ButtonText>
+            )}
+          </Button>
 
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Rechazar"
-          accessibilityState={{ disabled: isDisabled } as AccessibilityState}
-          disabled={isDisabled}
-          onPress={() => onDecide('REJECT')}
-          style={[styles.button, styles.rejectButton, isDisabled && styles.disabledButton]}
-        >
-          <Text style={styles.buttonText}>Rechazar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <Button
+            accessibilityRole="button"
+            accessibilityLabel="Rechazar"
+            accessibilityState={{ disabled: isDisabled }}
+            isDisabled={isDisabled}
+            onPress={() => onDecide('REJECT')}
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 8 }}
+          >
+            <ButtonText>Rechazar</ButtonText>
+          </Button>
+        </HStack>
+      </VStack>
+    </Box>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  label: {
-    fontSize: 14,
-    color: '#616161',
-    marginVertical: 4,
-  },
-  value: {
-    fontWeight: '600',
-    color: '#212121',
-  },
-  resolvedText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#4CAF50',
-    marginVertical: 8,
-    textAlign: 'center',
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  approveButton: {
-    backgroundColor: '#4CAF50',
-  },
-  rejectButton: {
-    backgroundColor: '#F44336',
-  },
-  disabledButton: {
-    backgroundColor: '#BDBDBD',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-});

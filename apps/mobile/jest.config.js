@@ -5,7 +5,7 @@ module.exports = {
     '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(.pnpm|react-native|@react-native|react-native-sse|react-native-config|react-native-url-polyfill)/)',
+    'node_modules/(?!(.pnpm|react-native|@react-native|react-native-sse|react-native-config|react-native-url-polyfill|react-native-svg|@gluestack-ui|@gluestack-style|@legendapp|@expo)/)',
   ],
   moduleNameMapper: {
     '@open-supervisor/shared-types': '<rootDir>/../../packages/shared-types/src/index.ts',

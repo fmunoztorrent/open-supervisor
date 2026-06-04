@@ -1,5 +1,12 @@
 import React from 'react';
-import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import {
+  Badge,
+  BadgeText,
+  Box,
+  Pressable,
+  Text,
+  VStack,
+} from '@gluestack-ui/themed';
 import { AuthorizationRequestDto, RequestType } from '@open-supervisor/shared-types';
 
 type RequestWithResolved = AuthorizationRequestDto & {
@@ -46,72 +53,56 @@ export const AuthorizationCard: React.FC<AuthorizationCardProps> = ({
   const typeColor = TYPE_COLORS[request.type] ?? '#607D8B';
 
   return (
-    <TouchableOpacity
+    <Pressable
       testID="authorization-card"
       onPress={onPress}
-      style={styles.container}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        marginVertical: 4,
+        marginHorizontal: 8,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 8,
+        elevation: 2,
+      }}
     >
-      <View
+      <Box
         testID={`type-icon-${request.type}`}
-        style={[styles.typeIndicator, { backgroundColor: typeColor }]}
+        style={{
+          width: 8,
+          borderRadius: 4,
+          alignSelf: 'stretch',
+          marginRight: 12,
+          backgroundColor: typeColor,
+        }}
       />
-      <View style={styles.content}>
-        <Text style={styles.type}>{request.type}</Text>
-        <Text style={styles.posId}>{request.pos_id}</Text>
-        <Text testID="card-created-at" style={styles.createdAt}>
+      <VStack style={{ flex: 1 }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: '#212121' }}>
+          {request.type}
+        </Text>
+        <Text style={{ fontSize: 12, color: '#616161', marginTop: 2 }}>
+          {request.pos_id}
+        </Text>
+        <Text
+          testID="card-created-at"
+          style={{ fontSize: 11, color: '#9E9E9E', marginTop: 2 }}
+        >
           {formatDate(request.created_at)}
         </Text>
-      </View>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{badgeLabel}</Text>
-      </View>
-    </TouchableOpacity>
+      </VStack>
+      <Badge
+        style={{
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          backgroundColor: '#EEEEEE',
+          borderRadius: 12,
+        }}
+      >
+        <BadgeText style={{ fontSize: 11, color: '#424242' }}>
+          {badgeLabel}
+        </BadgeText>
+      </Badge>
+    </Pressable>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    marginVertical: 4,
-    marginHorizontal: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    elevation: 2,
-  },
-  typeIndicator: {
-    width: 8,
-    borderRadius: 4,
-    alignSelf: 'stretch',
-    marginRight: 12,
-  },
-  content: {
-    flex: 1,
-  },
-  type: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#212121',
-  },
-  posId: {
-    fontSize: 12,
-    color: '#616161',
-    marginTop: 2,
-  },
-  createdAt: {
-    fontSize: 11,
-    color: '#9E9E9E',
-    marginTop: 2,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 11,
-    color: '#424242',
-  },
-});

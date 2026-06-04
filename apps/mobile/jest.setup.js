@@ -13,3 +13,28 @@ jest.mock('react-native-config', () => ({
 }));
 
 require('@testing-library/react-native/extend-expect');
+
+// renderWithProvider — wraps render in GluestackUIProvider when available
+const React = require('react');
+const { render } = require('@testing-library/react-native');
+
+let GluestackUIProvider = null;
+let gluestackConfig = null;
+try {
+  const themed = require('@gluestack-ui/themed');
+  const configPkg = require('@gluestack-ui/config');
+  GluestackUIProvider = themed.GluestackUIProvider;
+  gluestackConfig = configPkg.config;
+} catch {
+  // gluestack not installed yet — provider omitted in tests
+}
+
+global.renderWithProvider = (ui, options) => {
+  if (GluestackUIProvider && gluestackConfig) {
+    return render(
+      React.createElement(GluestackUIProvider, { config: gluestackConfig }, ui),
+      options
+    );
+  }
+  return render(ui, options);
+};

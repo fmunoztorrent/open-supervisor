@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { config } from '@gluestack-ui/config';
+import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { SessionProvider, useSession } from './src/context/SessionContext';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
@@ -82,10 +84,12 @@ function SupervisorApp() {
 
 export default function App() {
   return (
-    <SessionProvider>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <SupervisorApp />
-    </SessionProvider>
+    <GluestackUIProvider config={config}>
+      <SessionProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <SupervisorApp />
+      </SessionProvider>
+    </GluestackUIProvider>
   );
 }
 
