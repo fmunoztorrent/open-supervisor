@@ -1,5 +1,7 @@
 {
-  "scope": "bugfix.snake-case-contract",
-  "type": "bugfix",
-  "completed_at": "2026-06-04T18:50:00.000Z"
+  "scope": "feature/outbox-pattern",
+  "type": "feature",
+  "completed_at": "2026-06-04T21:00:00.000Z",
+  "merged_to": "main",
+  "merge_commit": "d8c3326"
 }
