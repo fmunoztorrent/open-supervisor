@@ -18,17 +18,19 @@ Ver flujo completo en el CLAUDE.md raíz del repositorio. **No omitir ningún pa
 ```
 domain/
   entities/
-    authorization-request.entity.ts    # approve(), reject(), isPending(); factory fromDto()
+    authorization-request.entity.ts    # approve(), reject(), isPending(); factories fromDto() y fromRow()
     active-directory-user.entity.ts    # interface para resultado de AD lookup
   ports/
-    authorization-repository.port.ts   # IAuthorizationRepository: save, findById, findPendingByStore
+    authorization-repository.port.ts   # IAuthorizationRepository: save, findById, findByCorrelationId, findPendingByStore
+    outbox-repository.port.ts          # IOutboxRepository: save, findPending, markPublished, incrementAttempts, getStats
+    unit-of-work.port.ts               # IUnitOfWork: transaction<T>(work) — coordina TX entre auth + outbox
     active-directory.port.ts           # IActiveDirectoryPort: lookupByEmployeeId
     event-emitter.port.ts              # IEventEmitter: emit(channel, payload)
   use-cases/
     process-authorization-request.use-case.ts   # Router principal por RequestType
     verify-employee-benefit.use-case.ts         # AD lookup + pre-aprobación
     process-price-change.use-case.ts            # Clasificador de cambio de precio
-    resolve-authorization.use-case.ts           # Decisión manual del supervisor
+    resolve-authorization.use-case.ts           # Decisión manual del supervisor (vía IUnitOfWork + outbox)
   services/
     price-change-classifier.ts         # Regla: ≤50% desviación Y precio ≥ 150 → WITHIN_LIMIT
   exceptions/
@@ -37,7 +39,15 @@ domain/
 
 infrastructure/
   persistence/
-    in-memory-authorization.repository.ts   # Map en memoria; pendiente migrar a DB
+    drizzle/
+      schema.ts                                # Schema 'auth' con tablas authorization_requests y outbox
+      drizzle.provider.ts                      # Provider DRIZZLE (cliente pg + DrizzleDb), @Global
+      drizzle-authorization.repository.ts     # Adapter IAuthorizationRepository (UPSERT)
+      drizzle-outbox.repository.ts             # Adapter IOutboxRepository (findPending MVP single-instance)
+      drizzle-unit-of-work.ts                  # DrizzleUnitOfWork con db.transaction
+  outbox/
+    outbox-publisher.service.ts                # Emisor asíncrono (setInterval + tick + onModuleInit/Destroy)
+    outbox-stats.controller.ts                 # GET /outbox/stats con métricas en snake_case
   active-directory/
     http-active-directory.adapter.ts        # GET {AD_BASE_URL}/users/{employeeId}
   events/
@@ -59,7 +69,8 @@ infrastructure/
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/authorization/store/:storeId/pending` | Lista solicitudes pendientes |
-| POST | `/authorization/:id/resolve` | Resuelve con `{ decision, supervisor_id }` |
+| POST | `/authorization/:id/resolve` | Resuelve con `{ decision, supervisor_id }` (id = correlationId de negocio) |
+| GET | `/outbox/stats` | Métricas del outbox: `{ pending_count, published_count_last_hour, max_attempts, oldest_pending_age_seconds }` |
 
 ## Variables de entorno
 
@@ -69,6 +80,10 @@ infrastructure/
 | `REDIS_HOST` | Host de Redis |
 | `REDIS_PORT` | Puerto de Redis |
 | `AD_BASE_URL` | URL base del servicio de Active Directory |
+| `DATABASE_URL` | URL de Postgres (formato `postgresql://user:pass@host:5432/db`) |
+| `DATABASE_URL_TEST` | URL de Postgres para tests (DB separada) |
+| `OUTBOX_TICK_INTERVAL_MS` | Intervalo del emisor del outbox (default: 1000ms) |
+| `OUTBOX_BATCH_SIZE` | Cantidad máxima de entries a procesar por tick (default: 50) |
 
 ## Reglas de dominio clave
 
@@ -78,7 +93,10 @@ infrastructure/
 
 ## Convenciones
 
-- Ningún use-case importa `kafkajs` ni `ioredis` directamente — solo ports.
+- Ningún use-case importa `kafkajs`, `ioredis` ni `drizzle-orm` directamente — solo ports.
 - El binding port → adapter está exclusivamente en `authorization.module.ts`.
-- El repositorio actual es in-memory (`Map`); usar `IAuthorizationRepository` para cualquier operación de persistencia.
+- La persistencia es **PostgreSQL 16 + Drizzle ORM** (schema `auth`). Toda TX atómica entre repositorios pasa por `IUnitOfWork.transaction([authSave, outboxSave])`. Los adapters Drizzle-bound al `tx` se instancian dentro del callback de la TX.
+- El `ResolveAuthorizationUseCase` ya NO llama `IMessagePublisher.publish()` directamente. En su lugar, persiste la decisión y encola la respuesta al outbox en la misma TX. La publicación a Kafka la hace el `OutboxPublisherService` de forma asíncrona (fire-and-forget).
 - Los DTOs vienen de `@open-supervisor/shared-types`; los ports de mensajería de `@open-supervisor/shared-messaging`.
+- Para correr migraciones: `pnpm --filter authorization-service db:migrate` (después de `pnpm db:generate` cuando se modifica el schema).
+- Para tests con DB real: `pnpm --filter authorization-service db:test:setup && DATABASE_URL_TEST=... pnpm test`. Por defecto los tests usan mocks puros.
