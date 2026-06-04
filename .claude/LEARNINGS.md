@@ -642,3 +642,80 @@ slug: descomposicion-multi-scope-y-paralelizacion-de-usts-independientes
 **Leccion**: el plugin multi-scope ya existía técnicamente, pero la documentación y el comportamiento del agente no lo aprovechaban. La mejora es 90% documentación + 10% tooling (skill + script de validación). La paralelización real entre scopes requiere que el `task` tool procese invocaciones concurrentes — esto se valida empíricamente en el primer uso real con N task tools.
 
 **Como aplicar**: al recibir un spec o conversación con muchas tareas, primero contar USTs/tareas y detectar dependencias. Si ≥3 independientes, descomponer y procesar por capas. Si 1-2, mantener un solo scope. Para validar empíricamente, crear un spec de prueba controlado (4 USTs en 2 capas) y un script bash con `jq` que verifique timestamps de `state.json`.
+
+---
+
+---
+date: 2026-06-04
+agent: backend
+category: api-gotcha
+tags: [nestjs, drizzle, postgres, di, configmodule, useFactory]
+slug: nestjs-usecases-de-drizzle-no-pueden-inyectar-configservice-via-isglobal
+---
+**Contexto**: al boot del `authorization-service` después del merge de `feature/outbox-pattern`, NestJS tiraba `Nest can't resolve dependencies of the DrizzleModule (?). Please make sure that the argument Object at index [0] is available in the DrizzleModule context` y la app no arrancaba.
+
+**Que paso**: el `DrizzleProvider` declaraba `inject: [ConfigService]` y leía `DATABASE_URL` desde el `ConfigService`. El `AppModule` importaba `ConfigModule.forRoot({ isGlobal: true })`. La intuición decía que `isGlobal: true` exportaba `ConfigService` globalmente y el factory provider debería poder resolverlo. Pero NO: un `useFactory` provider solo resuelve sus `inject` desde los `imports` del módulo en el que está declarado. `DrizzleModule` no importaba `ConfigModule` explícitamente, y `imports: [ConfigModule]` (sin `forRoot`) tampoco funciona — la clase `ConfigModule` no tiene providers hasta que `forRoot` corre. `DRIZZLE` era además un `Object` (no un DI token de clase), así que ni siquiera `@Inject(DRIZZLE)` se había puesto en el constructor del `DrizzleModule`.
+
+**Fix**: (a) leer `process.env['DATABASE_URL']` directamente en el factory — sin `inject`, sin `ConfigService`. Trade-off: ya no se puede sobreescribir la URL vía testing overrides sin re-deploy. (b) `DRIZZLE` ahora provee `{ db, pool }` para que `DrizzleModule.onModuleDestroy` pueda cerrar el pool. (c) Repositorios adaptados a la nueva firma `(@Inject(DRIZZLE) provider: { db, pool })`. (d) `@Inject(DRIZZLE)` agregado al constructor del `DrizzleModule`.
+
+**Leccion**: en NestJS, `ConfigModule.forRoot({ isGlobal: true })` exporta los providers al scope global, pero un `useFactory` provider solo puede resolver sus `inject` desde los `imports` de su módulo. Si necesitás `ConfigService` en un factory provider dentro de un módulo sin `forRoot`, o importás `ConfigModule.forFeature()` (que solo funciona si ya hubo un `forRoot` previo) o leés `process.env` directamente. Además: cuando el token de DI es un string (no una clase), el consumer SIEMPRE necesita `@Inject(TOKEN)` en el constructor — el sistema de tipos no puede inferirlo.
+
+**Como aplicar**: al crear adapters Drizzle/TypeORM/Prisma en NestJS con DSNs, leer `process.env` directamente en el factory o usar `@Inject(ConfigService) config: ConfigService` con `imports: [ConfigModule.forFeature()]` en el módulo. Auditar cualquier `useFactory` con `inject: [ConfigService]` que no tenga `ConfigModule` en los `imports` del módulo que lo declara.
+
+---
+
+---
+date: 2026-06-04
+agent: backend
+category: pattern
+tags: [redis, ioredis, pubsub, listener-leak, sse, nodejs]
+slug: redis-pubsub-un-listener-global-mapea-canales-a-handlers
+---
+**Contexto**: el `RedisNotificationSubscriberAdapter` del sse-server tenía un patrón de subscribir-y-luego-`on('message')` por cada canal. Esto acumulaba un `on('message')` listener global en el cliente ioredis por cada llamada a `subscribe()` — leak garantizado en uso prolongado.
+
+**Que paso**: ioredis mantiene UN solo cliente por instancia, y `client.on('message', ...)` agrega un listener al EventEmitter del cliente. Cada subscribes a un canal distinto (o al mismo) llamaba `client.subscribe(channel)` Y `client.on('message', ...)`. Los listeners se acumulaban incluso cuando el canal ya tenía handler (el check `if (ch === channel)` filtraba el mensaje pero el listener seguía vivo). Con 5 conexiones HTTP a 5 stores, se acumulaban 10 listeners.
+
+**Fix**: un único `client.on('message', (ch, msg) => handler por channel desde Map)` registrado en el constructor. `subscribe(channel, handler)` agrega al `Map<channel, handler>` y llama `client.subscribe(channel)`. `unsubscribe(channel)` borra del Map y llama `client.unsubscribe(channel)`. El listener count se mantiene en 1 sin importar cuántos canales.
+
+**Leccion**: para pub/sub de Redis con N canales, usar UN `client.on('message')` global que dispatcha al handler del Map. NUNCA hacer `client.on('message', ...)` por cada subscribe — es O(N) y leak garantizado. El mismo principio aplica a otros pub/sub (Kafka consumer para N topics con handlers distintos, MQTT, NATS, etc.) — registrar un solo handler global y mantener el dispatch en una estructura de datos.
+
+**Como aplicar**: al implementar adapters de pub/sub en cualquier servicio, usar Map<topic, handler> + un solo listener global. Tests: verificar que N `subscribe()` no incrementen el count de listeners. Para testear sin Redis real, `jest.mock('ioredis', () => { const factory = jest.fn()...; return { default: factory, __esModule: true }; })` y exponer helpers `__emitMessage` / `__listenerCount` en el mock.
+
+---
+
+---
+date: 2026-06-04
+agent: backend
+category: api-gotcha
+tags: [sse, bff, proxy, dispatch, react-native-sse, snake-case]
+slug: bff-sse-proxy-debe-reemitir-todos-los-tipos-de-eventos
+---
+**Contexto**: el BFF `StreamService` se suscribe al SSE del sse-server vía `eventsource`. El sse-server emite DOS tipos de eventos (`authorization_request` y `physical_presence_dispatch`). El BFF solo registraba `addEventListener('authorization_request', ...)` — los `physical_presence_dispatch` se perdían en el proxy.
+
+**Que paso**: la app móvil solo recibía `authorization_request` events. Los `physical_presence_dispatch` (PRICE_CHANGE auto-rechazado por SYSTEM) nunca llegaban al supervisor, aunque el sse-server los emitía correctamente. El bug estaba en el BFF (capa de proxy), no en el sse-server ni en la lógica de negocio. Era invisible hasta que se ejecuta un e2e que genere ambos tipos de eventos.
+
+**Fix**: agregar `source.addEventListener('physical_presence_dispatch', ...)` en `bff/src/stream/stream.service.ts` análogo al de `authorization_request`. Test: `stream.service.spec.ts` con `jest.mock('eventsource')` para verificar que ambos tipos se re-emiten al Subject del BFF.
+
+**Leccion**: un proxy SSE/WebSocket es un transformer opaco — debe propagar TODOS los tipos de eventos que el upstream emite, no solo los que el cliente actual usa. La spec del upstream (sse-server CLAUDE.md, OpenAPI, AsyncAPI) debe listar TODOS los tipos y el proxy debe tener un test por cada uno. El sse-server ya tenía un test (`sse.service.spec.ts`) que verificaba AMBOS canales en su lado — el BFF no tenía tests, y por eso el bug entró.
+
+**Como aplicar**: al escribir o auditar un proxy SSE/WebSocket/MQTT, leer la spec del upstream, listar TODOS los tipos de eventos, y agregar un test por cada uno que verifique el re-emit. Si agregás un nuevo tipo de evento al upstream, el proxy debe ser actualizado en el mismo PR — considerá un test que falle si el proxy no tiene `addEventListener` para un evento que el upstream emite.
+
+---
+
+---
+date: 2026-06-04
+agent: backend
+category: setup
+tags: [tsbuildinfo, nestjs-build, incremental, typescript]
+slug: nestjs-build-puede-salir-0-sin-crear-dist-por-tsbuildinfo-stale
+---
+**Contexto**: `pnpm exec nest build` puede retornar exit code 0 y no crear `dist/main.js` cuando el archivo `tsconfig.build.tsbuildinfo` (o `tsconfig.tsbuildinfo`) está corrupto o stale. El síntoma: el comando no muestra errores, termina "exitosamente", y el siguiente `node dist/main` falla con "Cannot find module" o ejecuta una versión vieja del código.
+
+**Que paso**: TypeScript con `incremental: true` (configurado en `tsconfig.base.json` del repo) usa el `*.tsbuildinfo` para cachear qué archivos ya emitió. Si ese cache se desincroniza con el filesystem (ej. se borraron `dist/` o se cambió el `tsconfig.build.json`), tsc decide que no hay nada que emitir y sale 0 sin tocar `dist/`. El `nest build` envuelve `tsc` y hereda este comportamiento silencioso. En el bugfix de e2e, perdí 10 minutos depurando "por qué el nuevo código no corre" hasta que borré el `tsbuildinfo` manualmente.
+
+**Fix**: `rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && pnpm exec nest build`. Después de esto el build emite normalmente. Considerar agregar este paso al `build` script del package.json como prefijo: `"build": "rm -f tsconfig.build.tsbuildinfo && nest build"`.
+
+**Leccion**: cuando un build de TypeScript sale 0 y no produce el output esperado, lo primero a sospechar es el `*.tsbuildinfo`. El skill `open-supervisor-infra` (sección E-1) ya documenta este caso pero solo lo cubre para borrar `tsconfig.tsbuildinfo` — también hay que borrar `tsconfig.build.tsbuildinfo` si existe.
+
+**Como aplicar**: si `nest build` sale 0 y `dist/main.js` no existe o tiene fecha vieja, `rm -f tsconfig*.tsbuildinfo` antes de reintentar. Considerar agregar un script `clean` al package.json que borre los buildinfos y `dist/` para tener un build 100% reproducible.
+
