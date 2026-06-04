@@ -1,14 +1,21 @@
 {
   "global": {
-    "pipeline_active": true
+    "pipeline_active": false
   },
   "scopes": {
     "main": {
-      "active": true,
+      "active": false,
       "type": "feature",
-      "step": 1,
+      "step": 6,
       "started_at": "2026-06-04T12:00:00.000Z",
-      "completed_at": null
+      "completed_at": "2026-06-04T14:30:00.000Z"
+    },
+    "bugfix-indicator-wiring": {
+      "active": false,
+      "type": "bugfix",
+      "step": 5,
+      "started_at": "2026-06-04T16:40:00.000Z",
+      "completed_at": "2026-06-04T16:55:00.000Z"
     }
   }
 }

@@ -426,3 +426,65 @@ slug: react-stately-static-class-blocks-requiere-babel-plugin
 **Lección**: Gluestack UI v1 trae transitivamente `react-stately` (vía `@gluestack-ui/menu`), cuya build CJS usa ES2022 `static {}` blocks. El preset de Babel de RN 0.76 no cubre esto. El fix es: (1) `pnpm --filter @open-supervisor/mobile add -D @babel/plugin-transform-class-static-block` y (2) agregar `plugins: ['@babel/plugin-transform-class-static-block']` en `babel.config.js`.
 
 **Cómo aplicar**: si aparece `TransformError: Static class blocks are not enabled` en Metro, el fix es el plugin de Babel mencionado. No confundir con errores de `transformIgnorePatterns` — Metro sí transforma el archivo, pero el preset no tiene el plugin. Reiniciar Metro con `--reset-cache` después del cambio para que el nuevo config surta efecto.
+
+---
+date: 2026-06-04
+agent: frontend
+category: pattern
+tags: [react-native, hooks, useRef, debounce, sse]
+slug: debounce-async-refetch-useref
+
+**Contexto**: implementando background refresh automático al recibir SSE en useSSERequests hook.
+
+**Qué pasó**: al reemplazar prepend directo por refetch completo en el listener SSE, necesitábamos:
+1. Debounce de 2s para evitar múltiples refetches por ráfagas de SSE
+2. Un flag `isRefreshingBackground` para el indicador UI
+3. Cleanup correcto del timeout al desmontar
+
+**Lección**: el patrón `useRef<setTimeout>` es la forma correcta de manejar debounce dentro de hooks React que usan `useEffect` con SSE listeners. Tres cosas críticas:
+- El timeout se limpia en el `cancelled` flag del return del useEffect
+- El `setIsRefreshingBackground(true)` se dispara **sincrónicamente** en el listener (no dentro del setTimeout) para feedback inmediato
+- Para guards de "initial load complete" no se puede usar la variable `isLoading` del closure (siempre captura el valor inicial). Usar `useRef<boolean>` en su lugar.
+
+**Cómo aplicar**: cuando un hook necesite disparar refetches asíncronos con debounce desde un listener (SSE, WebSocket, polling), usar `useRef` para el timeout y `useRef` para flags de estado que necesitan ser leídos desde closures. No confiar en state variables de `useState` dentro de closures de useEffect.
+
+---
+date: 2026-06-04
+agent: claude
+category: pattern
+tags: [react-native, testID, uiautomator, accesibilidad, prop-wiring, state-empty]
+slug: indicador-background-refresh-wiring-y-accesibilidad
+---
+
+**Contexto**: depurando por qué el indicador "Sincronizando..." del background refresh nunca aparecía en UIAutomator, a pesar de que los logs y tests confirmaban que la lógica funcionaba.
+
+**Qué pasó**: dos problemas encadenados:
+1. **Prop no conectado**: `App.tsx` destructureaba `isRefreshingBackground` del hook pero no lo pasaba a `AuthorizationList`. El componente usaba el default `false`.
+2. **Estado vacío oculta el indicador**: `AuthorizationList` retorna temprano cuando `requests.length === 0`, antes del JSX condicional del indicador. Para ver el indicador deben existir cards previas.
+3. **testID invisible**: React Native `testID` no expone `resource-id` a UIAutomator sin `accessible={true}`.
+
+**Lección**: 
+- En React Native, `testID` no es suficiente para UIAutomator — agregar `accessible={true}` y `accessibilityLabel` si se necesita detección por accesibilidad.
+- Cuando un componente tiene layout condicional (estado vacío vs con datos), el indicador de "cargando en background" debe renderizarse en AMBAS ramas, no solo en la rama con datos.
+- Los tests de integración (App.test.tsx con mocks de hooks) son esenciales para detectar prop-wiring olvidado.
+
+**Cómo aplicar**: 
+- Siempre agregar un test de integración que verifique que los props se pasan de padre a hijo.
+- Para indicadores/estados que deben persistir entre layouts, renderizarlos fuera del condicional `requests.length === 0`.
+- Para E2E con UIAutomator, usar `accessible={true}` en elementos que necesitan ser detectados por resource-id.
+
+---
+date: 2026-06-04
+agent: claude
+category: setup
+tags: [skills, portabilidad, podman, docker, adb, agnostico, opencode, qa]
+slug: skills-infra-emulator-agnosticos-en-el-repo
+---
+
+**Contexto**: los skills `open-supervisor-infra` y `open-supervisor-emulator` vivían solo en `~/.claude/skills/` (config personal) y tenían rutas absolutas de la máquina del autor — incluido el socket Podman `unix:///Users/fabianmunoz/.local/share/.../podman.sock`. Un dev que clonara el repo no los recibía y, si los recibía, no funcionaban.
+
+**Qué pasó**: al verificar el bootstrap portable en este mismo entorno, `DOCKER_HOST` se resolvió dinámicamente a `unix:///tmp/claude-501/podman/podman-machine-default-api.sock` — **una ruta totalmente distinta** del socket hardcodeado que tenía el skill viejo. O sea, el hardcode estaba mal incluso en la máquina del autor bajo este runtime. Los nombres de contenedor tipo `open-supervisor-kafka-1` también son frágiles: el prefijo lo pone compose según el nombre del directorio de clonado.
+
+**Lección**: un skill operativo es "agnóstico" solo si (1) vive en el repo git-trackeado (`.claude/skills/`, no `~/.claude/skills/`), y (2) no asume rutas ni nombres de máquina. Patrón portable: `REPO_ROOT="$(git rev-parse --show-toplevel)"`; detectar motor (`podman` preferido, `docker` fallback) y resolver el socket con `podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}'`; referenciar contenedores por **nombre de servicio** vía `$COMPOSE exec kafka`, no por nombre con prefijo; resolver el serial del emulador con `adb devices` (no asumir `emulator-5554`); el AVD `open_supervisor` lo crea `setup-android.sh`. Para que opencode también los vea sin duplicar, agregar `.claude/skills` a `skills.paths` en `opencode.json` (fuente única, sin symlinks ni drift).
+
+**Cómo aplicar**: cualquier skill o script de tooling que vaya a usar otro desarrollador NO debe contener `/Users/<quien-sea>/...` ni nombres de contenedor con prefijo de proyecto. Verificar con `grep -rn "/Users/" .claude/skills/`. Para que el agente QA (y backend/frontend) los invoquen, agregar `Skill` a su línea `tools:` en `.claude/agents/*.md`.

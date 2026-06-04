@@ -58,6 +58,8 @@ export const AuthorizationList: React.FC<AuthorizationListProps> = ({
       {isRefreshingBackground && (
         <Box
           testID="background-refresh-indicator"
+          accessible={true}
+          accessibilityLabel="Indicador de sincronización"
           style={{
             opacity: 0.7,
             height: 32,

@@ -80,6 +80,7 @@ function SupervisorApp() {
         requests={requests}
         onPressRequest={setSelectedId}
         isLoading={isLoading}
+        isRefreshingBackground={isRefreshingBackground}
       />
     </SafeAreaView>
   );
