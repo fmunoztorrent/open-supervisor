@@ -46,6 +46,45 @@ slug: descripcion-corta-en-kebab-case
 <!-- Las entradas van debajo de esta línea, más recientes al final -->
 
 ---
+date: 2026-06-04
+agent: qa
+category: api-gotcha
+tags: [nestjs, rest, correlationId, repository, in-memory, domain-id]
+slug: resolve-endpoint-debe-buscar-por-correlationId-no-por-id-interno
+---
+
+**Contexto**: prueba empírica en emulador — el botón "Autorizar" devolvía HTTP 500/404 aunque la solicitud existía en el auth-service.
+**Qué pasó**: el endpoint `POST /authorization/:id/resolve` en auth-service hacía `repository.findById(id)`, pero `:id` es el `correlationId` (identificador de negocio que viaja por Kafka, BFF y móvil). El `id` interno del entity (generado por el repositorio) es distinto. El fix: añadir `findByCorrelationId()` al port y al repositorio; el use-case lo llama con el correlationId.
+**Lección**: en sistemas con dos identificadores (id interno vs. correlationId de negocio), los endpoints REST de dominio deben exponer siempre el identificador de negocio — no el id de persistencia. El id interno es un detalle de infra que no debería cruzar las capas.
+**Cómo aplicar**: al agregar un endpoint REST que resuelve/actualiza una entidad, verificar qué identificador conoce el caller (BFF, client) y asegurarse de que el port del repositorio expone `findBy<BusinessKey>()`.
+
+---
+date: 2026-06-04
+agent: frontend
+category: api-gotcha
+tags: [react-native, bff, camelCase, snake_case, normalization, useSSERequests]
+slug: bff-retorna-camelCase-pero-dto-espera-snake-case
+---
+
+**Contexto**: emulador mostraba "NaN/NaN NaN:NaN" en las fechas de las cards y la navegación al detalle no funcionaba.
+**Qué pasó**: el BFF devuelve camelCase (`storeId`, `correlationId`, `createdAt`) desde el auth-service (NestJS serializa entidades en camelCase). Pero `AuthorizationRequestDto` usa snake_case (`store_id`, `correlation_id`, `created_at`). En `useSSERequests`, el GET /pending y los eventos SSE se parseaban directamente como `AuthorizationRequestDto` sin normalizar, dejando todos los campos clave en `undefined`.
+**Lección**: el contrato Kafka (snake_case en `AuthorizationRequestDto`) y el contrato REST/SSE del BFF (camelCase en la serialización NestJS) son diferentes. Cualquier cliente que consuma el BFF debe normalizar. No asumir que el DTO del backend y el payload HTTP tienen el mismo casing.
+**Cómo aplicar**: al agregar un nuevo endpoint en el BFF que retorne entidades, agregar una función `normalizeXxx(raw: any)` en el hook que lo consume para mapear camelCase → snake_case. Patrón: `raw.snake_field ?? raw.camelField`.
+
+---
+date: 2026-06-04
+agent: qa
+category: test-strategy
+tags: [android, emulator, adb, uiautomator, coordinates, tap]
+slug: usar-uiautomator-dump-para-coordenadas-exactas-de-botones
+---
+
+**Contexto**: prueba empírica en emulador — los taps basados en estimaciones visuales de las capturas de pantalla no registraban en los botones.
+**Qué pasó**: los botones dentro de un `ScrollView` de Gluestack se renderizan en coordenadas distintas a las que se esperaría por la posición visual en el screenshot. `adb shell uiautomator dump /sdcard/ui.xml` produce un XML con las bounds exactas de cada elemento en coordenadas reales del dispositivo (1080x2400).
+**Lección**: para testing empírico con `adb shell input tap`, siempre usar `uiautomator dump` para obtener las coordenadas exactas. Nunca estimar desde screenshots escalados — el error puede ser >200px.
+**Cómo aplicar**: antes de automatizar taps en un flujo de prueba empírica: (1) `adb shell uiautomator dump /sdcard/ui.xml`, (2) `adb pull /sdcard/ui.xml`, (3) parsear con python o grep el `content-desc` o `resource-id` del elemento, (4) calcular el centro desde `bounds="[x1,y1][x2,y2]"` como `((x1+x2)/2, (y1+y2)/2)`.
+
+---
 date: 2026-06-02
 agent: spec
 category: spec-process

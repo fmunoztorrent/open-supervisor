@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-06-03  
 **Stack inferido:** React Native (Android) + TypeScript + react-native-sse + NestJS BFF  
-**Estado:** Aprobado — listo para scaffold + QA RED  
+**Estado:** Completed  
 
 > **Scope de esta feature:** app móvil (`apps/mobile`) únicamente. El BFF ya expone los tres endpoints necesarios; no se requiere ningún cambio backend.
 
@@ -371,3 +371,38 @@ Antes de QA RED, el frontend agent debe crear el scaffold con Jest configurado p
 | Riesgo técnico C (medio) | Sin GET inicial de pendientes, las solicitudes previas a la conexión SSE son invisibles — `useSSERequests` debe hacer ambas cosas |
 | Riesgo técnico D (bajo) | Android Doze mode puede suspender SSE en background — documentar como limitación conocida del MVP; no bloquea |
 | Fuera de scope | Autenticación real, gestión de sesión, paginación/historial, navegación global |
+
+---
+
+## Resultado
+
+**Fecha de finalización:** 2026-06-04
+**Status del spec:** Completed
+
+### Implementado
+- [x] US-01: Listado de solicitudes — GET /pending + SSE real-time, estado vacío, colores por tipo
+- [x] US-02: Detalle con Autorizar/Rechazar — happy path approve y reject validados empíricamente en emulador Android (AVD open_supervisor). Error banner cuando BFF devuelve error.
+- [x] US-03: Reconexión SSE — banner "Reconectando..." validado empíricamente
+- [x] US-04: Indicador visual por tipo — DISCOUNT(azul), CANCEL(rojo), EMPLOYEE_BENEFIT(morado), SUSPEND(naranja), PRICE_CHANGE(verde)
+
+### Detalles de la pantalla de detalle (implementados en esta sesión)
+- Header con etiqueta legible por tipo (PRICE_CHANGE → "Cambio de Precio", etc.)
+- Barra de color a la izquierda igual que la card del listado
+- Fecha formateada dd/mm/yyyy hh:mm
+- ScrollView para contenido variable
+- Banner de error cuando el POST falla (botones re-habilitados para reintentar)
+- `decide()` navega de vuelta solo en éxito
+
+### Bugs descubiertos y corregidos durante la prueba empírica
+1. **camelCase/snake_case mismatch**: BFF devuelve `storeId`, `correlationId`, `createdAt` pero el frontend esperaba snake_case. Fix: `normalizeRequest()` en `useSSERequests.ts`.
+2. **Resolve por id interno**: auth-service `/resolve` usaba `findById(internalId)` pero BFF pasa `correlationId`. Fix: `findByCorrelationId()` añadido al port y repositorio.
+
+### No implementado / Desviaciones
+- Estado "Ya autorizada/Rechazada" en la card del listado no se actualiza tras resolver (la app no recibe evento de actualización de estado — limitación de diseño, no hay SSE para responses).
+- Los campos opcionales (product_id, original_price, etc.) no llegan vía GET /pending — solo vía SSE. GET /pending del auth-service no persiste ni retorna campos opcionales.
+- Code review por par: pendiente.
+
+### Tests
+- Unitarios mobile: 55/55 pasando (50 pre-existentes + 5 nuevos para detail page)
+- Unitarios authorization-service: 73/73 pasando (66 pre-existentes + 7 actualizados por fix)
+- E2E en emulador: APPROVE validado, REJECT validado, error banner validado, reconexión validada
