@@ -1,6 +1,8 @@
 import React from 'react';
 import {
+  Box,
   Center,
+  HStack,
   ScrollView,
   Spinner,
   Text,
@@ -16,12 +18,14 @@ interface AuthorizationListProps {
   requests: RequestWithResolved[];
   onPressRequest: (correlationId: string) => void;
   isLoading?: boolean;
+  isRefreshingBackground?: boolean;
 }
 
 export const AuthorizationList: React.FC<AuthorizationListProps> = ({
   requests,
   onPressRequest,
   isLoading = false,
+  isRefreshingBackground = false,
 }) => {
   if (isLoading) {
     return (
@@ -40,14 +44,42 @@ export const AuthorizationList: React.FC<AuthorizationListProps> = ({
   }
 
   return (
-    <ScrollView style={{ flex: 1 }}>
-      {requests.map(request => (
-        <AuthorizationCard
-          key={request.correlation_id}
-          request={request}
-          onPress={() => onPressRequest(request.correlation_id)}
-        />
-      ))}
-    </ScrollView>
+    <Box style={{ flex: 1 }}>
+      <ScrollView style={{ flex: 1 }}>
+        {requests.map(request => (
+          <AuthorizationCard
+            key={request.correlation_id}
+            request={request}
+            onPress={() => onPressRequest(request.correlation_id)}
+          />
+        ))}
+      </ScrollView>
+
+      {isRefreshingBackground && (
+        <Box
+          testID="background-refresh-indicator"
+          style={{
+            opacity: 0.7,
+            height: 32,
+            backgroundColor: '#E3F2FD',
+            borderTopWidth: 1,
+            borderTopColor: '#BBDEFB',
+          }}
+        >
+          <HStack
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Spinner size="small" color="#1976D2" />
+            <Text style={{ marginLeft: 8, fontSize: 12, color: '#1976D2' }}>
+              Sincronizando...
+            </Text>
+          </HStack>
+        </Box>
+      )}
+    </Box>
   );
 };

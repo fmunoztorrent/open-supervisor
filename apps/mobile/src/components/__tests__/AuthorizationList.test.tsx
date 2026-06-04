@@ -9,8 +9,6 @@ declare const renderWithProvider: (ui: React.ReactElement, options?: any) => Ret
 import { AuthorizationList } from '../AuthorizationList';
 
 // Mockeamos AuthorizationCard para aislar AuthorizationList.
-// Como el componente no existe aún, este mock también fallará, pero el error
-// primario será el de AuthorizationList — que es el correcto.
 jest.mock('../AuthorizationCard', () => ({
   AuthorizationCard: ({ request }: { request: AuthorizationRequestDto }) => {
     const { Text } = require('react-native');
@@ -79,14 +77,59 @@ describe('AuthorizationList', () => {
 
   describe('estado de carga', () => {
     it('muestra Spinner de Gluestack cuando isLoading es true', () => {
-      // FASE RED: este test DEBE FALLAR porque el componente actual renderiza
-      // <Text>Cargando...</Text>, no un Spinner de Gluestack con testID 'list-spinner'.
-      // El frontend debe reemplazar el Text por el componente Spinner de @gluestack-ui/themed
-      // y asignarle testID='list-spinner' para que este test pase.
       renderWithProvider(
         <AuthorizationList requests={[]} onPressRequest={() => {}} isLoading={true} />,
       );
       expect(screen.getByTestId('list-spinner')).toBeTruthy();
+    });
+  });
+
+  describe('indicador de background refresh (US-02)', () => {
+    it('NO renderiza el indicador cuando isRefreshingBackground es false (sin prop)', () => {
+      const requests = [makeRequest('corr-1')];
+      renderWithProvider(
+        <AuthorizationList requests={requests} onPressRequest={jest.fn()} />,
+      );
+      expect(screen.queryByTestId('background-refresh-indicator')).toBeNull();
+    });
+
+    it('renderiza el indicador con Spinner y texto cuando isRefreshingBackground es true', () => {
+      const requests = [makeRequest('corr-1')];
+      renderWithProvider(
+        <AuthorizationList
+          requests={requests}
+          onPressRequest={jest.fn()}
+          isRefreshingBackground={true}
+        />,
+      );
+      expect(screen.getByTestId('background-refresh-indicator')).toBeOnTheScreen();
+      expect(screen.getByText('Sincronizando...')).toBeOnTheScreen();
+    });
+
+    it('no renderiza el indicador cuando isRefreshingBackground es false explícitamente', () => {
+      const requests = [makeRequest('corr-1')];
+      renderWithProvider(
+        <AuthorizationList
+          requests={requests}
+          onPressRequest={jest.fn()}
+          isRefreshingBackground={false}
+        />,
+      );
+      expect(screen.queryByTestId('background-refresh-indicator')).toBeNull();
+    });
+
+    it('el indicador no bloquea la interacción con las tarjetas del listado', () => {
+      const { screen: innerScreen } = require('@testing-library/react-native');
+      const requests = [makeRequest('corr-1')];
+      renderWithProvider(
+        <AuthorizationList
+          requests={requests}
+          onPressRequest={jest.fn()}
+          isRefreshingBackground={true}
+        />,
+      );
+      // La card debe seguir siendo visible y tappable
+      expect(screen.getByTestId('card-corr-1')).toBeOnTheScreen();
     });
   });
 });

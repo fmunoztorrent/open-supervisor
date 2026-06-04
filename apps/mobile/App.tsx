@@ -51,7 +51,7 @@ function DetailView({ request, supervisorId, onBack }: DetailViewProps) {
 
 function SupervisorApp() {
   const { storeId, supervisorId } = useSession();
-  const { requests, isLoading, isReconnecting } = useSSERequests(storeId);
+  const { requests, isLoading, isReconnecting, isRefreshingBackground } = useSSERequests(storeId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedRequest = selectedId

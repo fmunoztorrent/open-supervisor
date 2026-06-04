@@ -1,13 +1,13 @@
 {
   "global": {
-    "pipeline_active": false
+    "pipeline_active": true
   },
   "scopes": {
     "main": {
-      "active": false,
-      "type": null,
-      "step": 0,
-      "started_at": null,
+      "active": true,
+      "type": "feature",
+      "step": 1,
+      "started_at": "2026-06-04T12:00:00.000Z",
       "completed_at": null
     }
   }
