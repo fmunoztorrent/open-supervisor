@@ -9,6 +9,41 @@
       "step": 5,
       "started_at": "2026-06-04T18:00:00.000Z",
       "completed_at": "2026-06-04T18:10:00.000Z"
+    },
+    "bugfix.snake-case-contract": {
+      "active": false,
+      "type": "bugfix",
+      "step": 5,
+      "started_at": "2026-06-04T18:30:00.000Z",
+      "completed_at": "2026-06-04T18:50:00.000Z"
+    },
+    "bugfix.http-service-di": {
+      "active": false,
+      "type": "bugfix",
+      "step": 3,
+      "started_at": "2026-06-04T19:00:00.000Z",
+      "completed_at": "2026-06-04T19:10:00.000Z"
+    },
+    "bugfix.resolve-uses-correlation-id": {
+      "active": false,
+      "type": "bugfix",
+      "step": 4,
+      "started_at": "2026-06-04T19:20:00.000Z",
+      "completed_at": "2026-06-04T19:45:00.000Z"
+    },
+    "main": {
+      "active": false,
+      "type": "feature",
+      "step": 6,
+      "started_at": "2026-06-04T12:00:00.000Z",
+      "completed_at": "2026-06-04T14:30:00.000Z"
+    },
+    "bugfix-indicator-wiring": {
+      "active": false,
+      "type": "bugfix",
+      "step": 5,
+      "started_at": "2026-06-04T16:40:00.000Z",
+      "completed_at": "2026-06-04T16:55:00.000Z"
     }
   }
 }
