@@ -40,11 +40,11 @@ export class VerifyEmployeeBenefitUseCase {
         await this.repository.save(request);
 
         await this.eventEmitter.emit(`store:${dto.store_id}:requests`, {
-          correlationId: dto.correlation_id,
+          correlation_id: dto.correlation_id,
           type: dto.type,
-          storeId: dto.store_id,
-          posId: dto.pos_id,
-          employeeId: dto.employee_id,
+          store_id: dto.store_id,
+          pos_id: dto.pos_id,
+          employee_id: dto.employee_id,
           displayName: adUser.displayName,
           jobTitle: adUser.jobTitle,
           department: adUser.department,

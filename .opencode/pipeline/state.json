@@ -3,12 +3,12 @@
     "pipeline_active": false
   },
   "scopes": {
-    "main": {
+    "bugfix.error-500-decision": {
       "active": false,
-      "type": null,
-      "step": 0,
-      "started_at": null,
-      "completed_at": null
+      "type": "bugfix",
+      "step": 5,
+      "started_at": "2026-06-04T18:00:00.000Z",
+      "completed_at": "2026-06-04T18:10:00.000Z"
     }
   }
 }

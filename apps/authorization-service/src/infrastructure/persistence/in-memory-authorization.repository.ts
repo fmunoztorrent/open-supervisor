@@ -14,6 +14,15 @@ export class InMemoryAuthorizationRepository implements IAuthorizationRepository
     return this.store.get(id) ?? null;
   }
 
+  async findByCorrelationId(correlationId: string): Promise<AuthorizationRequest | null> {
+    for (const request of this.store.values()) {
+      if (request.correlationId === correlationId) {
+        return request;
+      }
+    }
+    return null;
+  }
+
   async findPendingByStore(storeId: string): Promise<AuthorizationRequest[]> {
     return [...this.store.values()].filter(
       (r) => r.storeId === storeId && r.isPending(),

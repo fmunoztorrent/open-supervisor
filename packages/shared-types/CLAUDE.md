@@ -26,6 +26,7 @@ Ver flujo completo en el CLAUDE.md raíz del repositorio. **No omitir ningún pa
 
 ## Convenciones críticas
 
+- **Todos los campos DTO son `snake_case`** (e.g. `store_id`, `correlation_id`, `created_at`). El wire format en REST, Redis y Kafka DEBE coincidir exactamente con esta nomenclatura. Las entidades internas de cada servicio pueden usar camelCase (estilo TypeScript), pero la capa que toca el wire (controllers, adapters de event emitter, publishers) **debe mapear explícitamente** al shape del DTO. Ver LEARNINGS `wire-format-debe-coincidir-con-dto-compartido` (2026-06-04).
 - Los campos opcionales usan `?` (e.g. `amount?`). **No usar discriminated unions** hasta que exista un spec de refactor aprobado.
 - Cualquier cambio de contrato debe ser coordinado con todos los consumidores: `authorization-service`, `sse-server`, `bff`, `apps/mobile`.
 - Este package es TypeScript puro — sin dependencias de runtime.

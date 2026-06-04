@@ -18,12 +18,14 @@ export class ResolveAuthorizationUseCase {
   ) {}
 
   async execute(
-    id: string,
+    correlationId: string,
     decision: ResolutionDecision,
     supervisorId: string,
   ): Promise<AuthorizationRequest> {
-    const request = await this.repository.findById(id);
-    if (!request) throw new NotFoundException(`Authorization ${id} not found`);
+    // El parámetro es correlationId (ver spec: el :id del resolve corresponde
+    // al correlation_id generado por el POS), no el id interno de la entidad.
+    const request = await this.repository.findByCorrelationId(correlationId);
+    if (!request) throw new NotFoundException(`Authorization ${correlationId} not found`);
 
     if (decision === 'APPROVE') {
       request.approve(supervisorId);

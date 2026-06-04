@@ -40,15 +40,15 @@ export class ProcessPriceChangeUseCase {
       await this.repository.save(request);
       await this.eventEmitter.emit(`store:${dto.store_id}:requests`, {
         id: request.id,
-        storeId: request.storeId,
-        posId: request.posId,
-        correlationId: request.correlationId,
+        store_id: request.storeId,
+        pos_id: request.posId,
+        correlation_id: request.correlationId,
         type: request.type,
-        productId: request.productId,
-        originalPrice: request.originalPrice,
-        requestedPrice: request.requestedPrice,
+        product_id: request.productId,
+        original_price: request.originalPrice,
+        requested_price: request.requestedPrice,
         status: request.status,
-        createdAt: request.createdAt.toISOString(),
+        created_at: request.createdAt.toISOString(),
       });
       return;
     }

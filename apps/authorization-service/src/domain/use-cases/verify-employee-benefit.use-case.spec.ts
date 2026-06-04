@@ -60,6 +60,7 @@ beforeEach(() => {
   mockRepository = {
     save: jest.fn().mockResolvedValue(undefined),
     findById: jest.fn(),
+    findByCorrelationId: jest.fn(),
     findPendingByStore: jest.fn(),
   };
   mockLogger = {
@@ -96,7 +97,10 @@ describe('VerifyEmployeeBenefitUseCase', () => {
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         `store:${dto.store_id}:requests`,
         expect.objectContaining({
-          correlationId: dto.correlation_id,
+          correlation_id: dto.correlation_id,
+          store_id: dto.store_id,
+          pos_id: dto.pos_id,
+          employee_id: dto.employee_id,
           type: RequestType.EMPLOYEE_BENEFIT,
           displayName: adUser.displayName,
           jobTitle: adUser.jobTitle,

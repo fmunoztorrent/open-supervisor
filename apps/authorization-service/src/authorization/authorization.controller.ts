@@ -15,16 +15,18 @@ export class AuthorizationController {
   @Get('store/:storeId/pending')
   async getPending(@Param('storeId') storeId: string) {
     const requests = await this.repository.findPendingByStore(storeId);
+    // El wire format debe coincidir con AuthorizationRequestDto (snake_case)
+    // compartido entre todos los servicios y la app móvil.
     return requests.map((r) => ({
       id: r.id,
-      storeId: r.storeId,
-      posId: r.posId,
-      correlationId: r.correlationId,
+      store_id: r.storeId,
+      pos_id: r.posId,
+      correlation_id: r.correlationId,
       type: r.type,
       amount: r.amount,
-      employeeId: r.employeeId,
+      employee_id: r.employeeId,
       status: r.status,
-      createdAt: r.createdAt.toISOString(),
+      created_at: r.createdAt.toISOString(),
     }));
   }
 
