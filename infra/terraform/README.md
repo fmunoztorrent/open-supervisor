@@ -147,6 +147,8 @@ terraform apply -var-file=envs/dev/terraform.tfvars
 
 ### 5. Push Docker images to ECR (required before ECS services become healthy)
 
+> **Compatibilidad Podman:** Si usás Podman en lugar de Docker, reemplazá `docker` por `podman` en los comandos siguientes, o creá un alias temporal: `alias docker=podman`.
+
 ```bash
 # Authenticate
 aws ecr get-login-password --region us-east-1 | \

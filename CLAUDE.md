@@ -21,6 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `packages/shared-types/` | DTOs, interfaces, enums compartidos entre servicios |
 | `packages/shared-messaging/` | Ports: IMessagePublisher, IMessageConsumer, INotificationSubscriber |
 | `scripts/` | Tooling de desarrollo: `inject-request.ts` para simular solicitudes POS sin infraestructura de tienda |
+| `collections/` | Colecciones Postman para testing manual de endpoints REST |
 
 ## Arquitectura
 
@@ -120,8 +121,19 @@ cd packages/shared-types && node_modules/.bin/tsc && cd ../shared-messaging && n
 # Instalar dependencias (ya lo hace setup-android.sh; correr manualmente si se clona sin el script)
 pnpm install
 
-# Levantar infraestructura (Kafka + Redis) con Podman:
-DOCKER_HOST=unix:///Users/fabianmunoz/.local/share/containers/podman/machine/podman.sock podman compose up -d
+# ── Levantar todo con un solo comando (Makefile) ──────────────────────────────
+# Reemplaza los pasos manuales de abajo: levanta contenedores + compila + arranca los 3 servicios
+make dev               # infraestructura + servicios backend
+make emulator          # emulador + port forwarding + Metro + app (requiere make dev primero)
+make all               # dev + emulator (stack completo)
+make down              # detiene todo
+make status            # verifica qué está corriendo
+# Override del motor de contenedores: make dev COMPOSE="docker compose"
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Levantar infraestructura (Kafka + Redis) — el Makefile detecta el motor automáticamente:
+make infra
 
 # Backend — levantar servicio específico
 pnpm --filter authorization-service dev
@@ -157,6 +169,10 @@ pnpm inject --type DISCOUNT --verbose  # muestra configuración activa
 
 # Tests del script de inyección (node --test + tsx, sin Jest)
 npx tsx --test scripts/inject-request.spec.ts
+
+# Colección Postman (testing manual de endpoints REST)
+# Importar collections/open-supervisor.postman_collection.json en Postman
+# Incluye todos los endpoints REST del BFF y authorization-service + documentación de inyección
 ```
 
 ## Flujo de trabajo (pipeline automático)
@@ -469,4 +485,4 @@ Revisar la configuración del harness (CLAUDE.md, hooks, skills, .claudeignore, 
 - **UI en mobile**: usar `@gluestack-ui/themed` v1 para todos los componentes visuales. No usar `StyleSheet.create` en componentes migrados. Imports desde `@gluestack-ui/themed`: `Box`, `HStack`, `VStack`, `Pressable`, `Text`, `Badge`, `BadgeText`, `Center`, `Spinner`, `ScrollView`, `Button`, `ButtonText`, `ButtonSpinner`. El `GluestackUIProvider` con `config` de `@gluestack-ui/config` está en `App.tsx` como wrapper raíz. Los tests requieren `renderWithProvider` (definido en `jest.setup.js`) en lugar de `render` directo para componentes Gluestack.
 - **Variables de entorno**: backend via `ConfigModule` NestJS; mobile via `react-native-config`.
 - **Módulos NestJS**: cada feature es un módulo; el binding port → adapter va en el module, no en los use-cases.
-- **Skills operativos en el repo (agnósticos)**: `open-supervisor-infra` (contenedores + servicios backend + inyección + Kafka) y `open-supervisor-emulator` (validación e2e de la app Android) viven en `.claude/skills/` dentro del repo (git-trackeados), por lo que cualquiera que clone el proyecto los recibe. **Son agnósticos de máquina**: no contienen rutas absolutas — derivan la raíz con `git rev-parse --show-toplevel`, detectan el motor de contenedores (Podman/Docker) y resuelven el socket y el serial del emulador dinámicamente. opencode los lee vía `.claude/skills` agregado a `skills.paths` en `opencode.json` (fuente única, sin duplicar). Los agentes `qa`, `backend` y `frontend` tienen el tool `Skill` habilitado y deben **delegar en estos skills** en vez de improvisar comandos crudos de Podman/Docker/adb. Regla: ningún skill ni script de tooling debe contener `/Users/<quien-sea>/...` ni nombres de contenedor con prefijo de proyecto (`open-supervisor-kafka-1`); usar `$COMPOSE exec <servicio>`.
+- **Skills operativos en el repo (agnósticos)**: `open-supervisor-infra` (contenedores + servicios backend + inyección + Kafka) y `open-supervisor-emulator` (validación e2e de la app Android) viven en `.claude/skills/` dentro del repo (git-trackeados), por lo que cualquiera que clone el proyecto los recibe. **Son agnósticos de máquina**: no contienen rutas absolutas — derivan la raíz con `git rev-parse --show-toplevel`, detectan el motor de contenedores (Podman/Docker) y resuelven el socket y el serial del emulador dinámicamente. opencode los lee vía `.claude/skills` agregado a `skills.paths` en `opencode.json` (fuente única, sin duplicar). Los agentes `qa`, `backend` y `frontend` tienen el tool `Skill` habilitado y deben **delegar en estos skills** en vez de improvisar comandos crudos de Podman/Docker/adb. Regla: ningún skill ni script de tooling debe contener rutas absolutas de usuario (`$HOME/...`) ni nombres de contenedor con prefijo de proyecto; usar `$COMPOSE exec <servicio>`.

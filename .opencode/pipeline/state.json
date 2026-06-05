@@ -1,77 +1,21 @@
 {
   "global": {
-    "pipeline_active": false
+    "pipeline_active": true
   },
   "scopes": {
-    "bugfix.error-500-decision": {
-      "active": false,
-      "type": "bugfix",
-      "step": 5,
-      "started_at": "2026-06-04T18:00:00.000Z",
-      "completed_at": "2026-06-04T18:10:00.000Z"
-    },
-    "bugfix.snake-case-contract": {
-      "active": false,
-      "type": "bugfix",
-      "step": 5,
-      "started_at": "2026-06-04T18:30:00.000Z",
-      "completed_at": "2026-06-04T18:50:00.000Z"
-    },
-    "bugfix.http-service-di": {
-      "active": false,
-      "type": "bugfix",
-      "step": 3,
-      "started_at": "2026-06-04T19:00:00.000Z",
-      "completed_at": "2026-06-04T19:10:00.000Z"
-    },
-    "bugfix.resolve-uses-correlation-id": {
-      "active": false,
-      "type": "bugfix",
-      "step": 4,
-      "started_at": "2026-06-04T19:20:00.000Z",
-      "completed_at": "2026-06-04T19:45:00.000Z"
-    },
     "main": {
-      "active": false,
+      "active": true,
       "type": "feature",
       "step": 6,
       "started_at": "2026-06-04T12:00:00.000Z",
-      "completed_at": "2026-06-04T14:30:00.000Z"
-    },
-    "bugfix-indicator-wiring": {
-      "active": false,
-      "type": "bugfix",
-      "step": 5,
-      "started_at": "2026-06-04T16:40:00.000Z",
-      "completed_at": "2026-06-04T16:55:00.000Z"
-    },
-    "feature/outbox-pattern": {
-      "active": false,
-      "type": "feature",
-      "step": 6,
-      "started_at": "2026-06-04T19:00:00.000Z",
-      "completed_at": "2026-06-04T21:00:00.000Z"
-    },
-    "chore/install-linkedin-apply": {
-      "active": false,
-      "type": "chore",
-      "step": 9,
-      "started_at": "2026-06-04T21:44:14.862203+00:00",
-      "completed_at": "2026-06-04T21:48:43.075008+00:00"
-    },
-    "feature-decomposicion-paralela-scopes": {
-      "active": true,
-      "type": "feature",
-      "step": 1,
-      "started_at": "2026-06-04T21:54:43.000Z",
       "completed_at": null
     },
-    "bugfix.e2e-outbox-fixes": {
-      "active": false,
-      "type": "bugfix",
-      "step": 5,
-      "started_at": "2026-06-04T22:00:00.000Z",
-      "completed_at": "2026-06-04T23:15:00.000Z"
+    "feature-portabilidad-harness-podman": {
+      "active": true,
+      "type": "feature",
+      "step": 0,
+      "started_at": "2026-06-04T23:58:11.660Z",
+      "completed_at": null
     }
   }
 }
