@@ -1,42 +1,32 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Users/fabianmunoz/.claude/**)",
+      "Read(//.claude/**)",
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "Bash(pnpm --filter authorization-service test --passWithNoTests)",
       "Bash(./node_modules/.bin/jest --passWithNoTests)",
-      "Bash(ls /Users/fabianmunoz/Workspace/open-supervisor/apps/authorization-service/src/../../packages/shared-types/src/index.ts 2>/dev/null && echo \"path ok\" || echo \"path broken\")",
-      "Read(//Users/fabianmunoz/Workspace/open-supervisor/apps/packages/shared-types/src/**)",
       "Bash(./node_modules/.bin/jest --showConfig)",
       "Bash(pnpm --filter authorization-service test)",
-      "Bash(pnpm approve-builds *)",
-      "Bash(echo \"enable-pre-post-scripts=true\")",
-      "Bash(echo \"approve-builds=@nestjs/core\")",
-      "Bash(pnpm --filter @open-supervisor/authorization-service add @nestjs/axios axios --ignore-scripts)",
-      "Bash(pnpm --filter authorization-service typecheck)",
-      "Bash(tsc --noEmit --project /Users/fabianmunoz/Workspace/open-supervisor/apps/authorization-service/tsconfig.json)",
+      "Bash(pnpm --filter authorization-service test --forceExit)",
+      "Bash(pnpm --filter authorization-service test -- --verbose)",
       "Bash(pnpm --filter authorization-service test --coverage)",
       "Bash(pnpm --filter sse-server test)",
-      "Bash(npx jest *)",
-      "Bash(pnpm --filter authorization-service test -- --verbose)",
-      "Bash(pnpm --filter authorization-service test --forceExit)",
       "Bash(pnpm --filter sse-server test --forceExit)",
       "Bash(pnpm --filter bff test --forceExit)",
       "Bash(pnpm --filter shared-types test --forceExit)",
+      "Bash(pnpm --filter authorization-service typecheck)",
       "Bash(pnpm --filter sse-server typecheck)",
       "Bash(pnpm --filter shared-types typecheck)",
       "Bash(pnpm --filter shared-messaging typecheck)",
+      "Bash(tsc --noEmit)",
+      "Bash(pnpm approve-builds *)",
       "Bash(pnpm lint *)",
-      "Bash(chmod +x /Users/fabianmunoz/Workspace/open-supervisor/setup-android.sh)",
-      "Read(//private/var/folders/sx/wlchnl3d5k9_2y_k1z72y1480000gn/T/tmp.VUChRqzRS4/**)",
-      "Bash(node /Users/fabianmunoz/Workspace/open-supervisor/apps/mobile/node_modules/.bin/react-native init OpenSupervisor --skip-install)",
-      "Bash(/Users/fabianmunoz/Workspace/open-supervisor/apps/mobile/node_modules/.bin/react-native init *)",
+      "Bash(npx jest *)",
       "Bash(npx @react-native-community/cli@15.1.3 init OpenSupervisor --skip-install)",
-      "Bash(mkdir -p /Users/fabianmunoz/.claude/skills/task/.claude)"
-    ],
-    "additionalDirectories": [
-      "/Users/fabianmunoz/.claude/skills/task"
+      "Bash(npx react-native init *)",
+      "Bash(npx @react-native-community/cli init *)",
+      "Bash(chmod +x setup-android.sh)"
     ]
   },
   "hooks": {

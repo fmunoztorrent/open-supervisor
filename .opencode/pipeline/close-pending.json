@@ -1,7 +1,5 @@
 {
-  "scope": "feature/outbox-pattern",
+  "scope": "main",
   "type": "feature",
-  "completed_at": "2026-06-04T21:00:00.000Z",
-  "merged_to": "main",
-  "merge_commit": "d8c3326"
+  "completed_at": "2026-06-04T23:56:02.539Z"
 }

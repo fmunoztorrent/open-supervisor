@@ -409,7 +409,7 @@ slug: spec-no-asumir-tests-que-no-existen
 ```bash
 cd packages/shared-types && node_modules/.bin/tsc && cd ../shared-messaging && node_modules/.bin/tsc
 ```
-Para levantar la infra con Podman: `DOCKER_HOST=unix:///Users/fabianmunoz/.local/share/containers/podman/machine/podman.sock podman compose up -d`
+Para levantar la infra con Podman: `make infra` (el Makefile detecta el motor automáticamente)
 
 ---
 date: 2026-06-03
