@@ -719,3 +719,19 @@ slug: nestjs-build-puede-salir-0-sin-crear-dist-por-tsbuildinfo-stale
 
 **Como aplicar**: si `nest build` sale 0 y `dist/main.js` no existe o tiene fecha vieja, `rm -f tsconfig*.tsbuildinfo` antes de reintentar. Considerar agregar un script `clean` al package.json que borre los buildinfos y `dist/` para tener un build 100% reproducible.
 
+---
+date: 2026-06-04
+agent: qa
+category: pattern
+tags: [portabilidad, harness, podman, docker, settings, hardcodeo]
+slug: despersonalizacion-harness-settings-local
+---
+
+**Contexto**: el repositorio contenía hardcodeos de rutas absolutas (`/Users/fabianmunoz/...`) y socket Podman en archivos trackeados (`CLAUDE.md`, `LEARNINGS.md`, `.claude/settings.json`, `docker-compose.localstack.yml`), lo que rompía la portabilidad para cualquier otro desarrollador.
+
+**Qué pasó**: se identificaron 8 hardcodeos críticos distribuidos en 5 archivos. Los skills operativos y el Makefile ya tenían detección dinámica Podman/Docker, pero los archivos de harness y documentación no.
+
+**Lección**: separar configuración en dos capas: `settings.json` (trackeado, portable, reglas base que aplican a todos los devs) y `settings.local.json` (no trackeado, personal, rutas absolutas y comandos específicos de la máquina del autor). Para compose files, usar variables de entorno (`${DOCKER_SOCK:-/var/run/docker.sock}`) en lugar de rutas hardcodeadas.
+
+**Cómo aplicar**: al agregar reglas de permisos en Claude Code, preguntarse: "¿esto funcionaría si otro dev clona el repo en otra máquina?" Si la respuesta es no, va en `settings.local.json`. Para comandos de contenedores en documentación, siempre referenciar `make infra` o `$COMPOSE exec <servicio>`, nunca nombres de contenedor ni rutas de socket.
+
