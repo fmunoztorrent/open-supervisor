@@ -41,4 +41,35 @@ if [[ "$PIPELINE_STATUS" == active:* ]]; then
 fi
 
 echo "✓ Pipeline check: OK"
+
+# ── Validación de hardcodeos ─────────────────────────────────────────────────
+# Escanea archivos staged en busca de paths absolutos, sockets hardcodeados,
+# y nombres de contenedor con prefijo de proyecto.
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+HARDCODE_SCRIPT="$ROOT/scripts/validate-hardcodes.sh"
+
+if [ -x "$HARDCODE_SCRIPT" ]; then
+  STAGED_FILES=$(git diff --cached --name-only)
+  if [ -n "$STAGED_FILES" ]; then
+    echo ""
+    echo "--- Hardcode validation ---"
+    # Pasar archivos staged al script de validación
+    HARDCODE_OUTPUT=$(echo "$STAGED_FILES" | xargs "$HARDCODE_SCRIPT" 2>&1) || {
+      echo "$HARDCODE_OUTPUT"
+      echo ""
+      echo "╔══════════════════════════════════════════════════════════════╗"
+      echo "║  COMMIT BLOQUEADO: Hardcodeos detectados                   ║"
+      echo "║                                                              ║"
+      echo "║  Corregí los hardcodeos antes de commitear.                 ║"
+      echo "║  Si un hardcodeo es legítimo, agregá:                       ║"
+      echo "║    # hardcode-ok: <razón>                                   ║"
+      echo "║  en el archivo afectado.                                    ║"
+      echo "║  Archivos en allowlist: .claude/settings.local.json         ║"
+      echo "╚══════════════════════════════════════════════════════════════╝"
+      exit 1
+    }
+    echo "$HARDCODE_OUTPUT"
+  fi
+fi
+
 exit 0

@@ -5,10 +5,91 @@ import { fileURLToPath } from "url"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const STATE_PATH = join(__dirname, "..", "pipeline", "state.json")
 const CLOSE_PENDING_PATH = join(__dirname, "..", "pipeline", "close-pending.json")
+const PATTERNS_PATH = join(__dirname, "..", "pipeline", "hardcode-patterns.json")
 
 const SCOPE_REGEX = /^\[([\w.-]+)\]\s*/
 
 const EDIT_TOOLS = new Set(["edit", "write"])
+
+// ── Hardcode detection ────────────────────────────────────────────────────────
+// Patterns defined in .opencode/pipeline/hardcode-patterns.json
+// Shared source of truth with scripts/validate-hardcodes.sh
+
+let hardcodePatterns = null
+let allowlistFiles = []
+
+function loadHardcodePatterns() {
+  if (hardcodePatterns) return // cached
+  try {
+    if (existsSync(PATTERNS_PATH)) {
+      const data = JSON.parse(readFileSync(PATTERNS_PATH, "utf-8"))
+      hardcodePatterns = (data.patterns || []).map((p) => ({
+        id: p.id,
+        regex: new RegExp(p.regex, "gm"),
+        suggestion: p.suggestion,
+      }))
+      allowlistFiles = data.allowlist?.files || []
+    }
+  } catch (e) {
+    // Silently fail — don't block pipeline on pattern load error
+    console.error("[pipeline-enforcer] Could not load hardcode patterns:", e.message)
+  }
+}
+
+function isAllowlisted(filePath) {
+  if (!allowlistFiles.length) return false
+  return allowlistFiles.some((f) => filePath.includes(f))
+}
+
+function scanForHardcodes(content, filePath) {
+  if (!hardcodePatterns || hardcodePatterns.length === 0) return []
+  if (isAllowlisted(filePath)) return []
+
+  const found = []
+  for (const pattern of hardcodePatterns) {
+    // Skip files with # hardcode-ok comment
+    if (/^\s*#\s*hardcode-ok:/m.test(content)) continue
+
+    pattern.regex.lastIndex = 0
+    const match = pattern.regex.exec(content)
+    if (match) {
+      // Find line number
+      const lineNum = content.substring(0, match.index).split("\n").length
+      found.push({
+        patternId: pattern.id,
+        line: lineNum,
+        suggestion: pattern.suggestion,
+      })
+    }
+  }
+  return found
+}
+
+function buildHardcodeErrorMessage(found, filePath) {
+  const lines = found
+    .map(
+      (f) =>
+        `  - ${filePath}:${f.line} — ${f.patternId}\n` +
+        `    ${f.suggestion}`
+    )
+    .join("\n")
+
+  return `Pipeline enforcement: hardcodeo(s) detectado(s) en ${filePath}.
+
+${lines}
+
+Reglas de portabilidad:
+  - Usá rutas relativas o $(git rev-parse --show-toplevel)
+  - Usá make infra o detección dinámica de motor de contenedores
+  - Usá $COMPOSE exec <servicio>, no nombres de contenedor con prefijo
+
+Si el hardcodeo es legítimo, agregá al archivo:
+  # hardcode-ok: <razón>
+
+Archivos en allowlist: ${allowlistFiles.join(", ") || "ninguno"}
+`
+}
+// ── End hardcode detection ────────────────────────────────────────────────────
 
 function loadState() {
   try {
@@ -188,6 +269,26 @@ export default async () => {
 
     "tool.execute.before": async (input, output) => {
       if (!EDIT_TOOLS.has(input?.tool)) return
+
+      // ── Hardcode detection (runs regardless of pipeline state) ─────────
+      loadHardcodePatterns()
+      let contentToCheck = ""
+      let filePath = input?.args?.filePath || ""
+
+      if (input.tool === "write") {
+        contentToCheck = input?.args?.content || ""
+      } else if (input.tool === "edit") {
+        // For edit, check the newString being written
+        contentToCheck = input?.args?.newString || ""
+      }
+
+      if (contentToCheck) {
+        const found = scanForHardcodes(contentToCheck, filePath)
+        if (found.length > 0) {
+          throw new Error(buildHardcodeErrorMessage(found, filePath))
+        }
+      }
+      // ── End hardcode detection ─────────────────────────────────────────
 
       const state = loadState()
       if (state.global.pipeline_active) return

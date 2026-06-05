@@ -486,3 +486,29 @@ Revisar la configuración del harness (CLAUDE.md, hooks, skills, .claudeignore, 
 - **Variables de entorno**: backend via `ConfigModule` NestJS; mobile via `react-native-config`.
 - **Módulos NestJS**: cada feature es un módulo; el binding port → adapter va en el module, no en los use-cases.
 - **Skills operativos en el repo (agnósticos)**: `open-supervisor-infra` (contenedores + servicios backend + inyección + Kafka) y `open-supervisor-emulator` (validación e2e de la app Android) viven en `.claude/skills/` dentro del repo (git-trackeados), por lo que cualquiera que clone el proyecto los recibe. **Son agnósticos de máquina**: no contienen rutas absolutas — derivan la raíz con `git rev-parse --show-toplevel`, detectan el motor de contenedores (Podman/Docker) y resuelven el socket y el serial del emulador dinámicamente. opencode los lee vía `.claude/skills` agregado a `skills.paths` en `opencode.json` (fuente única, sin duplicar). Los agentes `qa`, `backend` y `frontend` tienen el tool `Skill` habilitado y deben **delegar en estos skills** en vez de improvisar comandos crudos de Podman/Docker/adb. Regla: ningún skill ni script de tooling debe contener rutas absolutas de usuario (`$HOME/...`) ni nombres de contenedor con prefijo de proyecto; usar `$COMPOSE exec <servicio>`.
+## Validaciones automáticas (prevención de hardcodeos)
+
+El harness bloquea mecánicamente la introducción de hardcodeos en tres niveles:
+
+| Nivel | Mecanismo | Archivo | Cuándo |
+|---|---|---|---|
+| 1 | **Plugin opencode** | `.opencode/plugins/pipeline-enforcer.js` | En tiempo real al ejecutar `edit`/`write` |
+| 2 | **Git pre-commit hook** | `.opencode/pipeline/pre-commit.sh` → `scripts/validate-hardcodes.sh` | Antes de `git commit` |
+| 3 | **Script standalone** | `scripts/validate-hardcodes.sh` | Manual o CI (`bash scripts/validate-hardcodes.sh <archivos>`) |
+
+### Patrones prohibidos
+
+| Patrón | Ejemplo incorrecto | Forma correcta |
+|---|---|---|
+| Ruta absoluta de usuario | `$HOME/proyecto/config` | `$(git rev-parse --show-toplevel)/config` |
+| Socket hardcodeado | `Variable DOCKER_HOST con socket absoluto` | `make infra` (detección automática) |
+| Nombre de contenedor con prefijo | `podman exec <proyecto>-kafka-1` | `$COMPOSE exec kafka` |
+
+### Allowlist
+
+Si un hardcodeo es legítimo (ej. en `.claude/settings.local.json`), hay dos mecanismos:
+
+1. **Archivos excluidos:** `.claude/settings.local.json` está en la allowlist global (definida en `.opencode/pipeline/hardcode-patterns.json`).
+2. **Comentario inline:** agregar `# hardcode-ok: <razón>` en el archivo para excluir líneas específicas.
+
+Los patrones están definidos en `.opencode/pipeline/hardcode-patterns.json` (fuente única compartida por el plugin JS y el script bash).
