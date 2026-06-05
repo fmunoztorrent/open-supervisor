@@ -2,8 +2,8 @@
   "name": "@open-supervisor/sse-server",
   "version": "0.0.1",
   "scripts": {
-    "build": "nest build",
-    "dev": "nest start --watch",
+    "build": "rm -rf tsconfig*.tsbuildinfo && nest build",
+    "dev": "rm -rf tsconfig*.tsbuildinfo && nest start --watch",
     "start": "node dist/main",
     "test": "jest",
     "lint": "eslint \"{src,test}/**/*.ts\"",
