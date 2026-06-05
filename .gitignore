@@ -50,3 +50,6 @@ ios/*.xcworkspace
 # Temporary
 tmp/
 temp/
+
+# Claude Code personal settings (not tracked)
+.claude/settings.local.json

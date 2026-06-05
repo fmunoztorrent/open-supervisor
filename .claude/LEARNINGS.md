@@ -409,7 +409,7 @@ slug: spec-no-asumir-tests-que-no-existen
 ```bash
 cd packages/shared-types && node_modules/.bin/tsc && cd ../shared-messaging && node_modules/.bin/tsc
 ```
-Para levantar la infra con Podman: `DOCKER_HOST=unix:///Users/fabianmunoz/.local/share/containers/podman/machine/podman.sock podman compose up -d`
+Para levantar la infra con Podman: `make infra` (el Makefile detecta el motor automáticamente)
 
 ---
 date: 2026-06-03
@@ -718,4 +718,40 @@ slug: nestjs-build-puede-salir-0-sin-crear-dist-por-tsbuildinfo-stale
 **Leccion**: cuando un build de TypeScript sale 0 y no produce el output esperado, lo primero a sospechar es el `*.tsbuildinfo`. El skill `open-supervisor-infra` (sección E-1) ya documenta este caso pero solo lo cubre para borrar `tsconfig.tsbuildinfo` — también hay que borrar `tsconfig.build.tsbuildinfo` si existe.
 
 **Como aplicar**: si `nest build` sale 0 y `dist/main.js` no existe o tiene fecha vieja, `rm -f tsconfig*.tsbuildinfo` antes de reintentar. Considerar agregar un script `clean` al package.json que borre los buildinfos y `dist/` para tener un build 100% reproducible.
+
+---
+date: 2026-06-04
+agent: qa
+category: pattern
+tags: [portabilidad, harness, podman, docker, settings, hardcodeo]
+slug: despersonalizacion-harness-settings-local
+---
+
+**Contexto**: el repositorio contenía hardcodeos de rutas absolutas (`/Users/fabianmunoz/...`) y socket Podman en archivos trackeados (`CLAUDE.md`, `LEARNINGS.md`, `.claude/settings.json`, `docker-compose.localstack.yml`), lo que rompía la portabilidad para cualquier otro desarrollador.
+
+**Qué pasó**: se identificaron 8 hardcodeos críticos distribuidos en 5 archivos. Los skills operativos y el Makefile ya tenían detección dinámica Podman/Docker, pero los archivos de harness y documentación no.
+
+**Lección**: separar configuración en dos capas: `settings.json` (trackeado, portable, reglas base que aplican a todos los devs) y `settings.local.json` (no trackeado, personal, rutas absolutas y comandos específicos de la máquina del autor). Para compose files, usar variables de entorno (`${DOCKER_SOCK:-/var/run/docker.sock}`) en lugar de rutas hardcodeadas.
+
+**Cómo aplicar**: al agregar reglas de permisos en Claude Code, preguntarse: "¿esto funcionaría si otro dev clona el repo en otra máquina?" Si la respuesta es no, va en `settings.local.json`. Para comandos de contenedores en documentación, siempre referenciar `make infra` o `$COMPOSE exec <servicio>`, nunca nombres de contenedor ni rutas de socket.
+
+**Leccion**: cuando un build de TypeScript sale 0 y no produce el output esperado, lo primero a sospechar es el `*.tsbuildinfo`. El skill `open-supervisor-infra` (sección E-1) ya documenta este caso pero solo lo cubre para borrar `tsconfig.tsbuildinfo` — también hay que borrar `tsconfig.build.tsbuildinfo` si existe.
+
+**Como aplicar**: si `nest build` sale 0 y `dist/main.js` no existe o tiene fecha vieja, `rm -f tsconfig*.tsbuildinfo` antes de reintentar. Considerar agregar un script `clean` al package.json que borre los buildinfos y `dist/` para tener un build 100% reproducible.
+
+---
+date: 2026-06-04
+agent: qa
+category: pattern
+tags: [prevencion, hardcodeo, pre-commit, plugin, seguridad-tooling]
+slug: prevencion-hardcodeos-tres-capas-enforcement
+---
+
+**Contexto**: después de corregir 8 hardcodeos de portabilidad en el harness, implementamos un sistema de prevención para que nunca más vuelvan a ocurrir.
+
+**Qué pasó**: los hardcodeos previos (paths absolutos, sockets, nombres de contenedor) entraron al repo sin ninguna validación mecánica. Los agentes de IA tenían reglas escritas contra hardcodeos pero no había enforcement real.
+
+**Lección**: tres capas de defensa son mejor que una. Capa 1 (plugin opencode en tiempo real): el agente recibe feedback inmediato al intentar escribir un hardcodeo. Capa 2 (pre-commit hook): bloquea commits que introduzcan hardcodeos. Capa 3 (script standalone): permite auditorías manuales y CI. Compartir los patrones en un JSON centralizado (`.opencode/pipeline/hardcode-patterns.json`) evita duplicación entre la lógica bash y JS. La allowlist (`# hardcode-ok:`) es esencial para documentación y tests que legítimamente contienen ejemplos de hardcodeos.
+
+**Cómo aplicar**: para todo proyecto con agentes de IA que generan código: (1) definir patrones de hardcodeo en un archivo centralizado, (2) validar en pre-commit, (3) si usás opencode, extender el pipeline-enforcer para feedback en tiempo real, (4) siempre incluir una allowlist para falsos positivos legítimos.
 
