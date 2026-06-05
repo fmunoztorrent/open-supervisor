@@ -114,19 +114,19 @@ services: infra
 	@echo ""
 	@# ── authorization-service (puerto 3001) ──
 	@echo "$(CYAN)🔧 Compilando authorization-service...$(NC)"
-	@cd $(ROOT_DIR)/apps/authorization-service && rm -f tsconfig.tsbuildinfo && node_modules/.bin/nest build
+	@cd $(ROOT_DIR)/apps/authorization-service && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando authorization-service (puerto 3001)...$(NC)"
 	@cd $(ROOT_DIR)/apps/authorization-service && node dist/main > /tmp/auth-service.log 2>&1 &
 	@echo ""
 	@# ── sse-server (puerto 3002) ──
 	@echo "$(CYAN)🔧 Compilando sse-server...$(NC)"
-	@cd $(ROOT_DIR)/apps/sse-server && rm -f tsconfig.tsbuildinfo && node_modules/.bin/nest build
+	@cd $(ROOT_DIR)/apps/sse-server && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando sse-server (puerto 3002)...$(NC)"
 	@cd $(ROOT_DIR)/apps/sse-server && node dist/main > /tmp/sse-server.log 2>&1 &
 	@echo ""
 	@# ── bff (puerto 3000) ──
 	@echo "$(CYAN)🔧 Compilando bff...$(NC)"
-	@cd $(ROOT_DIR)/apps/bff && rm -f tsconfig.tsbuildinfo && node_modules/.bin/nest build
+	@cd $(ROOT_DIR)/apps/bff && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando bff (puerto 3000)...$(NC)"
 	@cd $(ROOT_DIR)/apps/bff && node dist/main > /tmp/bff.log 2>&1 &
 	@echo ""
