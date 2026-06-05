@@ -3,12 +3,9 @@ import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
 } from 'react-native';
 import { config } from '@gluestack-ui/config';
-import { GluestackUIProvider } from '@gluestack-ui/themed';
+import { GluestackUIProvider, HStack, Pressable, Box, Text } from '@gluestack-ui/themed';
 import { SessionProvider, useSession } from './src/context/SessionContext';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
@@ -19,26 +16,27 @@ interface DetailViewProps {
   request: RequestWithResolved;
   supervisorId: string;
   onBack: () => void;
+  onDecisionComplete: () => void;
 }
 
-function DetailView({ request, supervisorId, onBack }: DetailViewProps) {
+function DetailView({ request, supervisorId, onBack, onDecisionComplete }: DetailViewProps) {
   const { decide, isLoading, error } = useDecision(request.correlation_id, supervisorId);
 
   const handleDecide = async (decision: 'APPROVE' | 'REJECT') => {
     const success = await decide(decision);
     if (success) {
-      onBack();
+      onDecisionComplete();
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} accessibilityRole="button" accessibilityLabel="Volver">
-          <Text style={styles.backButton}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Detalle</Text>
-      </View>
+      <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 12 }}>
+        <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Volver">
+          <Text style={{ fontSize: 16, color: '#2196F3' }}>← Volver</Text>
+        </Pressable>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#212121', flex: 1 }}>Detalle</Text>
+      </HStack>
       <AuthorizationDetailScreen
         request={request}
         isLoading={isLoading}
@@ -51,7 +49,7 @@ function DetailView({ request, supervisorId, onBack }: DetailViewProps) {
 
 function SupervisorApp() {
   const { storeId, supervisorId } = useSession();
-  const { requests, isLoading, isReconnecting, isRefreshingBackground } = useSSERequests(storeId);
+  const { requests, isLoading, isReconnecting, isRefreshingBackground, refetch } = useSSERequests(storeId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedRequest = selectedId
@@ -64,18 +62,24 @@ function SupervisorApp() {
         request={selectedRequest}
         supervisorId={supervisorId}
         onBack={() => setSelectedId(null)}
+        onDecisionComplete={() => {
+          refetch(); // trigger GET /pending to remove the resolved request from the list
+          setSelectedId(null);
+        }}
       />
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Solicitudes</Text>
+      <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 12 }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#212121', flex: 1 }}>Solicitudes</Text>
         {isReconnecting && (
-          <Text style={styles.reconnecting}>Reconectando...</Text>
+          <Box bg="$warning100" px="$2" py="$1" borderRadius="$sm">
+            <Text color="$warning700" fontSize="$xs">Reconectando...</Text>
+          </Box>
         )}
-      </View>
+      </HStack>
       <AuthorizationList
         requests={requests}
         onPressRequest={setSelectedId}
@@ -101,28 +105,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    elevation: 2,
-    gap: 12,
-  },
-  backButton: {
-    fontSize: 16,
-    color: '#2196F3',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#212121',
-    flex: 1,
-  },
-  reconnecting: {
-    fontSize: 12,
-    color: '#F44336',
   },
 });

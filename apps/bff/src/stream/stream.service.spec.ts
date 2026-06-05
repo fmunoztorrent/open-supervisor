@@ -5,67 +5,41 @@
  * - (Bug 4) el BFF re-emite eventos `physical_presence_dispatch` además de
  *   `authorization_request`. Antes solo escuchaba un tipo y descartaba el otro.
  *
- * Mockeamos el módulo `eventsource` (que el StreamService carga con
- * `require()`) para inyectar un EventSource sintético.
+ * Se usa un mock de IEventSourceConnector en lugar de mockear el módulo
+ * `eventsource`.
  */
 
-// ─── Mock del módulo `eventsource` ───────────────────────────────────────────
-
-type SseHandler = (event: { data: string }) => void;
-
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-  url: string;
-  listeners: Map<string, SseHandler[]> = new Map();
-  closed = false;
-  onerror: ((err: unknown) => void) | null = null;
-  onopen: (() => void) | null = null;
-  constructor(url: string) {
-    this.url = url;
-    MockEventSource.instances.push(this);
-  }
-  addEventListener(type: string, handler: SseHandler): void {
-    if (!this.listeners.has(type)) this.listeners.set(type, []);
-    this.listeners.get(type)!.push(handler);
-  }
-  removeEventListener(type: string, handler: SseHandler): void {
-    const arr = this.listeners.get(type);
-    if (arr) {
-      const i = arr.indexOf(handler);
-      if (i >= 0) arr.splice(i, 1);
-    }
-  }
-  close(): void {
-    this.closed = true;
-  }
-  emit(type: string, data: string): void {
-    for (const h of this.listeners.get(type) ?? []) h({ data });
-  }
-}
-
-jest.mock('eventsource', () => MockEventSource, { virtual: false });
-
+import { Subject } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
 import { StreamService } from './stream.service';
-
-beforeEach(() => {
-  MockEventSource.instances = [];
-});
+import { SseEvent, IEventSourceConnector } from './ports/event-source-connector.port';
 
 describe('StreamService (BFF)', () => {
+  let eventSubject: Subject<SseEvent>;
+  let mockConnector: IEventSourceConnector;
+
+  beforeEach(() => {
+    eventSubject = new Subject<SseEvent>();
+    mockConnector = {
+      connect: jest.fn().mockReturnValue(eventSubject.asObservable()),
+    };
+  });
+
   describe('Proxy SSE — tipos de eventos (Bug 4)', () => {
     it('re-emite authorization_request al cliente móvil', () => {
       const config = {
         get: jest.fn().mockReturnValue('http://localhost:3002'),
       } as unknown as ConfigService;
-      const service = new StreamService(config);
+      const service = new StreamService(config, mockConnector);
 
-      const received: Array<{ data: string; type?: string }> = [];
+      const received: SseEvent[] = [];
       const sub = service.getStoreStream('store-1').subscribe((evt) => received.push(evt));
 
-      const source = MockEventSource.instances[0];
-      expect(source).toBeDefined();
-      source.emit('authorization_request', '{"correlation_id":"abc"}');
+      expect(mockConnector.connect).toHaveBeenCalledWith(
+        'http://localhost:3002/events/store/store-1',
+      );
+
+      eventSubject.next({ data: '{"correlation_id":"abc"}', type: 'authorization_request' });
 
       expect(received).toHaveLength(1);
       expect(received[0].type).toBe('authorization_request');
@@ -77,14 +51,12 @@ describe('StreamService (BFF)', () => {
       const config = {
         get: jest.fn().mockReturnValue('http://localhost:3002'),
       } as unknown as ConfigService;
-      const service = new StreamService(config);
+      const service = new StreamService(config, mockConnector);
 
-      const received: Array<{ data: string; type?: string }> = [];
+      const received: SseEvent[] = [];
       const sub = service.getStoreStream('store-1').subscribe((evt) => received.push(evt));
 
-      const source = MockEventSource.instances[0];
-      expect(source).toBeDefined();
-      source.emit('physical_presence_dispatch', '{"product_id":"P-1"}');
+      eventSubject.next({ data: '{"product_id":"P-1"}', type: 'physical_presence_dispatch' });
 
       expect(received).toHaveLength(1);
       expect(received[0].type).toBe('physical_presence_dispatch');
@@ -96,16 +68,14 @@ describe('StreamService (BFF)', () => {
       const config = {
         get: jest.fn().mockReturnValue('http://localhost:3002'),
       } as unknown as ConfigService;
-      const service = new StreamService(config);
+      const service = new StreamService(config, mockConnector);
 
-      const received: Array<{ data: string; type?: string }> = [];
+      const received: SseEvent[] = [];
       const sub = service.getStoreStream('store-1').subscribe((evt) => received.push(evt));
 
-      const source = MockEventSource.instances[0];
-      expect(source).toBeDefined();
-      source.emit('authorization_request', '{"id":"r1"}');
-      source.emit('physical_presence_dispatch', '{"id":"d1"}');
-      source.emit('authorization_request', '{"id":"r2"}');
+      eventSubject.next({ data: '{"id":"r1"}', type: 'authorization_request' });
+      eventSubject.next({ data: '{"id":"d1"}', type: 'physical_presence_dispatch' });
+      eventSubject.next({ data: '{"id":"r2"}', type: 'authorization_request' });
 
       expect(received).toHaveLength(3);
       const types = received.map((e) => e.type);

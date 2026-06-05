@@ -89,6 +89,39 @@ Para `PRICE_CHANGE` el payload incluye además: `product_id`, `original_price`, 
 
 Las tiendas viven en redes privadas. El único canal de retorno es Kafka. El `internal-server` de cada tienda suscribe solo `auth.response.{store_id}` y enruta al POS correcto por `correlation_id`.
 
+## Principios SOLID
+
+La arquitectura hexagonal impone DIP y OCP estructuralmente. Estas reglas hacen explícito el contrato completo.
+
+### El punto dulce: SOLID + filosofía del framework
+
+> Los principios SOLID y la arquitectura hexagonal son objetivos de diseño, no dogmas rígidos. Se aplican **respetando la filosofía del framework** (NestJS para el backend, React Native para el móvil). Cuando exista tensión entre un principio SOLID y un idioma del framework, evaluar el trade-off:
+>
+> - **El dominio (use-cases, entities, ports) debe ser agnóstico del framework.**
+> - **La infraestructura puede y debe usar idiomas del framework** para no reinventar lo que el ecosistema ya resuelve.
+> - **Crear un port custom solo si no hay una abstracción del framework** que satisfaga el contrato.
+
+Ejemplos de trade-offs resueltos en este repositorio:
+
+| Situación | Solución elegida | Razón |
+|---|---|---|
+| HTTP en NestJS | `HttpService` de `@nestjs/axios`, no port custom | `HttpService` ya ES la abstracción; testeable con `HttpClientTestingModule` |
+| EventSource (sin built-in NestJS) | Port `IEventSourceConnector` + adapter | No hay módulo oficial; el port justifica la abstracción |
+| Scheduling en NestJS | `@Interval()` de `@nestjs/schedule` | El framework maneja el scheduling; no reinventar con `setInterval` |
+| Lifecycle en adapters | `OnModuleDestroy` directamente en la clase | NestJS lo diseñó así; TypeScript impide que clientes del port llamen `onModuleDestroy()` |
+
+### Principios
+
+| Principio | Regla |
+|---|---|
+| **S — Single Responsibility** | Cada use-case tiene exactamente una razón para cambiar. Separar lógica de publicación, persistencia y validación en clases distintas. |
+| **O — Open/Closed** | Nuevo broker, repositorio o proveedor externo = nueva carpeta en `infrastructure/` + 1 línea en el module. El dominio no se toca. |
+| **L — Liskov Substitution** | Un adapter debe poder substituir al port sin efectos secundarios observables. Los lifecycle hooks NestJS son responsabilidad de la clase concreta — no forman parte del contrato del port y TypeScript los aísla por tipo. |
+| **I — Interface Segregation** | Interfaces con el menor número de métodos que satisfagan el contrato. |
+| **D — Dependency Inversion** | Dominio y use-cases dependen de abstracciones. Nunca de `kafkajs`, `ioredis`, `drizzle-orm`, `fetch` o `EventSource` directos. Para HTTP: `HttpService` de `@nestjs/axios`. Para SSE: `IEventSourceConnector`. |
+
+> **Regla de oro:** Si un test de un use-case requiere un mock de `kafkajs`, `ioredis`, `drizzle-orm`, `fetch` o `EventSource` directamente, hay una violación DIP. Los tests de dominio mockean ports (interfaces), nunca SDKs.
+
 ## Stack
 
 | Capa | Tecnología |

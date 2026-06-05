@@ -48,3 +48,25 @@ infrastructure/
 - El servicio no tiene dominio propio — cualquier lógica de enrutamiento o transformación pertenece a `authorization-service`.
 - El binding `NOTIFICATION_SUBSCRIBER` → `RedisNotificationSubscriberAdapter` está en `sse.module.ts`.
 - Puerto HTTP por defecto: **3002**.
+
+## Principios SOLID en este servicio
+
+Este servicio es un **thin adapter** sin lógica de dominio. El punto dulce NestJS + hexagonal se resuelve así:
+
+### D — Dependency Inversion
+
+`SseService` depende de `INotificationSubscriber` (port de `@open-supervisor/shared-messaging`), no de `ioredis` directamente. El binding está en `sse.module.ts`.
+
+Para reemplazar Redis por otro pub/sub: nueva clase en `infrastructure/` que implemente `INotificationSubscriber` + 1 línea en el module. `SseService` no se modifica.
+
+### S — Single Responsibility
+
+`SseService` gestiona suscripción Redis y produce el Observable SSE. Si la complejidad crece (filtros por rol, múltiples tipos de evento, autenticación), evaluar separar en:
+- `RedisStreamConnector` — gestiona suscripciones y subjects por `storeId`
+- `SseService` — convierte el stream en Observable SSE
+
+**Señal de alerta:** si `SseService` supera ~60 líneas, evaluar si asume más de una responsabilidad.
+
+### Concesión documentada
+
+`OnModuleDestroy` directamente en `RedisNotificationSubscriberAdapter` es correcto — NestJS lo espera en providers para cleanup de recursos. No es una violación LSP porque TypeScript aísla el lifecycle del contrato del port.

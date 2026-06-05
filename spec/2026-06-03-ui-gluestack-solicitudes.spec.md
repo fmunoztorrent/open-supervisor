@@ -149,8 +149,8 @@ El scope es puramente de presentación. **No se toca ningún hook, API client, c
 > Como **supervisor**, quiero **ver el header de la app (título, botón Volver, banner de reconexión) con componentes Gluestack**, para que **la interfaz sea visualmente consistente**.
 
 **Criterios de aceptación:**
-- [ ] El header en `App.tsx` usa `HStack`, `Text`, `Pressable` de Gluestack en lugar de `View` + `StyleSheet`. *(no implementado — postergado)*
-- [ ] El banner "Reconectando..." usa un `Box` con fondo de warning token de Gluestack. *(no implementado — postergado)*
+- [x] El header en `App.tsx` usa `HStack`, `Text`, `Pressable` de Gluestack en lugar de `View` + `StyleSheet`.
+- [x] El banner "Reconectando..." usa un `Box` con fondo de warning token de Gluestack.
 - [x] `SafeAreaView` y `StatusBar` de React Native se mantienen.
 
 **Notas:** —
@@ -275,13 +275,16 @@ Feature: Componentes visuales de la app usando Gluestack UI
 - [x] US-02: `AuthorizationCard` migrada a Pressable, VStack, Box, Badge, BadgeText. `testID` preservados.
 - [x] US-03: `AuthorizationList` migrada a Center, Spinner, ScrollView. Test nuevo de `list-spinner` creado.
 - [x] US-04: `AuthorizationDetailScreen` migrada a Button, ButtonText, ButtonSpinner (`testID="approve-button-spinner"`). `isDisabled` + `accessibilityState` explícito.
+- [x] US-05 (Should): header de `App.tsx` migrado (2026-06-05) — `HStack` reemplaza `View`, `Pressable` reemplaza `TouchableOpacity`, banner "Reconectando..." usa `Box` con `bg="$warning100"`. `StyleSheet.create` solo conserva `container` para `SafeAreaView`.
+
+- [x] US-05 (Should): header de `App.tsx` migrado (2026-06-05) — `HStack` reemplaza `View`, `Pressable` reemplaza `TouchableOpacity`, banner "Reconectando..." usa `Box` con `bg="$warning100"`. `StyleSheet.create` solo conserva `container` para `SafeAreaView`. 
 
 ### No implementado / Desviaciones
-- US-05 (Should): header de `App.tsx` postergado — `StyleSheet.create` permanece en App.tsx para el header y navegación. La migración de App.tsx header requiere más testing manual y no tiene cobertura de tests unitarios.
+- Ningún pendiente — todas las USTs completadas.
 - Spec US-03 decía "actualizar test de Cargando...": ese test no existía. Se creó un test nuevo en su lugar (detectado por el architect).
 - `@expo/html-elements` (dep transitiva de themed) requirió agregar `@expo` al `transformIgnorePatterns` de jest.config.js — no estaba documentado en el spec.
 
 ### Tests
-- Unitarios: 50/50 pasando (48 pre-existentes + 2 nuevos: Spinner, ButtonSpinner)
+- Unitarios: 67/67 pasando (incluye App.test.tsx que valida los headers Gluestack)
 - Integración: no aplica (pure UI migration)
-- E2E: no corrido (`pnpm android` build nativo pendiente de verificar)
+- E2E: verificado en emulador — headers Gluestack ("Solicitudes", "← Volver", "Detalle", banner "Reconectando...") se renderizan correctamente sin errores JS

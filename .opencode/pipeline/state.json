@@ -1,21 +1,14 @@
 {
   "global": {
-    "pipeline_active": true
+    "pipeline_active": false
   },
   "scopes": {
     "main": {
-      "active": true,
+      "active": false,
       "type": "feature",
       "step": 6,
       "started_at": "2026-06-04T12:00:00.000Z",
-      "completed_at": null
-    },
-    "feature-portabilidad-harness-podman": {
-      "active": true,
-      "type": "feature",
-      "step": 0,
-      "started_at": "2026-06-04T23:58:11.660Z",
-      "completed_at": null
+      "completed_at": "2026-06-05T22:46:06.929Z"
     }
   }
 }

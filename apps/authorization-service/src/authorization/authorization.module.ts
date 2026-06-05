@@ -1,6 +1,7 @@
 import { Module, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { MESSAGE_CONSUMER, IMessageConsumer, MESSAGE_PUBLISHER } from '@open-supervisor/shared-messaging';
 import { AuthorizationController } from './authorization.controller';
 import {
@@ -16,8 +17,10 @@ import { EVENT_EMITTER } from '../domain/ports/event-emitter.port';
 import { ACTIVE_DIRECTORY } from '../domain/ports/active-directory.port';
 import { OUTBOX_REPOSITORY } from '../domain/ports/outbox-repository.port';
 import { UNIT_OF_WORK } from '../domain/ports/unit-of-work.port';
+import { AUTHORIZATION_RESPONSE_PUBLISHER } from '../domain/ports/authorization-response-publisher.port';
 import { KafkaConsumerAdapter } from '../infrastructure/messaging/kafka/kafka-consumer.adapter';
 import { KafkaPublisherAdapter } from '../infrastructure/messaging/kafka/kafka-publisher.adapter';
+import { KafkaAuthorizationResponsePublisher } from '../infrastructure/messaging/kafka/kafka-authorization-response-publisher.adapter';
 import { RedisPublisherAdapter } from '../infrastructure/events/redis-publisher.adapter';
 import { DrizzleModule } from '../infrastructure/persistence/drizzle/drizzle.provider';
 import { DrizzleAuthorizationRepository } from '../infrastructure/persistence/drizzle/drizzle-authorization.repository';
@@ -30,6 +33,7 @@ import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     HttpModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -46,6 +50,7 @@ import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
     { provide: UNIT_OF_WORK, useClass: DrizzleUnitOfWork },
     { provide: MESSAGE_PUBLISHER, useClass: KafkaPublisherAdapter },
     { provide: MESSAGE_CONSUMER, useClass: KafkaConsumerAdapter },
+    { provide: AUTHORIZATION_RESPONSE_PUBLISHER, useClass: KafkaAuthorizationResponsePublisher },
     { provide: EVENT_EMITTER, useClass: RedisPublisherAdapter },
     {
       provide: ACTIVE_DIRECTORY,
@@ -60,18 +65,18 @@ import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
       provide: VerifyEmployeeBenefitUseCase,
       useFactory: (
         activeDirectory: any,
-        publisher: any,
+        responsePublisher: any,
         eventEmitter: any,
         repository: any,
       ) =>
         new VerifyEmployeeBenefitUseCase(
           activeDirectory,
-          publisher,
+          responsePublisher,
           eventEmitter,
           repository,
           new Logger(VerifyEmployeeBenefitUseCase.name),
         ),
-      inject: [ACTIVE_DIRECTORY, MESSAGE_PUBLISHER, EVENT_EMITTER, AUTHORIZATION_REPOSITORY],
+      inject: [ACTIVE_DIRECTORY, AUTHORIZATION_RESPONSE_PUBLISHER, EVENT_EMITTER, AUTHORIZATION_REPOSITORY],
     },
     {
       provide: VERIFY_EMPLOYEE_BENEFIT,

@@ -131,43 +131,5 @@ describe('OutboxPublisherService', () => {
     });
   });
 
-  describe('lifecycle', () => {
-    it('start() begins ticking on the configured interval', () => {
-      // Arrange
-      const tickSpy = jest
-        .spyOn(service, 'tick')
-        .mockResolvedValue({ pending: 0, published: 0, failed: 0, durationMs: 0 });
-      jest.useFakeTimers();
 
-      // Act
-      service.start();
-      jest.advanceTimersByTime(2500);
-
-      // Assert
-      expect(tickSpy).toHaveBeenCalledTimes(2); // 1000ms × 2.5s
-
-      // Cleanup
-      service.stop();
-      jest.useRealTimers();
-    });
-
-    it('stop() clears the interval so tick is not called anymore', () => {
-      // Arrange
-      const tickSpy = jest
-        .spyOn(service, 'tick')
-        .mockResolvedValue({ pending: 0, published: 0, failed: 0, durationMs: 0 });
-      jest.useFakeTimers();
-      service.start();
-
-      // Act
-      service.stop();
-      jest.advanceTimersByTime(5000);
-
-      // Assert
-      expect(tickSpy).not.toHaveBeenCalled();
-
-      // Cleanup
-      jest.useRealTimers();
-    });
-  });
 });

@@ -53,6 +53,7 @@ describe('App', () => {
         isLoading: false,
         isReconnecting: false,
         isRefreshingBackground: true,
+        refetch: jest.fn().mockResolvedValue(undefined),
       });
 
       renderWithProvider(<App />);
@@ -67,6 +68,7 @@ describe('App', () => {
         isLoading: false,
         isReconnecting: false,
         isRefreshingBackground: false,
+        refetch: jest.fn().mockResolvedValue(undefined),
       });
 
       renderWithProvider(<App />);

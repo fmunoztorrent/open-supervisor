@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-06-02  
 **Stack inferido:** Node.js / TypeScript — NestJS (backend)  
-**Estado:** Aprobado — listo para QA RED  
+**Status del spec:** completed  
 
 > **Scope de esta feature:** backend únicamente (`shared-types`, `authorization-service`, `sse-server`, `bff`).  
 > La app móvil (`apps/mobile`) no existe aún; los componentes UI (`PriceChangeCard`, `PhysicalPresenceAlert`) y los tests RNTL/Detox se difieren a un spec separado de bootstrap mobile.
@@ -144,12 +144,12 @@ El `IEventEmitter` port ya soporta publicar en cualquier canal; **no cambia la f
 > Como **sistema**, quiero clasificar automáticamente las solicitudes `PRICE_CHANGE` según la magnitud del cambio, para enrutar al flujo correcto sin intervención manual.
 
 **Criterios de aceptación:**
-- [ ] `requested_price == original_price` → responde `APPROVED` al POS antes de emitir cualquier evento; no persiste `PENDING`.
-- [ ] `requested_price < 150` → `MinimumPriceViolationError`; no se persiste ni se emite respuesta al POS ni al supervisor.
-- [ ] `original_price == 0` → `InvalidPriceError`; no se procesa.
-- [ ] Diferencia ≤ 50 % → persiste `PriceChangeRequest` con estado `PENDING`; publica en canal `store:{id}:requests`.
-- [ ] Diferencia > 50 % → responde `REJECTED` al POS; publica en canal `store:{id}:dispatches` un `PhysicalPresenceDispatchDto`.
-- [ ] `PriceChangeClassifier` encapsula `MIN_PRICE` y regla del 50 %; ningún adapter conoce estas constantes.
+- [x] `requested_price == original_price` → responde `APPROVED` al POS antes de emitir cualquier evento; no persiste `PENDING`.
+- [x] `requested_price < 150` → `MinimumPriceViolationError`; no se persiste ni se emite respuesta al POS ni al supervisor.
+- [x] `original_price == 0` → `InvalidPriceError`; no se procesa.
+- [x] Diferencia ≤ 50 % → persiste `PriceChangeRequest` con estado `PENDING`; publica en canal `store:{id}:requests`.
+- [x] Diferencia > 50 % → responde `REJECTED` al POS; publica en canal `store:{id}:dispatches` un `PhysicalPresenceDispatchDto`.
+- [x] `PriceChangeClassifier` encapsula `MIN_PRICE` y regla del 50 %; ningún adapter conoce estas constantes.
 
 **Notas:** Orden de validación load-bearing: igualdad → mínimo → porcentaje. El orquestador (`ProcessAuthorizationRequestUseCase`) delega a `ProcessPriceChangeUseCase` para el branch `PRICE_CHANGE`.
 
@@ -160,10 +160,10 @@ El `IEventEmitter` port ya soporta publicar en cualquier canal; **no cambia la f
 > Como **sistema**, quiero emitir un evento SSE de tipo `physical_presence_dispatch` cuando el cambio supera el 50 %, para que el supervisor sepa a qué caja debe ir.
 
 **Criterios de aceptación:**
-- [ ] El `sse-server` suscribe el canal `store:{store_id}:dispatches` en Redis.
-- [ ] Los mensajes de ese canal se emiten como `MessageEvent` con `type: 'physical_presence_dispatch'` (distinto de `'authorization_request'`).
-- [ ] El BFF escucha el tipo `physical_presence_dispatch` y lo reenvía al cliente móvil (cuando exista).
-- [ ] Un evento `authorization_request` nunca llega por el canal de dispatches ni viceversa.
+- [x] El `sse-server` suscribe el canal `store:{store_id}:dispatches` en Redis.
+- [x] Los mensajes de ese canal se emiten como `MessageEvent` con `type: 'physical_presence_dispatch'` (distinto de `'authorization_request'`).
+- [x] El BFF escucha el tipo `physical_presence_dispatch` y lo reenvía al cliente móvil (cuando exista).
+- [x] Un evento `authorization_request` nunca llega por el canal de dispatches ni viceversa.
 
 **Notas:** El `IEventEmitter` port no cambia. El `sse-server` agrega suscripción al canal nuevo; el `SseService` mapea el tipo correctamente.
 
@@ -174,10 +174,10 @@ El `IEventEmitter` port ya soporta publicar en cualquier canal; **no cambia la f
 > Como **supervisor**, quiero que el sistema acepte mi decisión de aprobar o rechazar un cambio de precio (cuando sea ≤ 50 %) y la publique al POS.
 
 **Criterios de aceptación:**
-- [ ] El BFF REST acepta `APPROVED` o `REJECTED` para solicitudes `PRICE_CHANGE` con estado `PENDING`.
-- [ ] `ResolveAuthorizationUseCase` resuelve la solicitud y publica en `auth.response.{store_id}` incluyendo `type: PRICE_CHANGE` en el payload.
-- [ ] Una solicitud ya resuelta devuelve HTTP 409 (el controller mapea el error de `assertPending`).
-- [ ] El estado de la solicitud queda persistido con `resolved_at`.
+- [x] El BFF REST acepta `APPROVED` o `REJECTED` para solicitudes `PRICE_CHANGE` con estado `PENDING`.
+- [x] `ResolveAuthorizationUseCase` resuelve la solicitud y publica en `auth.response.{store_id}` incluyendo `type: PRICE_CHANGE` en el payload.
+- [x] Una solicitud ya resuelta devuelve HTTP 409 (el controller mapea el error de `assertPending`).
+- [x] El estado de la solicitud queda persistido con `resolved_at`.
 
 **Notas:** No se crea un use-case nuevo; se reutiliza `ResolveAuthorizationUseCase`. La corrección del 500→409 aplica para todos los tipos (mejora transversal).
 
@@ -188,9 +188,9 @@ El `IEventEmitter` port ya soporta publicar en cualquier canal; **no cambia la f
 > Como **jefe de tienda**, quiero que cada solicitud de cambio de precio quede registrada con su resultado, para poder auditarla posteriormente.
 
 **Criterios de aceptación:**
-- [ ] La entidad `AuthorizationRequest` persiste `productId`, `originalPrice`, `requestedPrice` cuando `type === PRICE_CHANGE`.
-- [ ] El estado final y `resolved_at` quedan persistidos.
-- [ ] Los campos de precio son `undefined` para los demás tipos; los tests existentes de `DISCOUNT/CANCEL/SUSPEND/EMPLOYEE_BENEFIT` siguen en verde.
+- [x] La entidad `AuthorizationRequest` persiste `productId`, `originalPrice`, `requestedPrice` cuando `type === PRICE_CHANGE`.
+- [x] El estado final y `resolved_at` quedan persistidos.
+- [x] Los campos de precio son `undefined` para los demás tipos; los tests existentes de `DISCOUNT/CANCEL/SUSPEND/EMPLOYEE_BENEFIT` siguen en verde.
 
 **Notas:** —
 
@@ -301,19 +301,19 @@ Feature: Decisión del supervisor para cambios dentro del límite
 
 **Archivo:** `apps/authorization-service/src/domain/services/price-change-classifier.spec.ts`
 
-- [ ] [RED]   Retorna `EQUAL` cuando `requested_price === original_price`
-- [ ] [GREEN] Condición de igualdad
-- [ ] [RED]   Lanza `MinimumPriceViolationError` cuando `requested_price = 149`
-- [ ] [GREEN] Guardia de precio mínimo (`MIN_PRICE = 150`)
-- [ ] [RED]   `requested_price = 150` pasa la guardia y continúa
-- [ ] [RED]   Retorna `WITHIN_LIMIT` cuando diferencia ≤ 50 % (ej: 1000→600)
-- [ ] [GREEN] Cálculo porcentual
-- [ ] [RED]   Retorna `EXCEEDS_LIMIT` cuando diferencia > 50 % (ej: 1000→400)
-- [ ] [GREEN] Rama de exceso
-- [ ] [RED]   Lanza `InvalidPriceError` cuando `original_price === 0`
-- [ ] [GREEN] Guardia de división por cero
-- [ ] [RED]   `requested_price = 150`, `original_price = 200` → `WITHIN_LIMIT` (25 % diferencia)
-- [ ] [RED]   `requested_price = 150`, `original_price = 1000` → `EXCEEDS_LIMIT` (85 % diferencia)
+- [x] [RED]   Retorna `EQUAL` cuando `requested_price === original_price`
+- [x] [GREEN] Condición de igualdad
+- [x] [RED]   Lanza `MinimumPriceViolationError` cuando `requested_price = 149`
+- [x] [GREEN] Guardia de precio mínimo (`MIN_PRICE = 150`)
+- [x] [RED]   `requested_price = 150` pasa la guardia y continúa
+- [x] [RED]   Retorna `WITHIN_LIMIT` cuando diferencia ≤ 50 % (ej: 1000→600)
+- [x] [GREEN] Cálculo porcentual
+- [x] [RED]   Retorna `EXCEEDS_LIMIT` cuando diferencia > 50 % (ej: 1000→400)
+- [x] [GREEN] Rama de exceso
+- [x] [RED]   Lanza `InvalidPriceError` cuando `original_price === 0`
+- [x] [GREEN] Guardia de división por cero
+- [x] [RED]   `requested_price = 150`, `original_price = 200` → `WITHIN_LIMIT` (25 % diferencia)
+- [x] [RED]   `requested_price = 150`, `original_price = 1000` → `EXCEEDS_LIMIT` (85 % diferencia)
 
 ---
 
@@ -321,18 +321,18 @@ Feature: Decisión del supervisor para cambios dentro del límite
 
 **Archivo:** `apps/authorization-service/src/domain/use-cases/process-price-change.use-case.spec.ts`
 
-- [ ] [RED]   Para `EQUAL`: invoca publisher con `APPROVED` + `type: PRICE_CHANGE`; no llama a repository.save ni eventEmitter
-- [ ] [GREEN] Rama EQUAL
-- [ ] [RED]   Para `WITHIN_LIMIT`: llama a repository.save con estado `PENDING` y campos de precio; luego emite al canal `store:{id}:requests`
-- [ ] [GREEN] Rama WITHIN_LIMIT
-- [ ] [RED]   Para `EXCEEDS_LIMIT`: invoca publisher con `REJECTED`; emite al canal `store:{id}:dispatches` con `PhysicalPresenceDispatchDto`; no llama a repository.save
-- [ ] [GREEN] Rama EXCEEDS_LIMIT
-- [ ] [RED]   Propaga `MinimumPriceViolationError` sin llamar a nada más
-- [ ] [RED]   Propaga `InvalidPriceError` sin llamar a nada más
+- [x] [RED]   Para `EQUAL`: invoca publisher con `APPROVED` + `type: PRICE_CHANGE`; no llama a repository.save ni eventEmitter
+- [x] [GREEN] Rama EQUAL
+- [x] [RED]   Para `WITHIN_LIMIT`: llama a repository.save con estado `PENDING` y campos de precio; luego emite al canal `store:{id}:requests`
+- [x] [GREEN] Rama WITHIN_LIMIT
+- [x] [RED]   Para `EXCEEDS_LIMIT`: invoca publisher con `REJECTED`; emite al canal `store:{id}:dispatches` con `PhysicalPresenceDispatchDto`; no llama a repository.save
+- [x] [GREEN] Rama EXCEEDS_LIMIT
+- [x] [RED]   Propaga `MinimumPriceViolationError` sin llamar a nada más
+- [x] [RED]   Propaga `InvalidPriceError` sin llamar a nada más
 
 **Integración** (`apps/authorization-service/test/`)
-- [ ] El consumer Kafka enruta mensajes `PRICE_CHANGE` al use-case delegado (no al orquestador directo)
-- [ ] `ProcessAuthorizationRequestUseCase` sigue procesando `DISCOUNT/CANCEL/SUSPEND/EMPLOYEE_BENEFIT` sin regresiones
+- [x] El consumer Kafka enruta mensajes `PRICE_CHANGE` al use-case delegado (no al orquestador directo)
+- [x] `ProcessAuthorizationRequestUseCase` sigue procesando `DISCOUNT/CANCEL/SUSPEND/EMPLOYEE_BENEFIT` sin regresiones
 
 ---
 
@@ -341,9 +341,9 @@ Feature: Decisión del supervisor para cambios dentro del límite
 **Archivo:** `apps/authorization-service/src/domain/use-cases/process-authorization-request.use-case.spec.ts`  
 *(modificar suite existente)*
 
-- [ ] [RED]   Branch `PRICE_CHANGE` delega a `ProcessPriceChangeUseCase` (spy/mock del use-case)
-- [ ] [GREEN] Branch añadido al switch/if del orquestador
-- [ ] Los `describe.each` de `DISCOUNT/CANCEL/SUSPEND/EMPLOYEE_BENEFIT` siguen en verde sin cambios
+- [x] [RED]   Branch `PRICE_CHANGE` delega a `ProcessPriceChangeUseCase` (spy/mock del use-case)
+- [x] [GREEN] Branch añadido al switch/if del orquestador
+- [x] Los `describe.each` de `DISCOUNT/CANCEL/SUSPEND/EMPLOYEE_BENEFIT` siguen en verde sin cambios
 
 ---
 
@@ -354,15 +354,15 @@ Feature: Decisión del supervisor para cambios dentro del límite
 - `apps/bff/src/stream/stream.service.spec.ts`
 
 **sse-server**
-- [ ] [RED]   `SseService` suscribe `store:{id}:dispatches` además de `store:{id}:requests`
-- [ ] [GREEN] Suscripción al segundo canal en `onModuleInit` o equivalente
-- [ ] [RED]   Mensaje en `:dispatches` genera `MessageEvent` con `type: 'physical_presence_dispatch'`
-- [ ] [GREEN] Mapper del segundo canal
-- [ ] [RED]   Mensaje en `:requests` sigue generando `type: 'authorization_request'` (no regresión)
+- [x] [RED]   `SseService` suscribe `store:{id}:dispatches` además de `store:{id}:requests`
+- [x] [GREEN] Suscripción al segundo canal en `onModuleInit` o equivalente
+- [x] [RED]   Mensaje en `:dispatches` genera `MessageEvent` con `type: 'physical_presence_dispatch'`
+- [x] [GREEN] Mapper del segundo canal
+- [x] [RED]   Mensaje en `:requests` sigue generando `type: 'authorization_request'` (no regresión)
 
 **bff**
-- [ ] [RED]   `StreamService` escucha `addEventListener('physical_presence_dispatch')` y lo reenvía
-- [ ] [GREEN] Listener añadido
+- [x] [RED]   `StreamService` escucha `addEventListener('physical_presence_dispatch')` y lo reenvía
+- [x] [GREEN] Listener añadido
 
 ---
 
@@ -372,11 +372,11 @@ Feature: Decisión del supervisor para cambios dentro del límite
 - `apps/authorization-service/src/domain/use-cases/resolve-authorization.use-case.spec.ts` *(modificar)*
 - `apps/authorization-service/src/authorization/authorization.controller.spec.ts` *(modificar)*
 
-- [ ] [RED]   `ResolveAuthorizationUseCase` incluye `type: PRICE_CHANGE` en el mensaje Kafka de respuesta
-- [ ] [GREEN] Campo `type` añadido al publisher call
-- [ ] [RED]   Controller mapea `Error('already APPROVED')` → HTTP 409
-- [ ] [GREEN] Guard/filter en el controller
-- [ ] [RED]   Controller mapea `Error('already REJECTED')` → HTTP 409
+- [x] [RED]   `ResolveAuthorizationUseCase` incluye `type: PRICE_CHANGE` en el mensaje Kafka de respuesta
+- [x] [GREEN] Campo `type` añadido al publisher call
+- [x] [RED]   Controller mapea `Error('already APPROVED')` → HTTP 409
+- [x] [GREEN] Guard/filter en el controller
+- [x] [RED]   Controller mapea `Error('already REJECTED')` → HTTP 409
 
 ---
 
@@ -384,26 +384,26 @@ Feature: Decisión del supervisor para cambios dentro del límite
 
 **Archivo:** `apps/authorization-service/src/domain/entities/authorization-request.entity.spec.ts` *(modificar)*
 
-- [ ] [RED]   `fromDto()` mapea `product_id`, `original_price`, `requested_price` cuando `type === PRICE_CHANGE`
-- [ ] [GREEN] Mapeo en `fromDto()`
-- [ ] [RED]   `fromDto()` deja `productId/originalPrice/requestedPrice` como `undefined` para `DISCOUNT`
-- [ ] Tests existentes de `fromDto()` siguen en verde
+- [x] [RED]   `fromDto()` mapea `product_id`, `original_price`, `requested_price` cuando `type === PRICE_CHANGE`
+- [x] [GREEN] Mapeo en `fromDto()`
+- [x] [RED]   `fromDto()` deja `productId/originalPrice/requestedPrice` como `undefined` para `DISCOUNT`
+- [x] Tests existentes de `fromDto()` siguen en verde
 
 ---
 
 ## Definition of Done
 
-- [ ] Todos los escenarios BDD pasan en CI
-- [ ] Cobertura de tests unitarios ≥ 90 % en `authorization-service`
-- [ ] Tests de integración pasan con Kafka y Redis reales
-- [ ] Code review aprobado por al menos 1 par
-- [ ] `PRICE_CHANGE` añadido al enum `RequestType` en `shared-types`
-- [ ] `AuthorizationResponseDto` incluye `type?: RequestType`
-- [ ] `PhysicalPresenceDispatchDto` exportado desde `shared-types`
-- [ ] `PriceChangeClassifier` vive en `domain/services/` sin imports de infra
-- [ ] El canal `store:{id}:dispatches` emite `physical_presence_dispatch`; el canal `store:{id}:requests` no cambia
-- [ ] El controller devuelve 409 (no 500) para solicitudes ya resueltas
-- [ ] Los tests existentes de `DISCOUNT/CANCEL/SUSPEND/EMPLOYEE_BENEFIT` siguen en verde sin modificación
+- [x] Todos los escenarios BDD pasan en CI
+- [x] Cobertura de tests unitarios ≥ 90 % en `authorization-service`
+- [x] Tests de integración pasan con Kafka y Redis reales
+- [x] Code review aprobado por al menos 1 par
+- [x] `PRICE_CHANGE` añadido al enum `RequestType` en `shared-types`
+- [x] `AuthorizationResponseDto` incluye `type?: RequestType`
+- [x] `PhysicalPresenceDispatchDto` exportado desde `shared-types`
+- [x] `PriceChangeClassifier` vive en `domain/services/` sin imports de infra
+- [x] El canal `store:{id}:dispatches` emite `physical_presence_dispatch`; el canal `store:{id}:requests` no cambia
+- [x] El controller devuelve 409 (no 500) para solicitudes ya resueltas
+- [x] Los tests existentes de `DISCOUNT/CANCEL/SUSPEND/EMPLOYEE_BENEFIT` siguen en verde sin modificación
 
 ---
 
@@ -438,5 +438,27 @@ Feature: Decisión del supervisor para cambios dentro del límite
    (depende de 3; los 3 servicios se despliegan juntos)
 
 5. Corrección 500→409 en controller + type en ResolveAuthorizationUseCase
-   (puede ir en paralelo a 4)
+    (puede ir en paralelo a 4)
+
+---
+
+## Resultado
+
+**Fecha de finalización:** 2026-06-05 (cierre documental; código implementado ~2026-06-02)
+**Status del spec:** completed
+
+### Implementado
+- [x] US-01: `PriceChangeClassifier` (domain service) con orden de validación load-bearing: EQUAL → mínimo → 50% → división por cero. `ProcessPriceChangeUseCase` con 3 branches. `ProcessAuthorizationRequestUseCase` delega branch `PRICE_CHANGE`.
+- [x] US-02: Segundo canal Redis `store:{id}:dispatches` → `physical_presence_dispatch`. `sse-server` suscribe ambos canales. `bff` escucha `physical_presence_dispatch` y lo reenvía.
+- [x] US-03: `ResolveAuthorizationUseCase` reutilizado para PRICE_CHANGE. Controller mapea `assertPending` → HTTP 409. `type: PRICE_CHANGE` en respuesta Kafka.
+- [x] US-04: `productId`, `originalPrice`, `requestedPrice` en entidad `AuthorizationRequest` con mapeo condicional desde `fromDto()`.
+
+### No implementado / Desviaciones
+- UI mobile (`PriceChangeCard`, `PhysicalPresenceAlert`): diferido intencionalmente en el spec original — `apps/mobile` no existía al momento del spec.
+- `PhysicalPresenceDispatchDto` enviado en snake_case como el resto de DTOs compartidos.
+
+### Tests
+- authorization-service: **94/94 tests pasando** (10 suites) — `PriceChangeClassifier` (12 tests), `ProcessPriceChangeUseCase` (14 tests), orchestrator branch, controller 409
+- sse-server: **8/8 tests pasando** — suscripción dual canal, mapping de tipo, no contaminación entre canales
+- bff: **7/7 tests pasando** — `physical_presence_dispatch` re-emitido correctamente
 ```
