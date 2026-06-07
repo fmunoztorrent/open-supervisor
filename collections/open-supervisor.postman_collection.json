@@ -1,0 +1,239 @@
+{
+  "info": {
+    "name": "open-supervisor",
+    "description": "Colección de endpoints REST para la app open-supervisor.\n\n## Servicios\n\n| Servicio | Puerto | Descripción |\n|---|---|---|\n| BFF | 3000 | Backend for Frontend — proxy REST + SSE para la app móvil |\n| authorization-service | 3001 | Lógica de negocio de autorizaciones |\n\n## Cómo inyectar solicitudes\n\nNo existe un endpoint REST para **crear/injectar** solicitudes de autorización. La entrada al sistema es exclusivamente vía Kafka (`topic: auth.requests`).\n\n**Opción A — Script de inyección (recomendado):**\n```bash\n# Tipos disponibles: DISCOUNT, CANCEL, EMPLOYEE_BENEFIT, SUSPEND, PRICE_CHANGE\npnpm inject --type DISCOUNT --store-id store-1 --pos-id pos-1\npnpm inject --type PRICE_CHANGE --product-id P42 --original-price 100 --requested-price 80\npnpm inject --type DISCOUNT --verify   # verifica llegada al SSE\npnpm inject --type DISCOUNT --verbose  # muestra configuración\n```\n\n**Opción B — Kafka directo:**\nPublicar un mensaje JSON al topic `auth.requests` con el formato:\n```json\n{\n  \"store_id\": \"store-1\",\n  \"pos_id\": \"pos-1\",\n  \"correlation_id\": \"<UUID v4>\",\n  \"type\": \"DISCOUNT\",\n  \"created_at\": \"2024-01-01T00:00:00.000Z\",\n  \"amount\": 100.0\n}\n```\n\n## Flujo típico de prueba\n\n1. Inyectar solicitud con `pnpm inject --type DISCOUNT --store-id store-1`\n2. `GET /authorization/store/store-1/pending` → obtener el `id` (correlation_id)\n3. `POST /authorization/{id}/resolve` con `{ \"decision\": \"APPROVE\", \"supervisor_id\": \"sup-1\" }`\n4. Verificar que la respuesta se publicó: `GET /outbox/stats`\n\n---\nGenerado: 2026-06-04",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "open-supervisor"
+  },
+  "item": [
+    {
+      "name": "BFF (port 3000)",
+      "description": "Backend for Frontend — interfaz HTTP que consume la app móvil. Proxy REST hacia authorization-service + proxy SSE desde sse-server.",
+      "item": [
+        {
+          "name": "SSE Stream — Store Events",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// SSE no es práctico en Postman (conexión persistente).",
+                  "// Usar este request como referencia/documentación.",
+                  "// Para probar SSE real:",
+                  "//   curl -N http://localhost:3000/stream/store/store-1",
+                  "console.log('SSE endpoint — usar curl o la app móvil para probar');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_bff}}/stream/store/{{store_id}}",
+              "host": ["{{base_url_bff}}"],
+              "path": ["stream", "store", "{{store_id}}"]
+            },
+            "description": "Stream SSE de eventos para una tienda. Emite dos tipos de eventos:\n\n- **authorization_request**: nueva solicitud de autorización (DISCOUNT, CANCEL, EMPLOYEE_BENEFIT, SUSPEND, PRICE_CHANGE)\n- **physical_presence_dispatch**: notificación de presencia física requerida (PRICE_CHANGE auto-rechazado)\n\n⚠️ **No usar en Postman** — es una conexión SSE persistente. Usar curl o la app móvil:\n```bash\ncurl -N http://localhost:3000/stream/store/store-1\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "List Pending Authorizations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is array\", () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_bff}}/authorization/store/{{store_id}}/pending",
+              "host": ["{{base_url_bff}}"],
+              "path": ["authorization", "store", "{{store_id}}", "pending"]
+            },
+            "description": "Lista las solicitudes de autorización pendientes para una tienda.\n\n**Response (array):**\n```json\n[\n  {\n    \"id\": \"uuid\",\n    \"store_id\": \"store-1\",\n    \"pos_id\": \"pos-1\",\n    \"correlation_id\": \"uuid\",\n    \"type\": \"DISCOUNT\",\n    \"amount\": 100.0,\n    \"employee_id\": null,\n    \"status\": \"PENDING\",\n    \"created_at\": \"2024-01-01T00:00:00.000Z\"\n  }\n]\n```\n\n**Nota:** El `id` de cada solicitud es el `correlation_id` — úsalo en el endpoint de resolución."
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve Authorization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response has status\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.be.oneOf(['APPROVED', 'REJECTED']);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVE\",\n  \"supervisor_id\": \"sup-1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url_bff}}/authorization/{{authorization_id}}/resolve",
+              "host": ["{{base_url_bff}}"],
+              "path": ["authorization", "{{authorization_id}}", "resolve"]
+            },
+            "description": "Aprueba o rechaza una solicitud de autorización.\n\n**Body:**\n| Campo | Tipo | Descripción |\n|---|---|---|\n| decision | `APPROVE` \\| `REJECT` | Decisión del supervisor |\n| supervisor_id | string | ID del supervisor que decide |\n\n**Response (201):**\n```json\n{\n  \"id\": \"uuid\",\n  \"store_id\": \"store-1\",\n  \"pos_id\": \"pos-1\",\n  \"correlation_id\": \"uuid\",\n  \"status\": \"APPROVED\",\n  \"resolved_by\": \"sup-1\",\n  \"resolved_at\": \"2024-01-01T00:00:00.000Z\",\n  \"type\": \"DISCOUNT\"\n}\n```\n\n**Errores:**\n- `404` — ID no encontrado\n- `409` — Solicitud ya fue resuelta (idempotencia)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authorization Service (port 3001)",
+      "description": "Servicio central de lógica de negocio. Endpoints directos (sin proxy BFF). Útil para debug y testing directo.",
+      "item": [
+        {
+          "name": "List Pending Authorizations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is array\", () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_auth}}/authorization/store/{{store_id}}/pending",
+              "host": ["{{base_url_auth}}"],
+              "path": ["authorization", "store", "{{store_id}}", "pending"]
+            },
+            "description": "Lista las solicitudes de autorización pendientes para una tienda (directo al authorization-service, sin pasar por el BFF).\n\nMisma respuesta que el endpoint del BFF."
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve Authorization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response has status\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.be.oneOf(['APPROVED', 'REJECTED']);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVE\",\n  \"supervisor_id\": \"sup-1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url_auth}}/authorization/{{authorization_id}}/resolve",
+              "host": ["{{base_url_auth}}"],
+              "path": ["authorization", "{{authorization_id}}", "resolve"]
+            },
+            "description": "Aprueba o rechaza una solicitud de autorización (directo al authorization-service).\n\n**Body:**\n```json\n{\n  \"decision\": \"APPROVE | REJECT\",\n  \"supervisor_id\": \"string\"\n}\n```\n\n**Nota:** El `id` en la URL es el `correlation_id` de la solicitud (UUID v4)."
+          },
+          "response": []
+        },
+        {
+          "name": "Outbox Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has pending_count\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('pending_count');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_auth}}/outbox/stats",
+              "host": ["{{base_url_auth}}"],
+              "path": ["outbox", "stats"]
+            },
+            "description": "Métricas del outbox de mensajería. Útil para verificar que las respuestas a Kafka se están publicando correctamente.\n\n**Response:**\n```json\n{\n  \"pending_count\": 0,\n  \"published_count_last_hour\": 5,\n  \"max_attempts\": 3,\n  \"oldest_pending_age_seconds\": 0\n}\n```\n\n| Campo | Descripción |\n|---|---|\n| `pending_count` | Mensajes aún no publicados a Kafka |\n| `published_count_last_hour` | Publicados en la última hora |\n| `max_attempts` | Máximo de reintentos registrados |\n| `oldest_pending_age_seconds` | Antigüedad del mensaje más viejo sin publicar |"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Flujo Completo de Prueba",
+      "description": "Pasos para probar el flujo completo POS → Supervisor → POS.\n\n**Prerrequisitos:**\n1. Servicios corriendo: `make dev`\n2. Emulador Android o app móvil (opcional para validación visual)\n\n**Pasos:**\n\n1. **Inyectar solicitud** (terminal, no Postman):\n   ```bash\n   pnpm inject --type DISCOUNT --store-id store-1 --pos-id pos-1 --amount 50\n   ```\n\n2. **Verificar que llegó**:\n   - `GET {{base_url_bff}}/authorization/store/store-1/pending`\n   - Debe aparecer con status `PENDING`\n\n3. **Resolver**:\n   - Tomar el `id` del paso 2\n   - `POST {{base_url_bff}}/authorization/{id}/resolve`\n   - Body: `{ \"decision\": \"APPROVE\", \"supervisor_id\": \"sup-1\" }`\n\n4. **Verificar outbox** (la respuesta se publicó a Kafka):\n   - `GET {{base_url_auth}}/outbox/stats`\n   - `pending_count` debería bajar a 0 en ~1s\n\n5. **Verificar SSE** (opcional, app móvil o curl):\n   ```bash\n   curl -N http://localhost:3000/stream/store/store-1\n   ```"
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url_bff",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "base_url_auth",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "store_id",
+      "value": "store-1",
+      "type": "string"
+    },
+    {
+      "key": "authorization_id",
+      "value": "correlation-uuid-from-pending-list",
+      "type": "string"
+    }
+  ]
+}

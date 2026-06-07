@@ -1,8 +1,8 @@
 import { Inject, Logger } from '@nestjs/common';
-import { AuthorizationRequestDto, AuthorizationStatus } from '@open-supervisor/shared-types';
-import { IMessagePublisher, MESSAGE_PUBLISHER } from '@open-supervisor/shared-messaging';
+import { AuthorizationRequestDto, RejectionReason } from '@open-supervisor/shared-types';
 import { IEventEmitter, EVENT_EMITTER } from '../ports/event-emitter.port';
 import { IAuthorizationRepository, AUTHORIZATION_REPOSITORY } from '../ports/authorization-repository.port';
+import { IAuthorizationResponsePublisher, AUTHORIZATION_RESPONSE_PUBLISHER } from '../ports/authorization-response-publisher.port';
 import { ACTIVE_DIRECTORY, IActiveDirectoryPort } from '../ports/active-directory.port';
 import { AuthorizationRequest } from '../entities/authorization-request.entity';
 import { EmployeeNotFoundException, AdLookupException } from '../exceptions/active-directory.exceptions';
@@ -11,8 +11,8 @@ export class VerifyEmployeeBenefitUseCase {
   constructor(
     @Inject(ACTIVE_DIRECTORY)
     private readonly activeDirectory: IActiveDirectoryPort,
-    @Inject(MESSAGE_PUBLISHER)
-    private readonly publisher: IMessagePublisher,
+    @Inject(AUTHORIZATION_RESPONSE_PUBLISHER)
+    private readonly responsePublisher: IAuthorizationResponsePublisher,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: IEventEmitter,
     @Inject(AUTHORIZATION_REPOSITORY)
@@ -52,33 +52,17 @@ export class VerifyEmployeeBenefitUseCase {
         return;
       }
 
-      const rejectionReason = !isAccountEnabled
-        ? 'ACCOUNT_DISABLED'
-        : 'EMPLOYEE_NOT_ACTIVE';
+      const reason = !isAccountEnabled
+        ? RejectionReason.ACCOUNT_DISABLED
+        : RejectionReason.EMPLOYEE_NOT_ACTIVE;
 
-      await this.publisher.publish(`auth.response.${dto.store_id}`, {
-        store_id: dto.store_id,
-        pos_id: dto.pos_id,
-        correlation_id: dto.correlation_id,
-        status: AuthorizationStatus.REJECTED,
-        resolved_by: 'SYSTEM',
-        resolved_at: new Date().toISOString(),
-        rejection_reason: rejectionReason,
-      });
+      await this.responsePublisher.reject(dto, reason);
     } catch (error) {
       if (error instanceof EmployeeNotFoundException) {
         this.logger.warn(
           `Employee not found in AD: ${dto.employee_id}`,
         );
-        await this.publisher.publish(`auth.response.${dto.store_id}`, {
-          store_id: dto.store_id,
-          pos_id: dto.pos_id,
-          correlation_id: dto.correlation_id,
-          status: AuthorizationStatus.REJECTED,
-          resolved_by: 'SYSTEM',
-          resolved_at: new Date().toISOString(),
-          rejection_reason: 'EMPLOYEE_NOT_FOUND',
-        });
+        await this.responsePublisher.reject(dto, RejectionReason.EMPLOYEE_NOT_FOUND);
         return;
       }
 
@@ -86,15 +70,7 @@ export class VerifyEmployeeBenefitUseCase {
         this.logger.error(
           `AD lookup failed for employee ${dto.employee_id}: ${(error as Error).message}`,
         );
-        await this.publisher.publish(`auth.response.${dto.store_id}`, {
-          store_id: dto.store_id,
-          pos_id: dto.pos_id,
-          correlation_id: dto.correlation_id,
-          status: AuthorizationStatus.REJECTED,
-          resolved_by: 'SYSTEM',
-          resolved_at: new Date().toISOString(),
-          rejection_reason: 'AD_LOOKUP_FAILED',
-        });
+        await this.responsePublisher.reject(dto, RejectionReason.AD_LOOKUP_FAILED);
         return;
       }
 

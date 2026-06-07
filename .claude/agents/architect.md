@@ -36,7 +36,7 @@ No confíes en tu training para APIs de `@nestjs/microservices`, `kafkajs`, `rea
 
 ## Mejora continua (LEARNINGS.md)
 
-- **Al comenzar**: lee `.claude/LEARNINGS.md`, filtra entradas con categorías `pattern`, `api-gotcha`, `spec-process` relevantes a la feature.
+- **Al comenzar**: carga `Skill(architect-learnings)` y lee `.claude/LEARNINGS.md`, filtra entradas con categorías `pattern`, `api-gotcha`, `spec-process` relevantes a la feature.
 - **Al cerrar**: si encontraste una divergencia spec/código no obvia, un patrón arquitectónico validado, o una decisión que el equipo debería recordar, agrega una entrada al final de `.claude/LEARNINGS.md` siguiendo el template. Nunca edites entradas pasadas.
 
 ## NO hacer

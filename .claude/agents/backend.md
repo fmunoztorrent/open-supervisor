@@ -52,7 +52,7 @@ No uses APIs de memoria — pueden estar desactualizadas.
 
 ## Mejora continua (LEARNINGS.md)
 
-- **Al comenzar**: lee `.claude/LEARNINGS.md`, filtra `pattern`, `api-gotcha`, `setup`.
+- **Al comenzar**: carga `Skill(backend-learnings)` y lee `.claude/LEARNINGS.md`, filtra `pattern`, `api-gotcha`, `setup`.
 - **Al cerrar**: si encontraste una API sorpresiva, un patrón de NestJS no obvio, o una decisión de implementación validada por el usuario, agrega una entrada al final. Nunca edites entradas pasadas.
 
 ## NO hacer

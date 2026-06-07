@@ -1,23 +1,25 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Observable, Subject } from 'rxjs';
-// eventsource@2.x CJS: default import fails at runtime; require() returns the constructor directly
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
-const EventSource: any = require('eventsource');
+import { Observable, Subject, Subscription } from 'rxjs';
+import {
+  IEventSourceConnector,
+  EVENT_SOURCE_CONNECTOR,
+  SseEvent,
+} from './ports/event-source-connector.port';
 
-export interface SseEvent {
-  data: string;
-  type?: string;
-}
+export { SseEvent };
 
 @Injectable()
 export class StreamService {
   private readonly logger = new Logger(StreamService.name);
   private readonly subjects = new Map<string, Subject<SseEvent>>();
-  private readonly sources = new Map<string, any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
+  private readonly subscriptions = new Map<string, Subscription>();
   private readonly sseServerUrl: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    @Inject(EVENT_SOURCE_CONNECTOR) private readonly connector: IEventSourceConnector,
+  ) {
     this.sseServerUrl = config.get<string>('SSE_SERVER_URL', 'http://localhost:3002');
   }
 
@@ -33,32 +35,22 @@ export class StreamService {
 
   private connectToSseServer(storeId: string, subject: Subject<SseEvent>): void {
     const url = `${this.sseServerUrl}/events/store/${storeId}`;
-    const source = new EventSource(url);
-
-    // authorization_request: solicitudes de autorización (DISCOUNT, CANCEL, etc.)
-    source.addEventListener('authorization_request', (event: { data: string }) => {
-      subject.next({ data: event.data, type: 'authorization_request' });
+    const sub = this.connector.connect(url).subscribe({
+      next: (event) => subject.next(event),
+      error: (err: unknown) => {
+        this.logger.error(`SSE connection error for store ${storeId}`, err);
+      },
     });
-
-    // physical_presence_dispatch: notificaciones de presencia física
-    // (PRICE_CHANGE auto-rechazado por SYSTEM). Ver bugfix
-    // `e2e-outbox-fixes` (2026-06-04) — Bug 4. Antes, este listener
-    // faltaba y el sse-server descartaba los eventos.
-    source.addEventListener('physical_presence_dispatch', (event: { data: string }) => {
-      subject.next({ data: event.data, type: 'physical_presence_dispatch' });
-    });
-
-    source.onerror = (_err: unknown) => {
-      this.logger.error(`SSE connection error for store ${storeId}`);
-    };
-
-    this.sources.set(storeId, source);
+    this.subscriptions.set(storeId, sub);
     this.logger.log(`Connected to SSE server for store ${storeId}`);
   }
 
   onModuleDestroy(): void {
-    for (const source of this.sources.values()) {
-      source.close();
+    for (const sub of this.subscriptions.values()) {
+      sub.unsubscribe();
+    }
+    for (const subject of this.subjects.values()) {
+      subject.complete();
     }
   }
 }

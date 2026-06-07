@@ -39,6 +39,15 @@
             "command": "echo 'HOOK: Tarea completada. Antes de cerrar: (1) actualiza el spec en spec/ marcando tareas completadas y agrega seccion ## Resultado; (2) agrega una entrada en .claude/LEARNINGS.md si aprendiste algo no obvio; (3) actualiza CLAUDE.md si hay cambios arquitecturales, nuevas convenciones o decisiones que deben persistir.'"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f .opencode/pipeline/close-pending.json ] && npx tsx scripts/extract-learnings.ts 2>/dev/null || true"
+          }
+        ]
       }
     ]
   }

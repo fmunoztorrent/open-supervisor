@@ -6,16 +6,30 @@
     "main": {
       "active": true,
       "type": "feature",
-      "step": 6,
+      "step": 0,
       "started_at": "2026-06-04T12:00:00.000Z",
       "completed_at": null
     },
-    "feature-portabilidad-harness-podman": {
-      "active": true,
-      "type": "feature",
-      "step": 0,
-      "started_at": "2026-06-04T23:58:11.660Z",
-      "completed_at": null
+    "mutation-testing-setup": {
+      "active": false,
+      "type": "unknown",
+      "step": 6,
+      "started_at": "2026-06-07T01:31:39.263Z",
+      "completed_at": "2026-06-07T01:37:43.097Z"
+    },
+    "learnings-skills-setup": {
+      "active": false,
+      "type": "unknown",
+      "step": 6,
+      "started_at": "2026-06-07T01:31:39.263Z",
+      "completed_at": "2026-06-07T01:37:43.097Z"
+    },
+    "qa-green-red-integration": {
+      "active": false,
+      "type": "unknown",
+      "step": 6,
+      "started_at": "2026-06-07T01:37:43.097Z",
+      "completed_at": "2026-06-07T01:39:27.595Z"
     }
   }
 }

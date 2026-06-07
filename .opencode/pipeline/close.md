@@ -6,14 +6,15 @@ Ejecutar **inmediatamente** cuando el último todo de un scope se marca como `co
 
 ### 1. Actualizar spec (si aplica)
 
-- Buscar el spec relacionado en `spec/` por fecha/asunto
-- Agregar sección `## Resultado` al final con:
-  - Fecha de finalización
-  - Status del spec: `completed`
-  - `### Implementado` — criterios completados `[x]`
-  - `### No implementado / Desviaciones` — si las hay
-  - `### Tests` — resumen de resultados
-- Marcar `[x]` los criterios de aceptación que se completaron
+- Buscar el spec relacionado en `spec/` por fecha/asunto (formato: `<YYYY-MM-DD>-<slug>.spec.xml`)
+- Agregar entradas en `<result>`:
+  - `<completed-at>`: fecha de finalización
+  - `<implemented>`: USTs completadas con `[x]`
+  - `<deviations>`: si las hay
+  - `<tests>`: resumen de resultados
+- Cambiar `spec@status` de `draft` a `completed`
+- Marcar `<meta>/<archived>` como `true`
+- Incrementar `spec@revision` y agregar `<revision>` en `<history>`
 - Si no hay spec asociado, saltar este paso
 
 ### 2. Fusionar rama actual en `dev` local (integración)
@@ -65,7 +66,14 @@ slug: descripcion-corta-en-kebab-case
 - Preguntar al usuario si quiere agregar algo
 - Solo agregar si hay una lección no obvia
 
-### 5. Revisar CLAUDE.md
+### 4b. Extraer learning a skill de agente
+
+- Ejecutar la extracción automática: `npx tsx scripts/extract-learnings.ts`
+- Esto lee la última entrada de LEARNINGS.md y actualiza el skill correspondiente en `.claude/skills/{agent}-learnings/SKILL.md`
+- Si una lección aparece por segunda vez, el script la promueve automáticamente a "Reglas activas"
+- La extracción también se ejecuta automáticamente vía hooks del plugin y de Claude Code. Este paso manual es un fallback.
+
+### 6. Revisar CLAUDE.md
 
 - ¿Cambió algo en la estructura del proyecto?
 - ¿Nuevos comandos que documentar?
@@ -73,13 +81,13 @@ slug: descripcion-corta-en-kebab-case
 - ¿Nuevos skills configurados?
 - Actualizar solo si es relevante
 
-### 6. Limpiar close-pending
+### 7. Limpiar close-pending
 
 - Verificar que `.opencode/pipeline/close-pending.json` exista
 - Si existe, dejarlo como registro histórico (no eliminarlo)
 - Marcar `completed_at` en state.json para el scope cerrado
 
-### 7. Anunciar cierre
+### 8. Anunciar cierre
 
 ```
 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─

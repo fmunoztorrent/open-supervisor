@@ -1,18 +1,20 @@
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Interval } from '@nestjs/schedule';
 import { IMessagePublisher, MESSAGE_PUBLISHER } from '@open-supervisor/shared-messaging';
 import { IOutboxRepository, OutboxEntry, OUTBOX_REPOSITORY } from '../../domain/ports/outbox-repository.port';
+
+const OUTBOX_TICK_INTERVAL_MS = parseInt(process.env.OUTBOX_TICK_INTERVAL_MS ?? '1000', 10);
 
 /**
  * Worker que toma entries PENDING del outbox y los publica a Kafka.
  *
  * Ciclo de vida:
- * - `onModuleInit` programa `setInterval(tick, intervalMs)` con el
+ * - `@Interval()` programa la ejecución periódica de `tick()` con el
  *   intervalo configurable por `OUTBOX_TICK_INTERVAL_MS` (default 1000ms).
  * - `tick()` toma hasta `OUTBOX_BATCH_SIZE` entries PENDING (default 50),
  *   intenta publicarlos uno a uno, y los marca PUBLISHED o incrementa
  *   `attempts` según el resultado.
- * - `onModuleDestroy` limpia el interval.
  *
  * Garantías:
  * - At-least-once: si Kafka está caído, el entry queda PENDING y el
@@ -24,9 +26,8 @@ import { IOutboxRepository, OutboxEntry, OUTBOX_REPOSITORY } from '../../domain/
  * Spec: spec/2026-06-04-outbox-pattern-fire-and-forget-kafka.spec.md (US-02, US-03, US-04).
  */
 @Injectable()
-export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
+export class OutboxPublisherService {
   private readonly logger = new Logger(OutboxPublisherService.name);
-  private intervalHandle: NodeJS.Timeout | null = null;
 
   constructor(
     @Inject(OUTBOX_REPOSITORY) private readonly outboxRepo: IOutboxRepository,
@@ -34,44 +35,8 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
   ) {}
 
-  private get intervalMs(): number {
-    return this.config.get<number>('OUTBOX_TICK_INTERVAL_MS', 1000);
-  }
-
   private get batchSize(): number {
     return this.config.get<number>('OUTBOX_BATCH_SIZE', 50);
-  }
-
-  onModuleInit(): void {
-    this.start();
-  }
-
-  onModuleDestroy(): void {
-    this.stop();
-  }
-
-  /** Inicia el tick periódico. Idempotente: si ya está corriendo, no hace nada. */
-  start(): void {
-    if (this.intervalHandle) {
-      return;
-    }
-    this.intervalHandle = setInterval(() => {
-      this.tick().catch((err) => {
-        this.logger.error(
-          `Unhandled error in outbox tick: ${err instanceof Error ? err.message : 'unknown'}`,
-        );
-      });
-    }, this.intervalMs);
-    this.logger.log(`Outbox publisher started (interval=${this.intervalMs}ms, batch=${this.batchSize})`);
-  }
-
-  /** Detiene el tick. Llamado por `onModuleDestroy`. */
-  stop(): void {
-    if (this.intervalHandle) {
-      clearInterval(this.intervalHandle);
-      this.intervalHandle = null;
-      this.logger.log('Outbox publisher stopped');
-    }
   }
 
   /**
@@ -80,6 +45,7 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
    * restantes se intentan de todas formas. Si `findPending` lanza (DB
    * caída), el error se loguea y se retorna sin crashear.
    */
+  @Interval('outbox-tick', OUTBOX_TICK_INTERVAL_MS)
   async tick(): Promise<{ pending: number; published: number; failed: number; durationMs: number }> {
     const start = Date.now();
     let entries: OutboxEntry[] = [];

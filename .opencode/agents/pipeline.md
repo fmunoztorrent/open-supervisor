@@ -28,11 +28,11 @@ Si no está claro, pregunta al usuario.
 
 ### Pipeline feature (6 pasos)
 
-1. **/spec-generator** → spec formal en `spec/` con REASONS Canvas (XML)
-2. **architect agent** → valida viabilidad técnica, enriquece paths y escenarios de test
-3. **qa agent (RED)** → escribe tests que fallan por la razón correcta
-4. **backend / frontend** → implementa hasta que los tests pasen en verde
-5. **qa agent (GREEN)** → corre la suite completa y reporta
+1. **@spec** → spec formal en `spec/<slug>.spec.xml` con REASONS Canvas y versionado
+2. **@architect** → valida viabilidad técnica, enriquece paths y escenarios de test
+3. **@qa (RED)** → escribe tests que fallan por la razón correcta
+4. **@backend / @frontend** → implementa hasta que los tests pasen en verde
+5. **@qa (GREEN)** → corre la suite completa y reporta
 6. **cierre** → leer `.opencode/pipeline/close.md` y ejecutar instrucciones
 
 ### Pipeline bugfix
@@ -62,7 +62,7 @@ Cuando marques el **último todo de un scope** como `completed`:
 ### Ejemplo de todowrite multi-scope
 
 ```
-[feature/login-google]
+[feature.login-google]
 [▶] 1/6 Spec Generator → spec con REASONS Canvas
 [ ] 2/6 Architect → validar viabilidad
 [ ] 3/6 QA (RED) → tests que fallan
@@ -70,7 +70,7 @@ Cuando marques el **último todo de un scope** como `completed`:
 [ ] 5/6 QA (GREEN) → suite completa
 [ ] 6/6 Cierre → close.md
 
-[bugfix/sse-reconnect]
+[bugfix.sse-reconnect]
 [▶] 1/5 Triage → confirmar error
 [ ] 2/5 Reproducir → test que reproduce
 [ ] 3/5 Fix → corregir

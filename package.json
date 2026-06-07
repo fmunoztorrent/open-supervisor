@@ -7,7 +7,8 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "inject": "tsx scripts/inject-request.ts"
+    "inject": "tsx scripts/inject-request.ts",
+    "test:mutation": "pnpm -r test:mutation"
   },
   "pnpm": {
     "allowBuilds": ["esbuild", "@nestjs/core"]

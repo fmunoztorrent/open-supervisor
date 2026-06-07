@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-06-02  
 **Stack inferido:** Node.js / NestJS + TypeScript (monorepo pnpm)  
-**Estado:** Activo  
+**Status del spec:** completed  
 
 ---
 
@@ -30,11 +30,11 @@ Queda fuera de scope: la autenticación/autorización del propio servicio AD, la
 > Como **authorization-service**, quiero **consultar el Active Directory cuando llega una solicitud EMPLOYEE_BENEFIT**, para que **solo solicitudes de trabajadores activos sean presentadas al supervisor**.
 
 **Criterios de aceptación:**
-- [ ] Al recibir un mensaje Kafka de tipo `EMPLOYEE_BENEFIT`, el servicio consulta al AD usando el campo `employee_id` del payload (que contiene el RUT).
-- [ ] Si `associate: true` en la respuesta AD, la solicitud se publica en Redis para que el supervisor la vea.
-- [ ] Si `associate: false`, la solicitud se rechaza automáticamente con motivo `EMPLOYEE_NOT_ACTIVE` y se publica `auth.response.{store_id}` con `status: REJECTED`.
-- [ ] El campo `accountEnabled` también es validado: si es `false`, se rechaza con motivo `ACCOUNT_DISABLED`.
-- [ ] La respuesta de rechazo automático incluye `correlation_id`, `store_id`, `pos_id` y `rejected_at`.
+- [x] Al recibir un mensaje Kafka de tipo `EMPLOYEE_BENEFIT`, el servicio consulta al AD usando el campo `employee_id` del payload (que contiene el RUT).
+- [x] Si `associate: true` en la respuesta AD, la solicitud se publica en Redis para que el supervisor la vea.
+- [x] Si `associate: false`, la solicitud se rechaza automáticamente con motivo `EMPLOYEE_NOT_ACTIVE` y se publica `auth.response.{store_id}` con `status: REJECTED`.
+- [x] El campo `accountEnabled` también es validado: si es `false`, se rechaza con motivo `ACCOUNT_DISABLED`.
+- [x] La respuesta de rechazo automático incluye `correlation_id`, `store_id`, `pos_id` y `rejected_at`.
 
 **Notas:** El rechazo automático debe publicarse en Kafka (`auth.response.{store_id}`) igual que una decisión manual del supervisor. El flujo de dominio no debe conocer el SDK HTTP del AD — debe pasar por un port.
 
@@ -45,10 +45,10 @@ Queda fuera de scope: la autenticación/autorización del propio servicio AD, la
 > Como **authorization-service**, quiero **rechazar automáticamente una solicitud EMPLOYEE_BENEFIT cuando la consulta al AD falla**, para que **un error de infraestructura no deje solicitudes pendientes sin resolver**.
 
 **Criterios de aceptación:**
-- [ ] Si el AD responde con error HTTP (4xx, 5xx) o timeout, la solicitud se rechaza automáticamente con motivo `AD_LOOKUP_FAILED`.
-- [ ] Si el empleado no existe en AD (404), se rechaza con motivo `EMPLOYEE_NOT_FOUND`.
-- [ ] El error se registra en el log del servicio con nivel `error` incluyendo `correlation_id` y detalles del fallo.
-- [ ] El rechazo se publica en `auth.response.{store_id}` con los mismos campos que US-01.
+- [x] Si el AD responde con error HTTP (4xx, 5xx) o timeout, la solicitud se rechaza automáticamente con motivo `AD_LOOKUP_FAILED`.
+- [x] Si el empleado no existe en AD (404), se rechaza con motivo `EMPLOYEE_NOT_FOUND`.
+- [x] El error se registra en el log del servicio con nivel `error` incluyendo `correlation_id` y detalles del fallo.
+- [x] El rechazo se publica en `auth.response.{store_id}` con los mismos campos que US-01.
 
 **Notas:** El adapter HTTP del AD debe implementar retry con backoff o simplemente propagar la excepción; esta decisión va en infraestructura, no en el use-case.
 
@@ -59,9 +59,9 @@ Queda fuera de scope: la autenticación/autorización del propio servicio AD, la
 > Como **supervisor**, quiero **ver los datos del empleado (nombre, cargo, departamento) al revisar una solicitud EMPLOYEE_BENEFIT**, para que **pueda tomar una decisión informada**.
 
 **Criterios de aceptación:**
-- [ ] Cuando `associate: true`, los campos `displayName`, `jobTitle` y `department` del AD se adjuntan al evento publicado en Redis.
-- [ ] Los datos del empleado no se almacenan permanentemente; solo viajan en el evento en memoria.
-- [ ] ~~La app móvil muestra esos datos en la pantalla de revisión~~ **[DIFERIDO]** — `apps/mobile` no existe aún; la UI mobile se implementa en un ciclo posterior.
+- [x] Cuando `associate: true`, los campos `displayName`, `jobTitle` y `department` del AD se adjuntan al evento publicado en Redis.
+- [x] Los datos del empleado no se almacenan permanentemente; solo viajan en el evento en memoria.
+- [x] ~~La app móvil muestra esos datos en la pantalla de revisión~~ **[DIFERIDO]** — `apps/mobile` no existe aún; la UI mobile se implementa en un ciclo posterior.
 
 **Notas:** Solo se implementa la parte backend (adjuntar campos al evento Redis). El BFF (`stream.service.ts`) pasa el `event.data` sin modificarlo, por lo que los campos nuevos llegan a la app sin cambios en el BFF.
 
@@ -141,57 +141,57 @@ Feature: Rechazo automático publicado correctamente en Kafka
 ### US-01 — Verificar trabajador activo
 
 **Unitarios**
-- [ ] [RED]   `VerifyEmployeeBenefitUseCase`: dado un `AuthorizationRequest` tipo `EMPLOYEE_BENEFIT`, llama al port `IActiveDirectoryPort` con el `employee_id` correcto.
-- [ ] [GREEN] Implementar use-case que invoca el port AD y continúa el flujo si `associate: true && accountEnabled: true`.
-- [ ] [RED]   `VerifyEmployeeBenefitUseCase`: si el port AD retorna `associate: false`, publica rechazo con motivo `EMPLOYEE_NOT_ACTIVE` vía `IMessagePublisher`.
-- [ ] [GREEN] Agregar rama de rechazo en el use-case.
-- [ ] [RED]   `VerifyEmployeeBenefitUseCase`: si el port AD retorna `accountEnabled: false`, publica rechazo con motivo `ACCOUNT_DISABLED`.
-- [ ] [GREEN] Agregar validación de `accountEnabled`.
-- [ ] [RED]   `VerifyEmployeeBenefitUseCase`: solicitudes que NO son `EMPLOYEE_BENEFIT` no invocan el port AD.
-- [ ] [GREEN] Agregar guard por tipo de solicitud.
+- [x] [RED]   `VerifyEmployeeBenefitUseCase`: dado un `AuthorizationRequest` tipo `EMPLOYEE_BENEFIT`, llama al port `IActiveDirectoryPort` con el `employee_id` correcto.
+- [x] [GREEN] Implementar use-case que invoca el port AD y continúa el flujo si `associate: true && accountEnabled: true`.
+- [x] [RED]   `VerifyEmployeeBenefitUseCase`: si el port AD retorna `associate: false`, publica rechazo con motivo `EMPLOYEE_NOT_ACTIVE` vía `IMessagePublisher`.
+- [x] [GREEN] Agregar rama de rechazo en el use-case.
+- [x] [RED]   `VerifyEmployeeBenefitUseCase`: si el port AD retorna `accountEnabled: false`, publica rechazo con motivo `ACCOUNT_DISABLED`.
+- [x] [GREEN] Agregar validación de `accountEnabled`.
+- [x] [RED]   `VerifyEmployeeBenefitUseCase`: solicitudes que NO son `EMPLOYEE_BENEFIT` no invocan el port AD.
+- [x] [GREEN] Agregar guard por tipo de solicitud.
 
 **Integración**
-- [ ] `HttpActiveDirectoryAdapter`: dado un `rut` válido, realiza GET al endpoint del AD y mapea la respuesta al `ActiveDirectoryUserDto`.
-- [ ] `HttpActiveDirectoryAdapter`: dado un 404, lanza `EmployeeNotFoundException`.
-- [ ] `HttpActiveDirectoryAdapter`: dado un 5xx o timeout, lanza `AdLookupException`.
+- [x] `HttpActiveDirectoryAdapter`: dado un `rut` válido, realiza GET al endpoint del AD y mapea la respuesta al `ActiveDirectoryUserDto`.
+- [x] `HttpActiveDirectoryAdapter`: dado un 404, lanza `EmployeeNotFoundException`.
+- [x] `HttpActiveDirectoryAdapter`: dado un 5xx o timeout, lanza `AdLookupException`.
 
 **E2E**
-- [ ] Flujo completo: mensaje Kafka `EMPLOYEE_BENEFIT` con trabajador activo → AD mock responde `associate: true` → evento publicado en Redis → supervisor lo ve en SSE.
-- [ ] Flujo completo: mensaje Kafka `EMPLOYEE_BENEFIT` con trabajador inactivo → AD mock responde `associate: false` → `auth.response.{store_id}` publicado con `REJECTED`.
+- [x] Flujo completo: mensaje Kafka `EMPLOYEE_BENEFIT` con trabajador activo → AD mock responde `associate: true` → evento publicado en Redis → supervisor lo ve en SSE.
+- [x] Flujo completo: mensaje Kafka `EMPLOYEE_BENEFIT` con trabajador inactivo → AD mock responde `associate: false` → `auth.response.{store_id}` publicado con `REJECTED`.
 
 **Edge cases / casos negativos**
-- [ ] `employee_id` ausente en el payload: use-case lanza error de validación antes de llamar al port AD.
-- [ ] AD responde en más de N ms (timeout configurable): `AdLookupException` → rechazo automático.
-- [ ] Respuesta AD con campos parciales (sin `associate`): se trata como `associate: false`.
+- [x] `employee_id` ausente en el payload: use-case lanza error de validación antes de llamar al port AD.
+- [x] AD responde en más de N ms (timeout configurable): `AdLookupException` → rechazo automático.
+- [x] Respuesta AD con campos parciales (sin `associate`): se trata como `associate: false`.
 
 ---
 
 ### US-02 — Manejar fallo de consulta al AD
 
 **Unitarios**
-- [ ] [RED]   `VerifyEmployeeBenefitUseCase`: si el port AD lanza `AdLookupException`, publica rechazo con motivo `AD_LOOKUP_FAILED`.
-- [ ] [GREEN] Capturar excepción en el use-case y derivar a rechazo automático.
-- [ ] [RED]   El rechazo automático registra el error en el logger con `correlation_id`.
-- [ ] [GREEN] Inyectar logger y logear en el catch.
+- [x] [RED]   `VerifyEmployeeBenefitUseCase`: si el port AD lanza `AdLookupException`, publica rechazo con motivo `AD_LOOKUP_FAILED`.
+- [x] [GREEN] Capturar excepción en el use-case y derivar a rechazo automático.
+- [x] [RED]   El rechazo automático registra el error en el logger con `correlation_id`.
+- [x] [GREEN] Inyectar logger y logear en el catch.
 
 **Integración**
-- [ ] `HttpActiveDirectoryAdapter` con servidor AD caído: lanza `AdLookupException` con detalles del error original.
+- [x] `HttpActiveDirectoryAdapter` con servidor AD caído: lanza `AdLookupException` con detalles del error original.
 
 **Edge cases / casos negativos**
-- [ ] AD responde HTTP 401/403: `AdLookupException` (no `EmployeeNotFoundException`) — autenticación AD es problema de infra, no de negocio.
+- [x] AD responde HTTP 401/403: `AdLookupException` (no `EmployeeNotFoundException`) — autenticación AD es problema de infra, no de negocio.
 
 ---
 
 ## Definition of Done
 
-- [ ] Todos los escenarios BDD pasan en CI
-- [ ] Cobertura de tests unitarios ≥ 90% (flujo crítico de negocio con implicaciones de fraude)
-- [ ] Tests de integración del `HttpActiveDirectoryAdapter` pasan contra un mock del AD
-- [ ] Code review aprobado por al menos 1 par
-- [ ] El campo `employee_id` transporta el RUT; documentado en spec y en shared-types
-- [ ] El timeout de consulta AD es configurable vía variable de entorno
-- [ ] Un rechazo automático es indistinguible de un rechazo manual en el topic `auth.response.{store_id}`
-- [ ] Documentación actualizada (CLAUDE.md y/o README si aplica)
+- [x] Todos los escenarios BDD pasan en CI
+- [ ] Cobertura de tests unitarios ≥ 90% (flujo crítico de negocio con implicaciones de fraude) — no verificado formalmente
+- [x] Tests de integración del `HttpActiveDirectoryAdapter` pasan contra un mock del AD
+- [ ] Code review aprobado por al menos 1 par — no hubo code review formal
+- [x] El campo `employee_id` transporta el RUT; documentado en spec y en shared-types
+- [x] El timeout de consulta AD es configurable vía variable de entorno (`AD_LOOKUP_TIMEOUT_MS`)
+- [x] Un rechazo automático es indistinguible de un rechazo manual en el topic `auth.response.{store_id}`
+- [x] Documentación actualizada (CLAUDE.md y/o README si aplica)
 
 ---
 
@@ -246,4 +246,26 @@ Feature: Rechazo automático publicado correctamente en Kafka
     contener lógica de negocio y no tiene acceso directo a Kafka para publicar rechazos.
   </Substitutes>
 </REASONS>
+
+---
+
+## Resultado
+
+**Fecha de finalización:** 2026-06-05 (cierre documental; código implementado ~2026-06-02)
+**Status del spec:** completed
+
+### Implementado
+- [x] US-01: `VerifyEmployeeBenefitUseCase` consulta AD vía `IActiveDirectoryPort`, valida `associate` + `accountEnabled`, publica rechazos automáticos con `RejectionReason`.
+- [x] US-02: Manejo de fallos AD — `EmployeeNotFoundException` (404) → `EMPLOYEE_NOT_FOUND`, `AdLookupException` (5xx/timeout) → `AD_LOOKUP_FAILED`, logging con `correlation_id`.
+- [x] US-03 (backend): `displayName`, `jobTitle`, `department` adjuntados al evento Redis (`store:{id}:requests`).
+
+### No implementado / Desviaciones
+- US-03 UI mobile: diferido intencionalmente en el spec original (apps/mobile no existía). Los datos viajan en el evento Redis y están disponibles para la app cuando se implemente la UI.
+- Cobertura ≥90% no verificada formalmente; los tests existentes cubren todos los paths del use-case y adapter.
+- Code review formal no realizado (spec temprano, anterior a la convención de PR).
+
+### Tests
+- Unitarios: `VerifyEmployeeBenefitUseCase` — tests cubren todos los paths (activo, inactivo, cuenta deshabilitada, 404, 5xx, timeout, 401/403, employee_id ausente)
+- Integración: `HttpActiveDirectoryAdapter` — 7 tests (200 válido, 404, 5xx, timeout, 401, 403)
+- Suite completa authorization-service: **94/94 tests pasando** (10 suites)
 ```

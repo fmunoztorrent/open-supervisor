@@ -92,3 +92,42 @@ Configuradas en `apps/mobile/.env` vía `react-native-config`.
 - `SessionContext` provee `storeId` y `supervisorId` hardcodeados — reemplazar cuando se implemente autenticación real
 - `bffClient` centraliza la `BASE_URL` y el manejo de errores HTTP; no hacer `fetch` directo en hooks ni componentes
 - Los colores por `RequestType` en `AuthorizationCard` se aplican via `style={{ backgroundColor: typeColor }}` en un `Box` — los tokens Gluestack no cubren los 5 colores custom del dominio
+
+## Separación de concerns
+
+La app sigue el modelo de React Native: hooks para lógica, componentes para presentación. Los hooks son la capa de abstracción — no hay "ports" formales como en el backend, pero la separación de capas es igualmente estricta.
+
+| Capa | Archivos | Puede hacer | NO puede hacer |
+|---|---|---|---|
+| **API adapter** | `api/bffClient.ts` | Centralizar BASE_URL, headers, manejo de errores HTTP | Lógica de negocio, estado local |
+| **Hooks** | `hooks/use*.ts` | Lógica de datos (fetch, SSE, decisiones), estado | Renderizar JSX |
+| **Componentes** | `components/*.tsx` | Renderizar props, disparar callbacks | Llamar `bffClient` directamente, conocer URLs |
+| **Screens** | `screens/*.tsx` | Componer hooks + componentes, orquestar layout | Lógica de negocio, llamadas HTTP directas |
+
+### Reglas taxativas
+
+```typescript
+// ❌ PROHIBIDO — fetch directo en un componente o screen
+function AuthorizationCard({ id }: Props) {
+  useEffect(() => { fetch(`/authorization/${id}`) }, []);  // violación de capas
+}
+
+// ✅ CORRECTO — hook encapsula la lógica; componente recibe solo callback
+function useDecision(correlationId: string) {
+  const decide = async (d: 'APPROVE' | 'REJECT') =>
+    bffClient.post(`/authorization/${correlationId}/resolve`, { decision: d });
+  return { decide };
+}
+
+function DetailScreen() {
+  const { decide } = useDecision(correlationId); // lógica en el hook
+  return <Button onPress={() => decide('APPROVE')} />;  // UI pura
+}
+```
+
+### Single Responsibility en hooks
+
+- `useSSERequests` → cambia solo si el protocolo SSE o el endpoint de pending cambia
+- `useDecision` → cambia solo si el contrato de decisión cambia
+
+Si un hook supera ~80 líneas, evaluar si tiene más de una responsabilidad y si corresponde separarlo.

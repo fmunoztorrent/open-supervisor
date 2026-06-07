@@ -100,3 +100,74 @@ infrastructure/
 - Los DTOs vienen de `@open-supervisor/shared-types`; los ports de mensajería de `@open-supervisor/shared-messaging`.
 - Para correr migraciones: `pnpm --filter authorization-service db:migrate` (después de `pnpm db:generate` cuando se modifica el schema).
 - Para tests con DB real: `pnpm --filter authorization-service db:test:setup && DATABASE_URL_TEST=... pnpm test`. Por defecto los tests usan mocks puros.
+
+## Principios SOLID en este servicio
+
+### El punto dulce: SOLID + NestJS
+
+Este servicio es el que más se acerca al hexagonal ideal. Las concesiones al framework son intencionadas:
+
+| Concesión | Razón |
+|---|---|
+| `OnModuleDestroy` en adapters Kafka/Redis | NestJS lo diseñó así. TypeScript aísla el lifecycle del contrato del port — un cliente tipado como `IMessagePublisher` no puede llamar `onModuleDestroy()`. |
+| `@Inject()` y tokens de DI en use-cases | El decorador es metadata de DI, no lógica de dominio. El use-case no importa NestJS en su lógica. |
+| `@Interval()` en `OutboxPublisherService` | El framework maneja el scheduling; el servicio se enfoca en la lógica del tick. |
+
+---
+
+### S — Single Responsibility
+
+Cada use-case tiene una razón para cambiar:
+
+| Use-case | Responsabilidad única |
+|---|---|
+| `ProcessAuthorizationRequestUseCase` | Router por `RequestType` |
+| `VerifyEmployeeBenefitUseCase` | Validar empleado en AD + delegar rechazo a `IAuthorizationResponsePublisher` |
+| `ProcessPriceChangeUseCase` | Clasificar cambio de precio |
+| `ResolveAuthorizationUseCase` | Persistir decisión + encolar en outbox (TX atómica) |
+
+**Anti-patrón — NO hacer esto:**
+```typescript
+// ❌ Use-case con múltiples paths de publicación directa al mismo broker
+await this.publisher.publish(`auth.response.${dto.store_id}`, rejectPayload); // camino A
+await this.publisher.publish(`auth.response.${dto.store_id}`, rejectPayload); // camino B
+await this.publisher.publish(`auth.response.${dto.store_id}`, rejectPayload); // camino C
+```
+
+**Patrón correcto — delegar al port especializado:**
+```typescript
+// ✅ Una sola línea; el port encapsula el camino correcto
+await this.responsePublisher.reject(dto, RejectionReason.EMPLOYEE_NOT_FOUND);
+```
+
+---
+
+### O — Open/Closed
+
+Agregar un nuevo proveedor (base de datos, broker, directorio externo):
+1. Nueva carpeta en `infrastructure/`
+2. Implementar el port correspondiente
+3. Cambiar 1 línea en `authorization.module.ts`: `{ provide: TOKEN, useClass: NuevaImpl }`
+4. El dominio y los use-cases **no se modifican**.
+
+---
+
+### I — Interface Segregation
+
+Ports intencionalmente mínimos:
+- `IEventEmitter` → 1 método: `emit()`
+- `IUnitOfWork` → 1 método: `transaction<T>()`
+- `IActiveDirectoryPort` → 1 método: `lookupByEmployeeId()`
+
+Si un use-case solo necesita leer datos, definir un port de lectura en lugar de inyectar el repositorio completo.
+
+---
+
+### D — Dependency Inversion
+
+Verificación rápida — debe retornar vacío antes de mergear:
+```bash
+grep -r "import.*kafkajs\|import.*ioredis\|import.*drizzle-orm" src/domain --include="*.ts"
+```
+
+El binding port → adapter vive **exclusivamente** en `authorization.module.ts`. Ningún otro archivo del servicio instancia adapters directamente.

@@ -2,22 +2,24 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, HttpStatus } from '@nestjs/common';
 import * as request from 'supertest';
 import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
+import { Observable, of, throwError } from 'rxjs';
 import { AuthorizationController } from '../authorization.controller';
 import { AuthorizationService } from '../authorization.service';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-function mockFetch(status: number, body: unknown = {}) {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  });
+function mockHttpPost(status: number, body: unknown = {}) {
+  if (status >= 200 && status < 300) {
+    return of({ data: body, status });
+  }
+  return throwError(() => ({ response: { status, data: body } }));
 }
 
-// ─── setup ───────────────────────────────────────────────────────────────────
+async function setupApp(postObs?: Observable<unknown>): Promise<INestApplication> {
+  const httpMock = {
+    get: jest.fn().mockReturnValue(of({ data: {} })),
+    post: jest.fn().mockReturnValue(postObs ?? of({ data: {} })),
+  };
 
-async function setupApp(): Promise<INestApplication> {
   const module: TestingModule = await Test.createTestingModule({
     controllers: [AuthorizationController],
     providers: [
@@ -27,6 +29,10 @@ async function setupApp(): Promise<INestApplication> {
         useValue: {
           get: jest.fn().mockReturnValue('http://localhost:3001'),
         },
+      },
+      {
+        provide: HttpService,
+        useValue: httpMock,
       },
     ],
   }).compile();
@@ -40,13 +46,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-// ─── scenarios ───────────────────────────────────────────────────────────────
-
 describe('AuthorizationController (BFF)', () => {
   describe('POST /authorization/:id/resolve — propagación de errores HTTP', () => {
-    it('propaga 404 cuando auth-service responde con 404 (anteriormente se convertía a 500)', async () => {
-      mockFetch(404, { message: 'Not found' });
-      const app = await setupApp();
+    it('propaga 404 cuando auth-service responde con 404', async () => {
+      const app = await setupApp(mockHttpPost(404, { message: 'Not found' }));
 
       const response = await request(app.getHttpServer())
         .post('/authorization/req-999/resolve')
@@ -56,9 +59,8 @@ describe('AuthorizationController (BFF)', () => {
       await app.close();
     });
 
-    it('propaga 409 cuando auth-service responde con 409 (anteriormente se convertía a 500)', async () => {
-      mockFetch(409, { message: 'Already resolved' });
-      const app = await setupApp();
+    it('propaga 409 cuando auth-service responde con 409', async () => {
+      const app = await setupApp(mockHttpPost(409, { message: 'Already resolved' }));
 
       const response = await request(app.getHttpServer())
         .post('/authorization/req-001/resolve')
@@ -69,8 +71,7 @@ describe('AuthorizationController (BFF)', () => {
     });
 
     it('retorna 500 cuando auth-service responde con 500', async () => {
-      mockFetch(500, { message: 'Internal error' });
-      const app = await setupApp();
+      const app = await setupApp(mockHttpPost(500, { message: 'Internal error' }));
 
       const response = await request(app.getHttpServer())
         .post('/authorization/req-002/resolve')
@@ -81,8 +82,7 @@ describe('AuthorizationController (BFF)', () => {
     });
 
     it('retorna 201 cuando la resolución es exitosa', async () => {
-      mockFetch(201, { id: 'req-001', status: 'APPROVED' });
-      const app = await setupApp();
+      const app = await setupApp(mockHttpPost(201, { id: 'req-001', status: 'APPROVED' }));
 
       const response = await request(app.getHttpServer())
         .post('/authorization/req-001/resolve')

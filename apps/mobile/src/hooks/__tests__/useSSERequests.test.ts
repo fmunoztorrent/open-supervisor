@@ -353,6 +353,68 @@ describe('useSSERequests', () => {
     });
   });
 
+  describe('refetch post-decisión (bugfix: request no desaparece tras autorizar/rechazar)', () => {
+    it('expone una función refetch que actualiza la lista con los datos del servidor', async () => {
+      // Carga inicial: 2 solicitudes pendientes
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          makePendingRequest('corr-1'),
+          makePendingRequest('corr-2'),
+        ],
+      });
+
+      const { result } = renderHook(() => useSSERequests(STORE_ID));
+
+      await waitFor(() => {
+        expect(result.current.requests).toHaveLength(2);
+      });
+
+      // Verificar que refetch existe como función
+      expect(typeof result.current.refetch).toBe('function');
+
+      // Simular que corr-2 fue resuelta → el backend ya no la devuelve
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makePendingRequest('corr-1')],
+      });
+
+      // Ejecutar refetch
+      await act(async () => {
+        await result.current.refetch();
+      });
+
+      // La solicitud resuelta (corr-2) debe desaparecer de la lista
+      expect(result.current.requests).toHaveLength(1);
+      expect(result.current.requests[0].correlation_id).toBe('corr-1');
+    });
+
+    it('refetch no afecta isLoading (solo es para refresh post-decisión)', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makePendingRequest('corr-1')],
+      });
+
+      const { result } = renderHook(() => useSSERequests(STORE_ID));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      });
+
+      await act(async () => {
+        await result.current.refetch();
+      });
+
+      // isLoading debe permanecer false — refetch es un refresh silencioso
+      expect(result.current.isLoading).toBe(false);
+    });
+  });
+
   describe('reconexión SSE (US-03)', () => {
     beforeEach(() => {
       (global.fetch as jest.Mock).mockResolvedValue({

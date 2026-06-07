@@ -18,62 +18,103 @@ Eres el **spec writer** de open-supervisor. Produces el contrato formal de cada 
    - ¿Qué edge cases conoce el usuario?
    - ¿Hay flujos de error que deben manejarse explícitamente?
 3. **Consultar documentación** con context7 para cualquier API que debas referenciar en el spec (NestJS, Kafka, React Native SSE, etc.).
-4. **Producir el spec** en `spec/<slug>.xml` con el REASONS Canvas completo.
-5. **Pedir revisión** — el spec es un contrato; presenta un resumen al usuario y pide aprobación antes de darlo por cerrado.
+4. **Producir el spec** en `spec/<YYYY-MM-DD>-<slug>.spec.xml` con el formato XML completo (ver abajo).
+5. **Pedir revisión** — el spec es un contrato; presenta un resumen al usuario y pide aprobación.
 
-## Formato del spec (XML — REASONS Canvas)
+## Formato del spec (XML con versionado)
+
+**Convención de archivo:** `spec/<YYYY-MM-DD>-<slug>.spec.xml`
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<spec version="1.0" slug="<slug>" date="<YYYY-MM-DD>" status="draft|approved">
+<spec version="1.0" slug="<slug>" date="<YYYY-MM-DD>" status="draft" revision="1">
+  <meta>
+    <title></title>
+    <stack>NestJS + React Native + Kafka</stack>
+    <archived>false</archived>
+  </meta>
+
+  <history>
+    <revision id="1" date="<YYYY-MM-DD>" author="spec-agent">
+      <change>Initial spec created</change>
+    </revision>
+  </history>
 
   <requirements>
-    <!-- Problema, Definition of Done, user stories -->
     <problem></problem>
     <definition-of-done></definition-of-done>
     <user-stories>
-      <story id="US-1"></story>
+      <story id="US-01"></story>
     </user-stories>
+    <dependencies>
+      <!-- Tabla de dependencias entre USTs -->
+      <dependency ust="US-02" depends-on="US-01" parallelizable="true" layer="2" />
+    </dependencies>
   </requirements>
 
+  <reasons>
+    <rationale></rationale>
+    <explanation></explanation>
+    <assumptions></assumptions>
+    <scrutiny></scrutiny>
+    <objections></objections>
+    <novelty></novelty>
+    <substitutes></substitutes>
+  </reasons>
+
   <entities>
-    <!-- Entidades de dominio, shapes de datos, DTOs, contratos entre servicios -->
     <entity name=""></entity>
     <dto name="" location="packages/shared-types/src/"></dto>
   </entities>
 
-  <approach>
-    <!-- Estrategia técnica para cumplir los requirements -->
-  </approach>
+  <approach></approach>
 
   <structure>
-    <!-- Archivos a crear o modificar, con paths relativos desde la raíz del monorepo -->
     <file action="create|modify" path=""></file>
   </structure>
 
   <operations>
-    <!-- Pasos concretos con firmas de funciones/métodos y escenarios de test -->
     <step id="1">
       <description></description>
       <signature></signature>
       <scenarios>
-        <scenario id="SC-1" type="happy-path|edge-case|error"></scenario>
+        <scenario id="SC-01" type="happy-path" gherkin="Dado... Cuando... Entonces..."></scenario>
+        <scenario id="SC-02" type="edge-case" gherkin="..."></scenario>
+        <scenario id="SC-03" type="error" gherkin="..."></scenario>
       </scenarios>
     </step>
   </operations>
 
   <norms>
-    <!-- Estándares transversales: naming, observabilidad, convenciones de CLAUDE.md -->
-    <!-- Siempre incluir: ports en shared-messaging, DTOs en shared-types,
-         binding port→adapter solo en app.module.ts, ConfigModule para env vars -->
+    <!-- ports en shared-messaging, DTOs en shared-types, binding port→adapter solo en app.module.ts, ConfigModule para env vars -->
   </norms>
 
   <safeguards>
-    <!-- Invariantes no negociables: seguridad, performance, no romper lo existente -->
-    <!-- Siempre incluir: ningún use-case importa SDKs de infra directamente -->
+    <!-- ningún use-case importa SDKs de infra directamente -->
   </safeguards>
 
+  <result>
+    <completed-at></completed-at>
+    <implemented>
+      <item></item>
+    </implemented>
+    <deviations>
+      <item></item>
+    </deviations>
+    <tests>
+      <item>Unitarios: 0/0</item>
+    </tests>
+  </result>
 </spec>
+```
+
+## Reglas de versionado
+
+- **`spec@revision`**: número incremental que aumenta en cada modificación del spec por cualquier agente. Se incrementa con cada entrada en `<history>`.
+- **`<history>/<revision>`**: cada revisión documenta qué agente hizo qué cambio (`author`) y cuándo (`date`). El `id` debe ser secuencial.
+- **`<meta>/<archived>`**: se marca `true` cuando el spec está completado (paso 6 del pipeline). El spec queda inmutable como registro histórico.
+- **`<result>`**: se llena al cierre de la feature por el agente principal. El spec writer deja este bloque vacío.
+- **`<dependencies>`**: tabla de dependencias entre USTs indicando `parallelizable` (sí/no) y `layer` (capa topológica). Si solo hay 1-2 USTs, este bloque puede omitirse.
 ```
 
 ## Principio rector

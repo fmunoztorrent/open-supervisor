@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import EventSource from 'react-native-sse';
 import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
 import { bffClient } from '../api/bffClient';
@@ -29,6 +29,7 @@ interface UseSSERequestsResult {
   isLoading: boolean;
   isReconnecting: boolean;
   isRefreshingBackground: boolean;
+  refetch: () => Promise<void>;
 }
 
 // Debounce window for background refresh (milliseconds)
@@ -43,25 +44,46 @@ export function useSSERequests(storeId: string): UseSSERequestsResult {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadDoneRef = useRef(false);
 
+  // Memoized fetch of pending requests from BFF.
+  // Used both for initial load and for refetch after decision.
+  const fetchPending = useCallback(
+    async (showBackgroundRefresh: boolean): Promise<RequestWithResolved[]> => {
+      if (showBackgroundRefresh) {
+        setIsRefreshingBackground(true);
+      }
+      try {
+        const raw: unknown[] = await bffClient.get(
+          `/authorization/store/${storeId}/pending`,
+        );
+        const normalized = raw.map(normalizeRequest);
+        setRequests(normalized);
+        return normalized;
+      } catch {
+        return requests; // keep current state on failure
+      } finally {
+        if (showBackgroundRefresh) {
+          setIsRefreshingBackground(false);
+        }
+      }
+    },
+    [storeId], // eslint-disable-line react-hooks/exhaustive-deps (requests is read but used only in catch)
+  );
+
+  // Public refetch — triggers a silent GET /pending and updates the list.
+  // Called after a decision ensures the resolved request disappears immediately.
+  const refetch = useCallback(async () => {
+    await fetchPending(false);
+  }, [fetchPending]);
+
   useEffect(() => {
     let cancelled = false;
 
     const init = async () => {
       setIsLoading(true);
-      try {
-        const raw: unknown[] = await bffClient.get(
-          `/authorization/store/${storeId}/pending`,
-        );
-        if (!cancelled) {
-          setRequests(raw.map(normalizeRequest));
-        }
-      } catch {
-        // silently handle; requests stays []
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-          initialLoadDoneRef.current = true;
-        }
+      await fetchPending(false);
+      if (!cancelled) {
+        setIsLoading(false);
+        initialLoadDoneRef.current = true;
       }
 
       if (cancelled) return;
@@ -134,7 +156,7 @@ export function useSSERequests(storeId: string): UseSSERequestsResult {
         esRef.current = null;
       }
     };
-  }, [storeId]);
+  }, [storeId, fetchPending]);
 
-  return { requests, isLoading, isReconnecting, isRefreshingBackground };
+  return { requests, isLoading, isReconnecting, isRefreshingBackground, refetch };
 }

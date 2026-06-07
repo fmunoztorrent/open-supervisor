@@ -755,3 +755,144 @@ slug: prevencion-hardcodeos-tres-capas-enforcement
 
 **Cómo aplicar**: para todo proyecto con agentes de IA que generan código: (1) definir patrones de hardcodeo en un archivo centralizado, (2) validar en pre-commit, (3) si usás opencode, extender el pipeline-enforcer para feedback en tiempo real, (4) siempre incluir una allowlist para falsos positivos legítimos.
 
+---
+date: 2026-06-04
+agent: backend
+category: setup
+tags: [podman, docker, compose, makefile, dev-env]
+slug: podman-compose-delegates-to-docker-compose-breaking-make-dev
+---
+
+**Contexto**: `make dev` fallaba en macOS con Podman ya corriendo. El error era `Cannot connect to the Docker daemon at tcp://localhost:2375/...`.
+
+**Qué pasó**: El Makefile detectaba `podman` y usaba `podman compose`, pero `podman compose` tiene una feature de delegación que busca un "external compose provider". En este caso encontró `/usr/local/bin/docker-compose` (Docker Compose v5.1.3, instalado vía Homebrew) y delegó en él. Ese binario es de Docker, no de Podman, e intentó hablar con el Docker daemon en vez de con Podman → falló. Adicionalmente, el Makefile seteaba `DOCKER_HOST` sin prefijo `unix://`, lo que confundía aún más a Docker Compose v5.
+
+Por otro lado, existe `podman-compose` (script Python en `/opt/homebrew/bin/podman-compose`) que habla directo con el CLI de Podman y **no delega** a ningún provider externo.
+
+**Lección**: **Siempre preferir `podman-compose` (Python) sobre `podman compose` (subcomando CLI)** en entornos macOS donde puede coexistir Docker Compose. `podman-compose` no necesita DOCKER_HOST porque usa el CLI de Podman. Si se usa `docker compose` como fallback, DOCKER_HOST debe llevar prefijo `unix://`.
+
+**Cómo aplicar**: en todo Makefile o script de CI que detecte motores de contenedores, el orden de preferencia debe ser: `podman-compose` → `podman compose` → `docker compose`. Verificar con `make help` que COMPOSE resuelva a `podman-compose`. Si hay un `docker-compose` intruso en el PATH y no se necesita, considerar desinstalarlo o renombrarlo para forzar a `podman compose` a usar su propio backend.
+
+---
+date: 2026-06-04
+agent: backend
+category: api-gotcha
+tags: [typescript, nestjs, build, incremental, tsbuildinfo]
+slug: tsbuildinfo-stale-blocks-build-emission
+---
+
+**Contexto**: `pnpm dev` fallaba con `Cannot find module dist/main` a pesar de que tsc reportaba "Found 0 errors" en watch mode.
+
+**Qué pasó**: `tsconfig.base.json` tiene `incremental: true`. Esto genera archivos `*.tsbuildinfo` que cachean el estado de compilación. Nest CLI tiene `deleteOutDir: true` en `nest-cli.json` que borra `dist/` antes de cada build, pero el `.tsbuildinfo` vive **fuera** de `dist/` (en la raíz del proyecto, junto al `tsconfig`). Cuando `dist/` se borra pero el `.tsbuildinfo` sobrevive, tsc cree que todo está compilado y no emite archivos — resultando en "0 errors" pero sin `dist/main.js`.
+
+**Lección**: El incremental build cache de TypeScript puede desincronizarse del output si el directorio de salida se limpia por un mecanismo externo a tsc (ej. Nest CLI's `deleteOutDir`). Para prevenir esto: **limpiar `tsconfig*.tsbuildinfo` antes de cada `build`/`dev`** en los scripts de package.json.
+
+**Cómo aplicar**: Los scripts `build` y `dev` de los 3 servicios backend ahora empiezan con `rm -rf tsconfig*.tsbuildinfo &&` antes de invocar a nest. Esto garantiza una compilación limpia cada vez, al costo de perder el cache incremental (aceptable en desarrollo; la recompilación completa toma ~2s).
+
+---
+date: 2026-06-04
+agent: backend
+category: api-gotcha
+tags: [makefile, nestjs, build, tsbuildinfo, incremental]
+slug: makefile-tsbuildinfo-wrong-filename
+---
+
+**Contexto**: `make dev` fallaba con "connection refused" en el `authorization-service`. El log mostraba `Cannot find module dist/main`, pero `nest build` salía con exit 0 y sin errores.
+
+**Qué pasó**: El Makefile usaba `rm -f tsconfig.tsbuildinfo` antes de `nest build`. Pero `authorization-service` tiene `tsconfig.build.json` (no `tsconfig.json`), por lo que TypeScript genera `tsconfig.build.tsbuildinfo`. El archivo a borrar (`tsconfig.tsbuildinfo`) era el equivocado: no existía nunca, y el real (`tsconfig.build.tsbuildinfo`) sobrevivía, haciendo que TypeScript creyera que todo estaba compilado. `deleteOutDir: true` borraba `dist/`, pero al no recompilarse nada, `node dist/main` fallaba.
+
+**Lección**: Al limpiar caches de TypeScript en scripts de build, usar **wildcard** (`tsconfig*.tsbuildinfo`) en lugar de nombres fijos. El nombre del `.tsbuildinfo` deriva del nombre del `tsconfig` usado: `tsconfig.json` → `tsconfig.tsbuildinfo`, `tsconfig.build.json` → `tsconfig.build.tsbuildinfo`, `tsconfig.spec.json` → `tsconfig.spec.tsbuildinfo`. Distintos servicios pueden usar distintos tsconfigs.
+
+**Cómo aplicar**: Los 3 servicios en el Makefile ahora usan `rm -f tsconfig*.tsbuildinfo`. Esto cubre cualquier combinación de tsconfigs sin necesidad de saber cuál usa cada servicio. Misma lógica que ya se aplicó en los scripts `build`/`dev` de package.json (ver entrada anterior).
+
+---
+date: 2026-06-04
+agent: bugfix
+category: pattern
+tags: [react-native, state-management, sse, mobile]
+slug: lista-solicitudes-no-se-actualiza-tras-decision
+---
+
+**Contexto**: Bug donde al presionar "Autorizar" o "Rechazar" en la app, se volvía al listado de solicitudes pero la solicitud resuelta seguía apareciendo como pendiente.
+
+**Qué pasó**: `useSSERequests` no exponía ningún mecanismo para refrescar la lista tras una decisión exitosa. El flujo era: `DetailView` llama `onBack()` → `setSelectedId(null)` → vuelve a la lista sin tocar el estado `requests`. La lista solo se actualizaba vía SSE (cuando llegaba un nuevo request) o en la carga inicial. El backend filtraba correctamente (`WHERE status = 'PENDING'`), pero la app nunca pedía los datos actualizados al volver.
+
+**Lección**: Cuando una pantalla de detalle modifica el estado del backend que alimenta una lista, esa lista debe refrescarse inmediatamente al volver — no depender de un evento externo futuro (SSE, polling). Exponer una función `refetch` desde el hook de datos y llamarla desde el callback post-decisión (no desde `onBack` genérico, que también se usa para el botón "Volver" sin cambios). Separar `onBack` (navegación simple) de `onDecisionComplete` (navegación + refetch).
+
+**Cómo aplicar**: Todo hook que gestione una lista de entidades mutables debe exponer un `refetch()`. Toda pantalla de detalle con acciones que modifican la lista debe tener un callback `onDecisionComplete` separado de `onBack`.
+
+---
+
+date: 2026-06-05
+agent: backend
+category: spec-process
+tags: [spec, cierre-documental, legado]
+slug: specs-tempranos-pueden-carecer-de-cierre-formal
+---
+
+**Contexto**: Revisión de specs sin implementar en el proyecto. Se encontró que el spec `verificacion-trabajador-active-directory` (2026-06-02) tenía todo el código implementado y 94 tests pasando, pero nunca se marcó como `completed` ni tenía sección `## Resultado`.
+
+**Qué pasó**: Los specs más antiguos del proyecto (anteriores a 2026-06-03) fueron creados antes de que existiera la convención de agregar `## Resultado` al cierre del pipeline. El spec quedó en estado "Activo" aunque la feature estaba completamente implementada.
+
+**Lección**: Antes de asumir que un spec viejo está "sin implementar", verificar si el código correspondiente existe en el tree y los tests pasan. Hacer una auditoría completa (ports, adapters, use-cases, tests) antes de lanzar un nuevo pipeline.
+
+**Cómo aplicar**: Al revisar specs legacy: (1) buscar el código correspondiente con grep de nombres de use-case/port/adapter, (2) correr los tests asociados, (3) si todo existe y pasa, hacer el cierre documental (agregar `## Resultado` y marcar `[x]`) en lugar de re-implementar.
+
+---
+
+date: 2026-06-05
+agent: backend
+category: spec-process
+tags: [parallel, task-tool, multi-scope, solid, hexagonal]
+slug: specs-independientes-paralelizables-con-task-tool
+---
+
+**Contexto**: Implementación simultánea de 3 specs no implementados: `cambio-precio-pos` (cierre documental, ya implementado), `authorization-service-solid` (SRP + @Interval) y `bff-hexagonal-ports` (HttpService + IEventSourceConnector).
+
+**Qué pasó**: `cambio-precio-pos` estaba 100% implementado (94/94 tests) pero sin cierre formal — mismo patrón que `verificacion-trabajador-active-directory`. Los otros dos specs tocaban servicios completamente distintos (authorization-service vs BFF), sin overlap de archivos, lo que permitió ejecutarlos en paralelo con `task` tool.
+
+**Lección**: Antes de lanzar sub-agentes en paralelo, verificar que no haya overlap de archivos entre los specs. Si dos specs modifican el mismo archivo (ej. `authorization.module.ts`), secuencializarlos. Si tocan servicios distintos, son perfectamente paralelizables. El patrón se reduce a: (1) auditar specs legacy → cierre documental rápido, (2) specs nuevos en servicios distintos → `task` tool paralelo.
+
+**Cómo aplicar**: Al recibir múltiples specs: grepear los archivos que cada spec modificaría, construir una matriz de overlap, paralelizar solo specs con intersección vacía de archivos modificados.
+
+---
+date: 2026-06-05
+agent: pipeline
+category: setup
+tags: [opencode, subagents, models, skills, harness]
+slug: opencode-multi-model-subagents-go
+---
+
+**Contexto**: Consolidación del harness para que opencode pueda usar subagentes con modelos distintos por rol (spec, architect, qa, backend, frontend), espejando lo que Claude Code ya hacía con `.claude/agents/`.
+
+**Qué pasó**: opencode soporta subagentes nativos con modelo propio via `.opencode/agents/*.md` con frontmatter YAML (`model`, `mode: subagent`, `permission`). Los modelos de suscripción Go usan el prefijo `opencode-go/<model-id>` (ej. `opencode-go/deepseek-v4-pro`). Las skills se consolidaron en `.claude/skills/` como fuente única. Los specs se migraron a XML con versionado (`<history>`, `<result>`, `spec@revision`).
+
+**Lección**: Para configurar subagentes con modelos distintos en opencode:
+- Crear `.opencode/agents/<nombre>.md` con frontmatter: `description`, `mode: subagent`, `model: opencode-go/<id>`, `permission`
+- Agregar `agent.<primary>.permission.task` en `opencode.json` para que el agente primario pueda invocarlos
+- Los modelos Go son flat-rate ($10/mes) — usar `deepseek-v4-flash` (31K req/5h) para agentes de alta frecuencia, `deepseek-v4-pro` (3.4K req/5h) para agentes de razonamiento
+- No usar `/` en nombres de scope — el regex del plugin solo acepta `[\w.-]+`
+
+**Cómo aplicar**: Al agregar un nuevo subagente a opencode, seguir el patrón de frontmatter YAML + task permissions. Al elegir modelo, priorizar Go (flat-rate) para uso frecuente.
+
+---
+
+---
+date: 2026-06-06
+agent: architect
+category: pattern
+tags: [learnings, skills, self-improvement, pipeline, automation]
+slug: learnings-skills-self-improvement-loop
+---
+
+**Contexto**: creando un loop de automejora donde los aprendizajes de LEARNINGS.md se extraen automáticamente en skills específicos por subagente (qa, backend, frontend, architect), evitando que cada agente lea 877 líneas de LEARNINGS.md.
+
+**Qué pasó**: se implementó un sistema de 3 capas:
+1. **Skills por agente** (`.claude/skills/{agent}-learnings/SKILL.md`) con secciones "Reglas activas" (auto-promovidas) y "Lecciones recientes" (últimas 5).
+2. **Script extractor** (`scripts/extract-learnings.ts`) que parsea la última entrada de LEARNINGS.md y actualiza el skill correspondiente. Idempotente: si el slug ya existe, lo promueve a "Reglas activas" en lugar de duplicar.
+3. **Disparadores automáticos**: (a) plugin pipeline-enforcer.js hook `tool.execute.after` spawns el script al detectar close-pending.json, (b) Stop hook en `.claude/settings.json` ejecuta el script condicionalmente, (c) step 4b en close.md como fallback manual.
+
+**Lección**: para que un sistema de auto-mejora sea efectivo, debe ser **automático** (el agente no necesita recordar ejecutarlo), **idempotente** (ejecutar 2 veces no duplica), y **promover** (lecciones que se repiten suben de "reciente" a "regla activa"). La extracción debe ser fault-tolerant: si falla, no bloquea el pipeline — solo loggea un warning.
+
+**Cómo aplicar**: al diseñar cualquier loop de aprendizaje automático en un sistema de agentes: (1) usar skills como caché de conocimiento específico por rol, (2) el trigger debe ser automático vía hooks (plugin + Claude Code Stop), (3) el script extractor debe ser standalone (sin dependencias externas), (4) el fallback manual en el checklist de cierre asegura que el loop nunca se rompa completamente.
+

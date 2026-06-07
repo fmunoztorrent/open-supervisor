@@ -1,8 +1,8 @@
 import { Logger } from '@nestjs/common';
-import { AuthorizationRequestDto, AuthorizationStatus, RequestType } from '@open-supervisor/shared-types';
-import { IMessagePublisher, MESSAGE_PUBLISHER } from '@open-supervisor/shared-messaging';
+import { AuthorizationRequestDto, AuthorizationStatus, RequestType, RejectionReason } from '@open-supervisor/shared-types';
 import { IEventEmitter, EVENT_EMITTER } from '../ports/event-emitter.port';
 import { IAuthorizationRepository, AUTHORIZATION_REPOSITORY } from '../ports/authorization-repository.port';
+import { IAuthorizationResponsePublisher, AUTHORIZATION_RESPONSE_PUBLISHER } from '../ports/authorization-response-publisher.port';
 import { AuthorizationRequest } from '../entities/authorization-request.entity';
 import {
   ACTIVE_DIRECTORY,
@@ -47,7 +47,7 @@ function makeAdUser(overrides: Partial<ActiveDirectoryUser> = {}): ActiveDirecto
 // ─── mocks ──────────────────────────────────────────────────────────────────
 
 let mockAd: jest.Mocked<IActiveDirectoryPort>;
-let mockPublisher: jest.Mocked<IMessagePublisher>;
+let mockResponsePublisher: jest.Mocked<IAuthorizationResponsePublisher>;
 let mockEventEmitter: jest.Mocked<IEventEmitter>;
 let mockRepository: jest.Mocked<IAuthorizationRepository>;
 let mockLogger: jest.Mocked<Logger>;
@@ -55,7 +55,7 @@ let useCase: VerifyEmployeeBenefitUseCase;
 
 beforeEach(() => {
   mockAd = { lookupByEmployeeId: jest.fn() };
-  mockPublisher = { publish: jest.fn().mockResolvedValue(undefined) };
+  mockResponsePublisher = { reject: jest.fn().mockResolvedValue(undefined) };
   mockEventEmitter = { emit: jest.fn().mockResolvedValue(undefined) };
   mockRepository = {
     save: jest.fn().mockResolvedValue(undefined),
@@ -73,7 +73,7 @@ beforeEach(() => {
 
   useCase = new VerifyEmployeeBenefitUseCase(
     mockAd,
-    mockPublisher,
+    mockResponsePublisher,
     mockEventEmitter,
     mockRepository,
     mockLogger,
@@ -108,83 +108,54 @@ describe('VerifyEmployeeBenefitUseCase', () => {
         }),
       );
 
-      expect(mockPublisher.publish).not.toHaveBeenCalled();
+      expect(mockResponsePublisher.reject).not.toHaveBeenCalled();
     });
   });
 
   describe('Escenario 2 — associate: false: rechazo automático EMPLOYEE_NOT_ACTIVE', () => {
-    it('publica rechazo en Kafka con rejection_reason EMPLOYEE_NOT_ACTIVE y resolved_by SYSTEM', async () => {
+    it('publica rechazo con rejection_reason EMPLOYEE_NOT_ACTIVE via responsePublisher.reject', async () => {
       const dto = makeDto();
       mockAd.lookupByEmployeeId.mockResolvedValue(makeAdUser({ associate: false }));
 
       await useCase.execute(dto);
 
-      expect(mockPublisher.publish).toHaveBeenCalledWith(
-        `auth.response.${dto.store_id}`,
-        expect.objectContaining({
-          correlation_id: dto.correlation_id,
-          status: AuthorizationStatus.REJECTED,
-          resolved_by: 'SYSTEM',
-          rejection_reason: 'EMPLOYEE_NOT_ACTIVE',
-        }),
-      );
+      expect(mockResponsePublisher.reject).toHaveBeenCalledWith(dto, RejectionReason.EMPLOYEE_NOT_ACTIVE);
       expect(mockEventEmitter.emit).not.toHaveBeenCalled();
     });
   });
 
   describe('Escenario 3 — accountEnabled: false: rechazo automático ACCOUNT_DISABLED', () => {
-    it('publica rechazo con rejection_reason ACCOUNT_DISABLED', async () => {
+    it('llama a reject con RejectionReason.ACCOUNT_DISABLED', async () => {
       const dto = makeDto();
       mockAd.lookupByEmployeeId.mockResolvedValue(makeAdUser({ accountEnabled: false }));
 
       await useCase.execute(dto);
 
-      expect(mockPublisher.publish).toHaveBeenCalledWith(
-        `auth.response.${dto.store_id}`,
-        expect.objectContaining({
-          status: AuthorizationStatus.REJECTED,
-          resolved_by: 'SYSTEM',
-          rejection_reason: 'ACCOUNT_DISABLED',
-        }),
-      );
+      expect(mockResponsePublisher.reject).toHaveBeenCalledWith(dto, RejectionReason.ACCOUNT_DISABLED);
       expect(mockEventEmitter.emit).not.toHaveBeenCalled();
     });
   });
 
   describe('Escenario 4 — AD responde 404: rechazo EMPLOYEE_NOT_FOUND', () => {
-    it('cuando el port lanza EmployeeNotFoundException, publica rechazo con rejection_reason EMPLOYEE_NOT_FOUND', async () => {
+    it('cuando el port lanza EmployeeNotFoundException, llama a reject con RejectionReason.EMPLOYEE_NOT_FOUND', async () => {
       const dto = makeDto();
       mockAd.lookupByEmployeeId.mockRejectedValue(new EmployeeNotFoundException(dto.employee_id!));
 
       await useCase.execute(dto);
 
-      expect(mockPublisher.publish).toHaveBeenCalledWith(
-        `auth.response.${dto.store_id}`,
-        expect.objectContaining({
-          status: AuthorizationStatus.REJECTED,
-          resolved_by: 'SYSTEM',
-          rejection_reason: 'EMPLOYEE_NOT_FOUND',
-        }),
-      );
+      expect(mockResponsePublisher.reject).toHaveBeenCalledWith(dto, RejectionReason.EMPLOYEE_NOT_FOUND);
       expect(mockEventEmitter.emit).not.toHaveBeenCalled();
     });
   });
 
   describe('Escenario 5 — AD falla (5xx/timeout/401/403): rechazo AD_LOOKUP_FAILED', () => {
-    it('cuando el port lanza AdLookupException, publica rechazo con rejection_reason AD_LOOKUP_FAILED', async () => {
+    it('cuando el port lanza AdLookupException, llama a reject con RejectionReason.AD_LOOKUP_FAILED', async () => {
       const dto = makeDto();
       mockAd.lookupByEmployeeId.mockRejectedValue(new AdLookupException('timeout'));
 
       await useCase.execute(dto);
 
-      expect(mockPublisher.publish).toHaveBeenCalledWith(
-        `auth.response.${dto.store_id}`,
-        expect.objectContaining({
-          status: AuthorizationStatus.REJECTED,
-          resolved_by: 'SYSTEM',
-          rejection_reason: 'AD_LOOKUP_FAILED',
-        }),
-      );
+      expect(mockResponsePublisher.reject).toHaveBeenCalledWith(dto, RejectionReason.AD_LOOKUP_FAILED);
     });
   });
 
@@ -223,7 +194,7 @@ describe('VerifyEmployeeBenefitUseCase', () => {
   });
 
   describe('Escenario 8 — respuesta AD sin campo associate: tratado como associate: false', () => {
-    it('publica rechazo EMPLOYEE_NOT_ACTIVE cuando la respuesta AD no incluye el campo associate', async () => {
+    it('llama a reject con EMPLOYEE_NOT_ACTIVE cuando la respuesta AD no incluye el campo associate', async () => {
       const dto = makeDto();
       const adUserWithoutAssociate = {
         displayName: 'Desconocido',
@@ -236,13 +207,7 @@ describe('VerifyEmployeeBenefitUseCase', () => {
 
       await useCase.execute(dto);
 
-      expect(mockPublisher.publish).toHaveBeenCalledWith(
-        `auth.response.${dto.store_id}`,
-        expect.objectContaining({
-          status: AuthorizationStatus.REJECTED,
-          rejection_reason: 'EMPLOYEE_NOT_ACTIVE',
-        }),
-      );
+      expect(mockResponsePublisher.reject).toHaveBeenCalledWith(dto, RejectionReason.EMPLOYEE_NOT_ACTIVE);
     });
   });
 });

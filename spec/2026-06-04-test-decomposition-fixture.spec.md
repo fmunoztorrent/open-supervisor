@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-06-04
 **Stack inferido:** opencode harness + bash + jq
-**Estado:** draft (fixture de validación)
+**Estado:** completed — fixture de validación, no requiere implementación
 
 > **Nota:** este spec es un **fixture de prueba** para validar el comportamiento del orquestador multi-scope descrito en `2026-06-04-descomposicion-paralelizacion-scopes.spec.md`. No es una feature real — sus "implementaciones" son triviales (crear archivos marcadores) y existen solo para forzar al agente a poblar `state.json` con scopes paralelos.
 
