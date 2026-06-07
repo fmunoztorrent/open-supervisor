@@ -855,3 +855,44 @@ slug: specs-independientes-paralelizables-con-task-tool
 
 **Cómo aplicar**: Al recibir múltiples specs: grepear los archivos que cada spec modificaría, construir una matriz de overlap, paralelizar solo specs con intersección vacía de archivos modificados.
 
+---
+date: 2026-06-05
+agent: pipeline
+category: setup
+tags: [opencode, subagents, models, skills, harness]
+slug: opencode-multi-model-subagents-go
+---
+
+**Contexto**: Consolidación del harness para que opencode pueda usar subagentes con modelos distintos por rol (spec, architect, qa, backend, frontend), espejando lo que Claude Code ya hacía con `.claude/agents/`.
+
+**Qué pasó**: opencode soporta subagentes nativos con modelo propio via `.opencode/agents/*.md` con frontmatter YAML (`model`, `mode: subagent`, `permission`). Los modelos de suscripción Go usan el prefijo `opencode-go/<model-id>` (ej. `opencode-go/deepseek-v4-pro`). Las skills se consolidaron en `.claude/skills/` como fuente única. Los specs se migraron a XML con versionado (`<history>`, `<result>`, `spec@revision`).
+
+**Lección**: Para configurar subagentes con modelos distintos en opencode:
+- Crear `.opencode/agents/<nombre>.md` con frontmatter: `description`, `mode: subagent`, `model: opencode-go/<id>`, `permission`
+- Agregar `agent.<primary>.permission.task` en `opencode.json` para que el agente primario pueda invocarlos
+- Los modelos Go son flat-rate ($10/mes) — usar `deepseek-v4-flash` (31K req/5h) para agentes de alta frecuencia, `deepseek-v4-pro` (3.4K req/5h) para agentes de razonamiento
+- No usar `/` en nombres de scope — el regex del plugin solo acepta `[\w.-]+`
+
+**Cómo aplicar**: Al agregar un nuevo subagente a opencode, seguir el patrón de frontmatter YAML + task permissions. Al elegir modelo, priorizar Go (flat-rate) para uso frecuente.
+
+---
+
+---
+date: 2026-06-06
+agent: architect
+category: pattern
+tags: [learnings, skills, self-improvement, pipeline, automation]
+slug: learnings-skills-self-improvement-loop
+---
+
+**Contexto**: creando un loop de automejora donde los aprendizajes de LEARNINGS.md se extraen automáticamente en skills específicos por subagente (qa, backend, frontend, architect), evitando que cada agente lea 877 líneas de LEARNINGS.md.
+
+**Qué pasó**: se implementó un sistema de 3 capas:
+1. **Skills por agente** (`.claude/skills/{agent}-learnings/SKILL.md`) con secciones "Reglas activas" (auto-promovidas) y "Lecciones recientes" (últimas 5).
+2. **Script extractor** (`scripts/extract-learnings.ts`) que parsea la última entrada de LEARNINGS.md y actualiza el skill correspondiente. Idempotente: si el slug ya existe, lo promueve a "Reglas activas" en lugar de duplicar.
+3. **Disparadores automáticos**: (a) plugin pipeline-enforcer.js hook `tool.execute.after` spawns el script al detectar close-pending.json, (b) Stop hook en `.claude/settings.json` ejecuta el script condicionalmente, (c) step 4b en close.md como fallback manual.
+
+**Lección**: para que un sistema de auto-mejora sea efectivo, debe ser **automático** (el agente no necesita recordar ejecutarlo), **idempotente** (ejecutar 2 veces no duplica), y **promover** (lecciones que se repiten suben de "reciente" a "regla activa"). La extracción debe ser fault-tolerant: si falla, no bloquea el pipeline — solo loggea un warning.
+
+**Cómo aplicar**: al diseñar cualquier loop de aprendizaje automático en un sistema de agentes: (1) usar skills como caché de conocimiento específico por rol, (2) el trigger debe ser automático vía hooks (plugin + Claude Code Stop), (3) el script extractor debe ser standalone (sin dependencias externas), (4) el fallback manual en el checklist de cierre asegura que el loop nunca se rompa completamente.
+

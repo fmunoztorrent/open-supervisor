@@ -73,6 +73,22 @@ Documenta:
 - **Verificación**: Typecheck ✅ (7/7 servicios), dry run Stryker ✅ (32 archivos, 411 mutantes, 92 tests)
 - **Tests**: No se agregaron tests (chore de infraestructura)
 
+## Resultado
+
+**Completado**: 2026-06-06
+**Estado**: ✅ Completado
+
+**Implementado**:
+- [x] Stryker instalado (v9.6.1) en authorization-service, sse-server, bff
+- [x] 3 `stryker.config.mjs` creados con plugins explícitos para pnpm workspaces
+- [x] Scripts `test:mutation` en root + 3 servicios
+- [x] Skill `mutation-testing/SKILL.md` creado
+
+**Desviaciones**:
+- Se agregó `plugins: ["@stryker-mutator/jest-runner", "@stryker-mutator/typescript-checker"]` explícito en cada config. Necesario para pnpm: los child processes no resuelven plugins automáticamente con `node_modules/.pnpm/`.
+
+**Tests**: Typecheck 7/7 limpio. Stryker dry run exitoso en authorization-service (32 archivos, 411 mutantes).
+
 ## Dependencias entre scopes
 
 | Scope | Depende de | Capa |

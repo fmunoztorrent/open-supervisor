@@ -27,9 +27,9 @@ else
   echo "ERROR: Pipeline is not active. Run todowrite with pipeline steps first."
   echo ""
   echo "Para tareas múltiples, usa scopes:"
-  echo "  [feature/mi-feature]"
+  echo "  [feature.mi-feature]"
   echo "  [▶] 1/6 Spec Generator ..."
-  echo "  [bugfix/mi-fix]"
+  echo "  [bugfix.mi-fix]"
   echo "  [▶] 1/5 Triage ..."
   exit 1
 fi

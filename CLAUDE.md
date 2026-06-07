@@ -203,6 +203,10 @@ pnpm inject --type DISCOUNT --verbose  # muestra configuración activa
 # Tests del script de inyección (node --test + tsx, sin Jest)
 npx tsx --test scripts/inject-request.spec.ts
 
+# Mutation testing (Stryker) — valida calidad de tests en servicios backend
+pnpm test:mutation              # todos los servicios
+pnpm --filter <service> test:mutation  # servicio específico
+
 # Colección Postman (testing manual de endpoints REST)
 # Importar collections/open-supervisor.postman_collection.json en Postman
 # Incluye todos los endpoints REST del BFF y authorization-service + documentación de inyección
@@ -289,7 +293,7 @@ El plugin `pipeline-enforcer` (`.opencode/plugins/pipeline-enforcer.js`) bloquea
 **Si ves el error del plugin:** ejecuta `todowrite` con los pasos del pipeline. Para tareas múltiples:
 
 ```
-[feature/login-google]
+[feature.login-google]
 [▶] 1/6 Spec Generator → spec con REASONS Canvas
 [ ] 2/6 Architect → validar viabilidad
 [ ] 3/6 QA (RED) -> tests que fallan
@@ -297,7 +301,7 @@ El plugin `pipeline-enforcer` (`.opencode/plugins/pipeline-enforcer.js`) bloquea
 [ ] 5/6 QA (GREEN) -> suite completa
 [ ] 6/6 Cierre -> close.md
 
-[bugfix/sse]
+[bugfix.sse]
 [▶] 1/5 Triage -> confirmar error
 [ ] 2/5 Reproducir -> test que falla
 [ ] 3/5 Fix -> corregir
@@ -375,34 +379,16 @@ El script `.opencode/pipeline/pre-commit.sh` rechaza commits si el pipeline est�
 Al completar la implementación de un spec (siguiendo `close.md`):
 
 1. En `spec/`:
-   - Marcar `[x]` los criterios de aceptación completados
-   - Agregar una sección `## Resultado` al final con:
-     - Fecha de finalización
-     - Resumen de lo implementado vs lo planeado
-     - Desviaciones respecto al spec original (si las hay)
-   - Cambiar el status del spec de `draft` a `completed`
-2. El spec queda como registro histórico de lo planeado vs lo entregado.
-
-Formato de la sección `## Resultado`:
-
-```markdown
-## Resultado
-
-**Fecha de finalización:** YYYY-MM-DD
-**Status del spec:** completed
-
-### Implementado
-- [x] US-01: ...
-- [x] US-02: ...
-
-### No implementado / Desviaciones
-- US-03: no se implementó porque ...
-
-### Tests
-- Unitarios: 12/12 pasando
-- Integración: 3/3 pasando
-- E2E: no aplica
-```
+   - Marcar `[x]` los criterios de aceptación completados en el XML (`<result>/<implemented>/<item>`)
+   - Llenar `<result>` con:
+     - `<completed-at>`: fecha de finalización
+     - `<implemented>`: USTs completadas
+     - `<deviations>`: desviaciones respecto al spec original (si las hay)
+     - `<tests>`: resumen de resultados
+   - Cambiar `spec@status` de `draft` a `completed`
+   - Marcar `<meta>/<archived>` como `true`
+   - Incrementar `spec@revision` y agregar entrada en `<history>`
+2. El spec queda como registro histórico inmutable de lo planeado vs lo entregado.
 
 ### Pipeline bugfix (pasos simplificados)
 
@@ -493,13 +479,26 @@ Revisar la configuración del harness (CLAUDE.md, hooks, skills, .claudeignore, 
 
 **Análisis de dependencias:** todo spec debe incluir una sección `## Dependencias entre USTs` con tabla `UST → Depende de → ¿Paralelizable?`. Si el spec no la tiene, el architect la agrega en el paso 2 como enriquecimiento.
 
-**Skill `scope-orchestrator`:** invocar `.opencode/skills/scope-orchestrator/SKILL.md` cuando se detecta un spec con ≥3 USTs. El skill codifica el patrón completo: análisis de dependencias, cálculo de capas, prompt template para sub-agentes.
+**Skill `scope-orchestrator`:** invocar `.claude/skills/scope-orchestrator/SKILL.md` cuando se detecta un spec con ≥3 USTs. El skill codifica el patrón completo: análisis de dependencias, cálculo de capas, prompt template para sub-agentes.
 
 **Resumen:**
 - Spec chico (1-2 USTs) → 1 scope, secuencial
 - Spec grande (≥3 USTs) → descomponer + paralelizar por capas
 
 **Spec de referencia:** `spec/2026-06-04-descomposicion-paralelizacion-scopes.spec.md`
+
+## Loop QA GREEN → RED
+
+El agente QA en FASE GREEN no solo verifica — decide si el pipeline avanza a cierre o vuelve a RED:
+
+| Falla | Acción |
+|---|---|
+| Typecheck roto | Backend corrige, QA re-verifica, vuelve a RED |
+| Tests en rojo por regresión | QA escribe test que captura la regresión, vuelve a RED |
+| Mutation score < 50% (threshold `low`) | QA refuerza tests para mutantes sobrevivientes, vuelve a RED |
+| Todo OK | QA reporta "GREEN completo" y avanza a cierre |
+
+**Herramientas**: QA usa `pnpm test:mutation` (Stryker) como paso adicional en FASE GREEN. El contrato completo está documentado en `Skill(mutation-testing)` y en los agentes QA (`.claude/agents/qa.md` y `.opencode/agents/qa.md`).
 
 ## Code Navigation
 
@@ -519,6 +518,8 @@ Revisar la configuración del harness (CLAUDE.md, hooks, skills, .claudeignore, 
 - **Variables de entorno**: backend via `ConfigModule` NestJS; mobile via `react-native-config`.
 - **Módulos NestJS**: cada feature es un módulo; el binding port → adapter va en el module, no en los use-cases.
 - **Skills operativos en el repo (agnósticos)**: `open-supervisor-infra` (contenedores + servicios backend + inyección + Kafka) y `open-supervisor-emulator` (validación e2e de la app Android) viven en `.claude/skills/` dentro del repo (git-trackeados), por lo que cualquiera que clone el proyecto los recibe. **Son agnósticos de máquina**: no contienen rutas absolutas — derivan la raíz con `git rev-parse --show-toplevel`, detectan el motor de contenedores (Podman/Docker) y resuelven el socket y el serial del emulador dinámicamente. opencode los lee vía `.claude/skills` agregado a `skills.paths` en `opencode.json` (fuente única, sin duplicar). Los agentes `qa`, `backend` y `frontend` tienen el tool `Skill` habilitado y deben **delegar en estos skills** en vez de improvisar comandos crudos de Podman/Docker/adb. Regla: ningún skill ni script de tooling debe contener rutas absolutas de usuario (`$HOME/...`) ni nombres de contenedor con prefijo de proyecto; usar `$COMPOSE exec <servicio>`.
+- **Skills de automejora (learnings)**: `qa-learnings`, `backend-learnings`, `frontend-learnings` y `architect-learnings` en `.claude/skills/`. Cada uno contiene reglas activas y lecciones recientes destiladas de `.claude/LEARNINGS.md` para el subagente correspondiente. Se actualizan automáticamente al cierre de cada tarea vía `scripts/extract-learnings.ts`. Los agentes cargan su skill al comenzar.
+- **Skill de mutation testing**: `mutation-testing` en `.claude/skills/`. Documenta cómo ejecutar Stryker, interpretar thresholds y el contrato QA GREEN → RED. Cargado por el agente QA al iniciar.
 ## Validaciones automáticas (prevención de hardcodeos)
 
 El harness bloquea mecánicamente la introducción de hardcodeos en tres niveles:

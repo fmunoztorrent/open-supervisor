@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
+import { spawn } from "child_process"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const STATE_PATH = join(__dirname, "..", "pipeline", "state.json")
@@ -165,6 +166,61 @@ function writeClosePending(scopeName, state) {
   writeFileSync(CLOSE_PENDING_PATH, JSON.stringify(payload, null, 2))
 }
 
+// ── Learnings extraction hook ────────────────────────────────────────────────
+
+/**
+ * Spawnea `npx tsx scripts/extract-learnings.ts` después de que un scope
+ * se cierra, para extraer la última lección de LEARNINGS.md al skill del
+ * agente correspondiente.
+ *
+ * No bloquea el pipeline si falla — solo loggea warnings.
+ */
+function extractLearningsAfterClose() {
+  // Guard: solo si close-pending.json existe y es reciente (< 5 min)
+  if (!existsSync(CLOSE_PENDING_PATH)) return
+
+  try {
+    const pendingData = JSON.parse(readFileSync(CLOSE_PENDING_PATH, "utf-8"))
+    const completedAt = new Date(pendingData.completed_at).getTime()
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000
+
+    if (completedAt < fiveMinAgo) {
+      // close-pending es viejo (> 5 min) — probablemente ya se procesó
+      return
+    }
+  } catch (e) {
+    // Si no se puede leer el archivo, salir silenciosamente
+    return
+  }
+
+  // Spawn npx tsx scripts/extract-learnings.ts con timeout de 10s
+  const repoRoot = dirname(dirname(__dirname))
+  const child = spawn("npx", ["tsx", "scripts/extract-learnings.ts"], {
+    cwd: repoRoot,
+    timeout: 10_000,
+    stdio: ["ignore", "pipe", "pipe"],
+  })
+
+  let stderr = ""
+  child.stderr?.on("data", (chunk) => {
+    stderr += chunk.toString()
+  })
+
+  child.on("error", (err) => {
+    console.warn(
+      `[pipeline-enforcer] Could not spawn extract-learnings.ts: ${err.message}`
+    )
+  })
+
+  child.on("close", (code) => {
+    if (code !== 0) {
+      console.warn(
+        `[pipeline-enforcer] extract-learnings.ts exited with code ${code}:\n${stderr.trim()}`
+      )
+    }
+  })
+}
+
 export default async () => {
   let previousScopeState = {}
 
@@ -206,6 +262,7 @@ export default async () => {
         state.scopes[name].active = false
         state.scopes[name].step = 6
         writeClosePending(name, state)
+        extractLearningsAfterClose()
       } else {
         // Normal update
         state.scopes[name].active = nowActive
@@ -300,7 +357,7 @@ Ejecuta todowrite con el pipeline correspondiente.
 
 Formato multi-scope (varias tareas independientes):
 
-[feature/mi-feature]
+[feature.mi-feature]
 [▶] 1/6 Spec Generator → spec con REASONS Canvas
 [ ] 2/6 Architect → validar viabilidad técnica
 [ ] 3/6 QA (RED) → tests que fallan
@@ -308,7 +365,7 @@ Formato multi-scope (varias tareas independientes):
 [ ] 5/6 QA (GREEN) → suite completa
 [ ] 6/6 Cierre → close checklist
 
-[bugfix/mi-fix]
+[bugfix.mi-fix]
 [▶] 1/5 Triage → confirmar bug
 [ ] 2/5 Reproducir → test que falla
 [ ] 3/5 Fix → corregir
