@@ -32,6 +32,95 @@
         "access.token.lifespan": "28800",
         "client.session.idle.timeout": "28800",
         "client.session.max.lifespan": "86400"
+      },
+      "protocolMappers": [
+        {
+          "name": "storeId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "storeId",
+            "claim.name": "storeId",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "displayName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "displayName",
+            "claim.name": "displayName",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "jobTitle",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "jobTitle",
+            "claim.name": "jobTitle",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "department",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "department",
+            "claim.name": "department",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "12345678-9",
+      "enabled": true,
+      "email": "juan.perez@opensupervisor.local",
+      "firstName": "Juan",
+      "lastName": "Pérez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password1",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "storeId": ["store-1"],
+        "displayName": ["Juan Pérez"],
+        "jobTitle": ["Supervisor de Turno"],
+        "department": ["Operaciones"]
+      }
+    },
+    {
+      "username": "99999999-0",
+      "enabled": false,
+      "email": "roberto.inactivo@opensupervisor.local",
+      "firstName": "Roberto",
+      "lastName": "Inactivo",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password0",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "storeId": ["store-1"]
       }
     }
   ],
@@ -60,13 +149,13 @@
           "usernameLDAPAttribute": ["uid"],
           "rdnLDAPAttribute": ["uid"],
           "uuidLDAPAttribute": ["entryUUID"],
-          "userObjectClasses": ["inetOrgPerson, organizationalPerson"],
+          "userObjectClasses": ["inetOrgPerson,organizationalPerson"],
           "connectionUrl": ["ldap://openldap:389"],
           "usersDn": ["ou=users,dc=opensupervisor,dc=local"],
           "authType": ["simple"],
           "bindDn": ["cn=admin,dc=opensupervisor,dc=local"],
           "bindCredential": ["admin123"],
-          "searchScope": ["1"],
+          "searchScope": ["2"],
           "useTruststoreSpi": ["ldapsOnly"],
           "connectionPooling": ["true"],
           "connectionPoolingAuthentication": ["true"],

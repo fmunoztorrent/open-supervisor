@@ -10,11 +10,11 @@
       "started_at": "2026-06-04T12:00:00.000Z",
       "completed_at": null
     },
-    "feature-login-active-directory": {
+    "bugfix.openldap-bootstrap": {
       "active": true,
-      "type": "feature",
-      "step": 6,
-      "started_at": "2026-06-07T02:46:11.470Z",
+      "type": "bugfix",
+      "step": 5,
+      "started_at": "2026-06-07T03:24:56.077Z",
       "completed_at": null
     }
   }

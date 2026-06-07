@@ -63,7 +63,10 @@ services:
       retries: 5
 
   openldap:
-    image: osixia/openldap:1.5.0
+    build:
+      context: ./.docker/openldap
+      dockerfile: Dockerfile
+    image: open-supervisor/openldap:local
     environment:
       LDAP_ORGANISATION: OpenSupervisor
       LDAP_DOMAIN: opensupervisor.local
@@ -72,7 +75,6 @@ services:
     ports:
       - "389:389"
     volumes:
-      - ./.docker/openldap/bootstrap.ldif:/container/service/slapd/assets/config/bootstrap/ldif/50-bootstrap.ldif
       - openldap_data:/var/lib/ldap
       - openldap_config:/etc/ldap/slapd.d
     healthcheck:
@@ -82,7 +84,10 @@ services:
       retries: 5
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.1
+    build:
+      context: ./.docker/keycloak
+      dockerfile: Dockerfile
+    image: open-supervisor/keycloak:local
     depends_on:
       openldap:
         condition: service_healthy
@@ -96,8 +101,6 @@ services:
       KC_PROXY_HEADERS: xforwarded
     ports:
       - "8080:8080"
-    volumes:
-      - ./.docker/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     command: start --import-realm
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 || exec 3<>/dev/tcp/localhost/8080; echo >&3 'GET /realms/open-supervisor HTTP/1.1\r\nHost: localhost\r\n\r\n'; head -n1 <&3 | grep -q 200"]

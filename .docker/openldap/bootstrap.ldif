@@ -1,28 +1,10 @@
-# OpenLDAP bootstrap — Simulated Active Directory
-# 10 usuarios con atributos equivalentes al contrato AD real:
-#   uid (RUT), cn (displayName), sn, givenName, userPassword,
-#   employeeType (jobTitle), departmentNumber (department),
-#   carLicense (storeId)
+# Bootstrap users for OpenLDAP — Simulated Active Directory
 
-dn: dc=opensupervisor,dc=local
-objectClass: top
-objectClass: dcObject
-objectClass: organization
-o: OpenSupervisor
-dc: opensupervisor
-
+# Organizational Unit for users
 dn: ou=users,dc=opensupervisor,dc=local
 objectClass: top
 objectClass: organizationalUnit
 ou: users
-
-dn: cn=admin,dc=opensupervisor,dc=local
-objectClass: simpleSecurityObject
-objectClass: organizationalRole
-cn: admin
-userPassword: admin123
-
-# ── Usuarios ────────────────────────────────────────────────────────────────────
 
 # User 1 — Supervisor tienda store-1
 dn: uid=12345678-9,ou=users,dc=opensupervisor,dc=local
@@ -38,7 +20,6 @@ userPassword: password1
 employeeType: Supervisor de Turno
 departmentNumber: Operaciones
 carLicense: store-1
-description: enabled
 
 # User 2 — Supervisor tienda store-2
 dn: uid=23456789-0,ou=users,dc=opensupervisor,dc=local
@@ -54,7 +35,6 @@ userPassword: password2
 employeeType: Supervisor Senior
 departmentNumber: Operaciones
 carLicense: store-2
-description: enabled
 
 # User 3 — Supervisor tienda store-3
 dn: uid=34567890-1,ou=users,dc=opensupervisor,dc=local
@@ -70,9 +50,8 @@ userPassword: password3
 employeeType: Supervisor
 departmentNumber: Ventas
 carLicense: store-3
-description: enabled
 
-# User 4 — Supervisor tienda store-1 (segundo supervisor misma tienda)
+# User 4 — Supervisor tienda store-1
 dn: uid=45678901-2,ou=users,dc=opensupervisor,dc=local
 objectClass: top
 objectClass: person
@@ -86,7 +65,6 @@ userPassword: password4
 employeeType: Supervisor de Turno
 departmentNumber: Operaciones
 carLicense: store-1
-description: enabled
 
 # User 5 — Supervisor tienda store-2
 dn: uid=56789012-3,ou=users,dc=opensupervisor,dc=local
@@ -102,7 +80,6 @@ userPassword: password5
 employeeType: Supervisor
 departmentNumber: Ventas
 carLicense: store-2
-description: enabled
 
 # User 6 — Supervisor tienda store-3
 dn: uid=67890123-4,ou=users,dc=opensupervisor,dc=local
@@ -118,7 +95,6 @@ userPassword: password6
 employeeType: Supervisor Senior
 departmentNumber: Operaciones
 carLicense: store-3
-description: enabled
 
 # User 7 — Supervisor tienda store-1
 dn: uid=78901234-5,ou=users,dc=opensupervisor,dc=local
@@ -134,7 +110,6 @@ userPassword: password7
 employeeType: Supervisor
 departmentNumber: Ventas
 carLicense: store-1
-description: enabled
 
 # User 8 — Supervisor tienda store-2
 dn: uid=89012345-6,ou=users,dc=opensupervisor,dc=local
@@ -150,7 +125,6 @@ userPassword: password8
 employeeType: Supervisor de Turno
 departmentNumber: Operaciones
 carLicense: store-2
-description: enabled
 
 # User 9 — Supervisor tienda store-3
 dn: uid=90123456-7,ou=users,dc=opensupervisor,dc=local
@@ -166,9 +140,8 @@ userPassword: password9
 employeeType: Supervisor
 departmentNumber: Ventas
 carLicense: store-3
-description: enabled
 
-# User 10 — CUENTA DESHABILITADA (para tests de login fallido)
+# User 10 — CUENTA DESHABILITADA
 dn: uid=99999999-0,ou=users,dc=opensupervisor,dc=local
 objectClass: top
 objectClass: person
@@ -182,4 +155,3 @@ userPassword: password0
 employeeType: Ex-Supervisor
 departmentNumber: Operaciones
 carLicense: store-1
-description: disabled
