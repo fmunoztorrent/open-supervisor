@@ -12,6 +12,40 @@ jest.mock('react-native-config', () => ({
   BFF_BASE_URL: 'http://localhost:3000',
 }));
 
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const store = {};
+  return {
+    getItem: jest.fn((key) => Promise.resolve(store[key] || null)),
+    setItem: jest.fn((key, value) => {
+      store[key] = value;
+      return Promise.resolve();
+    }),
+    removeItem: jest.fn((key) => {
+      delete store[key];
+      return Promise.resolve();
+    }),
+    clear: jest.fn(() => {
+      Object.keys(store).forEach((k) => delete store[k]);
+      return Promise.resolve();
+    }),
+  };
+});
+
+jest.mock('jwt-decode', () => ({
+  jwtDecode: jest.fn((token) => {
+    if (token === 'expired-token') {
+      return { sub: 'user-1', exp: Math.floor(Date.now() / 1000) - 3600 };
+    }
+    return {
+      sub: '12345678-9',
+      preferred_username: '12345678-9',
+      storeId: 'store-1',
+      displayName: 'Juan Pérez',
+      exp: Math.floor(Date.now() / 1000) + 28800,
+    };
+  }),
+}));
+
 require('@testing-library/react-native/extend-expect');
 
 // renderWithProvider — wraps render in GluestackUIProvider when available

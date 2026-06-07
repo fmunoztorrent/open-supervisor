@@ -1,8 +1,26 @@
 import React from 'react';
-import { screen } from '@testing-library/react-native';
+import { screen, waitFor } from '@testing-library/react-native';
 
 // renderWithProvider is injected by jest.setup.js
 declare const renderWithProvider: (ui: React.ReactElement, options?: any) => ReturnType<typeof import('@testing-library/react-native').render>;
+
+// Mock AsyncStorage to return a valid token (authenticated session)
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn().mockResolvedValue('fake-token'),
+  setItem: jest.fn().mockResolvedValue(undefined),
+  removeItem: jest.fn().mockResolvedValue(undefined),
+  clear: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Mock jwt-decode for token decoding
+jest.mock('jwt-decode', () => ({
+  jwtDecode: jest.fn().mockReturnValue({
+    sub: 'supervisor-1',
+    storeId: 'store-1',
+    displayName: 'Juan Pérez',
+    exp: Math.floor(Date.now() / 1000) + 28800,
+  }),
+}));
 
 // Mock useSSERequests to control its return value
 const mockUseSSERequests = jest.fn();
@@ -47,7 +65,7 @@ describe('App', () => {
   });
 
   describe('indicador de background refresh (wiring)', () => {
-    it('pasa isRefreshingBackground a AuthorizationList cuando es true', () => {
+    it('pasa isRefreshingBackground a AuthorizationList cuando es true', async () => {
       mockUseSSERequests.mockReturnValue({
         requests: [sampleRequest],
         isLoading: false,
@@ -58,11 +76,13 @@ describe('App', () => {
 
       renderWithProvider(<App />);
 
-      expect(screen.getByTestId('background-refresh-indicator')).toBeOnTheScreen();
+      await waitFor(() => {
+        expect(screen.getByTestId('background-refresh-indicator')).toBeOnTheScreen();
+      });
       expect(screen.getByTestId('card-corr-1')).toBeOnTheScreen();
     });
 
-    it('pasa isRefreshingBackground a AuthorizationList cuando es false', () => {
+    it('pasa isRefreshingBackground a AuthorizationList cuando es false', async () => {
       mockUseSSERequests.mockReturnValue({
         requests: [sampleRequest],
         isLoading: false,
@@ -73,8 +93,10 @@ describe('App', () => {
 
       renderWithProvider(<App />);
 
+      await waitFor(() => {
+        expect(screen.getByTestId('card-corr-1')).toBeOnTheScreen();
+      });
       expect(screen.queryByTestId('background-refresh-indicator')).toBeNull();
-      expect(screen.getByTestId('card-corr-1')).toBeOnTheScreen();
     });
   });
 });

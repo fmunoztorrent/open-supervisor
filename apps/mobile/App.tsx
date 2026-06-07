@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
 import { config } from '@gluestack-ui/config';
-import { GluestackUIProvider, HStack, Pressable, Box, Text } from '@gluestack-ui/themed';
+import { GluestackUIProvider, HStack, Pressable, Box, Text, Spinner, Center } from '@gluestack-ui/themed';
 import { SessionProvider, useSession } from './src/context/SessionContext';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
 import { useSSERequests, RequestWithResolved } from './src/hooks/useSSERequests';
@@ -48,7 +49,7 @@ function DetailView({ request, supervisorId, onBack, onDecisionComplete }: Detai
 }
 
 function SupervisorApp() {
-  const { storeId, supervisorId } = useSession();
+  const { storeId, supervisorId, displayName } = useSession();
   const { requests, isLoading, isReconnecting, isRefreshingBackground, refetch } = useSSERequests(storeId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -63,7 +64,7 @@ function SupervisorApp() {
         supervisorId={supervisorId}
         onBack={() => setSelectedId(null)}
         onDecisionComplete={() => {
-          refetch(); // trigger GET /pending to remove the resolved request from the list
+          refetch();
           setSelectedId(null);
         }}
       />
@@ -73,7 +74,14 @@ function SupervisorApp() {
   return (
     <SafeAreaView style={styles.container}>
       <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 12 }}>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#212121', flex: 1 }}>Solicitudes</Text>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#212121', flex: 1 }}>
+          Solicitudes
+        </Text>
+        {displayName ? (
+          <Text style={{ fontSize: 12, color: '#9E9E9E' }}>
+            {displayName}
+          </Text>
+        ) : null}
         {isReconnecting && (
           <Box bg="$warning100" px="$2" py="$1" borderRadius="$sm">
             <Text color="$warning700" fontSize="$xs">Reconectando...</Text>
@@ -90,12 +98,35 @@ function SupervisorApp() {
   );
 }
 
+function AuthenticatedApp() {
+  const { isAuthenticated, isInitializing } = useSession();
+  const [loginKey, setLoginKey] = useState(0);
+
+  const handleLoginSuccess = useCallback(() => {
+    setLoginKey((k) => k + 1);
+  }, []);
+
+  if (isInitializing) {
+    return (
+      <Center style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+        <Spinner testID="session-spinner" size="large" />
+      </Center>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen key={`login-${loginKey}`} onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  return <SupervisorApp key={`app-${loginKey}`} />;
+}
+
 export default function App() {
   return (
     <GluestackUIProvider config={config}>
       <SessionProvider>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <SupervisorApp />
+        <AuthenticatedApp />
       </SessionProvider>
     </GluestackUIProvider>
   );
