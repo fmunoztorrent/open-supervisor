@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Button,
@@ -19,6 +19,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
     setValidationError(null);
@@ -68,6 +69,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             autoCapitalize="none"
             autoCorrect={false}
             editable={!isLoading}
+            autoFocus
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
             style={{
               borderWidth: 1,
               borderColor: '#E0E0E0',
@@ -84,6 +88,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         <VStack style={{ gap: 8 }}>
           <Text style={{ fontSize: 13, fontWeight: '600', color: '#616161' }}>Contraseña</Text>
           <TextInput
+            ref={passwordRef}
             testID="password-input"
             value={password}
             onChangeText={setPassword}
@@ -92,6 +97,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             autoCapitalize="none"
             autoCorrect={false}
             editable={!isLoading}
+            returnKeyType="go"
+            onSubmitEditing={handleLogin}
             style={{
               borderWidth: 1,
               borderColor: '#E0E0E0',
