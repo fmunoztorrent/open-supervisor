@@ -481,7 +481,7 @@ tags: [skills, portabilidad, podman, docker, adb, agnostico, opencode, qa]
 slug: skills-infra-emulator-agnosticos-en-el-repo
 ---
 
-**Contexto**: los skills `open-supervisor-infra` y `open-supervisor-emulator` vivían solo en `~/.claude/skills/` (config personal) y tenían rutas absolutas de la máquina del autor — incluido el socket Podman `unix:///Users/fabianmunoz/.local/share/.../podman.sock`. Un dev que clonara el repo no los recibía y, si los recibía, no funcionaban.
+**Contexto**: los skills `open-supervisor-infra` y `open-supervisor-emulator` vivían solo en `~/.claude/skills/` (config personal) y tenían rutas absolutas de la máquina del autor — incluido el socket Podman `unix://$HOME/.local/share/.../podman.sock`. Un dev que clonara el repo no los recibía y, si los recibía, no funcionaban.
 
 **Qué pasó**: al verificar el bootstrap portable en este mismo entorno, `DOCKER_HOST` se resolvió dinámicamente a `unix:///tmp/claude-501/podman/podman-machine-default-api.sock` — **una ruta totalmente distinta** del socket hardcodeado que tenía el skill viejo. O sea, el hardcode estaba mal incluso en la máquina del autor bajo este runtime. Los nombres de contenedor tipo `open-supervisor-kafka-1` también son frágiles: el prefijo lo pone compose según el nombre del directorio de clonado.
 
@@ -727,7 +727,7 @@ tags: [portabilidad, harness, podman, docker, settings, hardcodeo]
 slug: despersonalizacion-harness-settings-local
 ---
 
-**Contexto**: el repositorio contenía hardcodeos de rutas absolutas (`/Users/fabianmunoz/...`) y socket Podman en archivos trackeados (`CLAUDE.md`, `LEARNINGS.md`, `.claude/settings.json`, `docker-compose.localstack.yml`), lo que rompía la portabilidad para cualquier otro desarrollador.
+**Contexto**: el repositorio contenía hardcodeos de rutas absolutas (`$HOME/...`) y socket Podman en archivos trackeados (`CLAUDE.md`, `LEARNINGS.md`, `.claude/settings.json`, `docker-compose.localstack.yml`), lo que rompía la portabilidad para cualquier otro desarrollador.
 
 **Qué pasó**: se identificaron 8 hardcodeos críticos distribuidos en 5 archivos. Los skills operativos y el Makefile ya tenían detección dinámica Podman/Docker, pero los archivos de harness y documentación no.
 

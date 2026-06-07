@@ -12,7 +12,7 @@ El proyecto open-supervisor utiliza Podman como motor de contenedores para desar
 
 - `CLAUDE.md` (el archivo guía del proyecto para agentes de IA) contiene un comando hardcodeado con la ruta absoluta del socket Podman de la máquina del autor.
 - `.claude/LEARNINGS.md` replica el mismo hardcodeo en su sección "Cómo aplicar".
-- `.claude/settings.json` (trackeado en git) contiene rutas absolutas a `/Users/fabianmunoz/...` que son inválidas en cualquier otra máquina.
+- `.claude/settings.json` (trackeado en git) contiene rutas absolutas a `$HOME/...` que son inválidas en cualquier otra máquina.
 - `.claude/settings.local.json` contiene nombres de contenedor con prefijo de proyecto (`open-supervisor-kafka-1`) frágiles si el directorio de clonado tiene otro nombre.
 - `docker-compose.localstack.yml` monta `/var/run/docker.sock` hardcodeado, que no existe en entornos Podman macOS.
 - `infra/terraform/README.md` asume Docker como único motor, sin nota de compatibilidad.
@@ -34,7 +34,7 @@ El **patrón de detección** ya está consolidado en 3 lugares (Makefile, skill 
 ## REASONS Canvas
 
 <REASONS>
-  <Rationale>Un repositorio de código abierto debe ser clonable y ejecutable por cualquier desarrollador sin requerir edición manual de rutas hardcodeadas. Los hardcodeos actuales (socket Podman, rutas absolutas a /Users/fabianmunoz) rompen el principio de portabilidad y generan fricción en el onboarding. El patrón de detección automática ya existe en los skills; extenderlo a los archivos de harness es la extensión natural.</Rationale>
+  <Rationale>Un repositorio de código abierto debe ser clonable y ejecutable por cualquier desarrollador sin requerir edición manual de rutas hardcodeadas. Los hardcodeos actuales (socket Podman, rutas absolutas a $HOME) rompen el principio de portabilidad y generan fricción en el onboarding. El patrón de detección automática ya existe en los skills; extenderlo a los archivos de harness es la extensión natural.</Rationale>
   
   <Explanation>La feature corrige hardcodeos puntuales en 5 archivos del harness, reemplazándolos por referencias al Makefile (que ya detecta el motor), rutas relativas, o variables de entorno. No se introduce un nuevo mecanismo de detección: se reutiliza el existente. Para `settings.json`, la solución es mover reglas con rutas absolutas a `settings.local.json` (archivo personal no trackeado) y dejar en `settings.json` solo reglas portables con rutas relativas o patrones genéricos.</Explanation>
   
@@ -74,7 +74,7 @@ El **patrón de detección** ya está consolidado en 3 lugares (Makefile, skill 
 > Como **desarrollador que clona el repositorio por primera vez**, quiero **que los comandos documentados en CLAUDE.md y LEARNINGS.md sean ejecutables sin modificar rutas hardcodeadas**, para que **pueda levantar la infraestructura inmediatamente después del clonado**.
 
 **Criterios de aceptación:**
-- [x] `CLAUDE.md` no contiene la ruta absoluta `/Users/fabianmunoz/.local/share/containers/podman/machine/podman.sock` ni ningún otro hardcodeo de socket.
+- [x] `CLAUDE.md` no contiene la ruta absoluta `$HOME/.local/share/containers/podman/machine/podman.sock` ni ningún otro hardcodeo de socket.
 - [x] `CLAUDE.md` referencia `make infra` o los skills operativos como método canónico para levantar infraestructura.
 - [x] `.claude/LEARNINGS.md` — la entrada del 2026-06-04 en "Cómo aplicar" recomienda `make infra` en lugar del comando hardcodeado.
 - [x] Cualquier otro hardcodeo de rutas absolutas en la sección de comandos de CLAUDE.md es reemplazado por referencias portables (Makefile, skills, o rutas relativas).
@@ -232,7 +232,7 @@ Feature: Portabilidad de infraestructura (US-02)
 
 ### No implementado / Desviaciones
 - `docker-compose.localstack.yml` se mantuvo (está en uso activo, commit `39b8a2f`); se corrigió con variable de entorno en lugar de eliminar
-- `.claude/settings.local.json`: se mantienen rutas absolutas a `/Users/fabianmunoz/` por ser archivo personal (no trackeado en git tras agregar a `.gitignore`)
+- `.claude/settings.local.json`: se mantienen rutas absolutas a `$HOME/` por ser archivo personal (no trackeado en git tras agregar a `.gitignore`)
 - Se ajustó el test 1.4 para buscar el patrón `DOCKER_HOST=unix://` en lugar de `podman.sock` (evita falsos positivos con menciones históricas legítimas en LEARNINGS.md)
 
 ### Archivos modificados
