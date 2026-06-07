@@ -98,13 +98,8 @@ function SupervisorApp() {
   );
 }
 
-function AuthenticatedApp() {
+function AuthenticatedApp({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const { isAuthenticated, isInitializing } = useSession();
-  const [loginKey, setLoginKey] = useState(0);
-
-  const handleLoginSuccess = useCallback(() => {
-    setLoginKey((k) => k + 1);
-  }, []);
 
   if (isInitializing) {
     return (
@@ -115,18 +110,24 @@ function AuthenticatedApp() {
   }
 
   if (!isAuthenticated) {
-    return <LoginScreen key={`login-${loginKey}`} onLoginSuccess={handleLoginSuccess} />;
+    return <LoginScreen onLoginSuccess={onLoginSuccess} />;
   }
 
-  return <SupervisorApp key={`app-${loginKey}`} />;
+  return <SupervisorApp />;
 }
 
 export default function App() {
+  const [loginKey, setLoginKey] = useState(0);
+
+  const handleLoginSuccess = useCallback(() => {
+    setLoginKey((k) => k + 1);
+  }, []);
+
   return (
     <GluestackUIProvider config={config}>
-      <SessionProvider>
+      <SessionProvider key={`session-${loginKey}`}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <AuthenticatedApp />
+        <AuthenticatedApp onLoginSuccess={handleLoginSuccess} />
       </SessionProvider>
     </GluestackUIProvider>
   );
