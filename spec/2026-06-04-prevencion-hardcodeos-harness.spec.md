@@ -167,7 +167,7 @@ Feature: Detección de hardcodeos en tiempo real (US-02)
   Para corregirlos antes de continuar
 
   Scenario: Agente intenta escribir ruta absoluta
-    Given el agente ejecuta edit con newString que contiene "/Users/fabianmunoz/"  # hardcode-ok: spec doc
+    Given el agente ejecuta edit con newString que contiene "/Users/test-user/"  # hardcode-ok: spec doc
     When  el plugin enforcer evalúa la operación
     Then  la operación es bloqueada
     And   el mensaje de error explica que las rutas absolutas están prohibidas
@@ -180,7 +180,7 @@ Feature: Detección de hardcodeos en tiempo real (US-02)
 
   Scenario: Agente edita archivo en allowlist
     Given el agente ejecuta edit sobre .claude/settings.local.json
-    When  el nuevo contenido contiene "/Users/fabianmunoz/.claude/"  # hardcode-ok: spec doc
+    When  el nuevo contenido contiene "/Users/test-user/.claude/"  # hardcode-ok: spec doc
     Then  la operación es permitida (archivo en allowlist)
 ```
 
