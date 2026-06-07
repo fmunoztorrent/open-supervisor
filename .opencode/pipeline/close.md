@@ -19,6 +19,10 @@ Ejecutar **inmediatamente** cuando el último todo de un scope se marca como `co
 
 ### 2. Fusionar rama actual en `dev` local (integración)
 
+> **⚠️ `dev` es permanente.** La rama `dev` **nunca** se elimina. Al limpiar
+> ramas después de una consolidación, solo se borran feature/bugfix/chore;
+> `dev` y `main` se preservan siempre.
+
 - **Objetivo:** integrar la rama actual a la rama `dev` local como punto de
   integración temprana, antes de que el PR entre a review.
 - Ejecutar el helper: `.opencode/pipeline/merge-to-dev.sh`
