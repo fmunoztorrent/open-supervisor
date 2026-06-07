@@ -7,7 +7,21 @@
     ".opencode/plugins/pipeline-enforcer.js"
   ],
   "skills": {
-    "paths": [".opencode/skills", ".claude/skills"]
+    "paths": [".claude/skills"]
+  },
+  "agent": {
+    "pipeline": {
+      "permission": {
+        "task": {
+          "*": "deny",
+          "spec": "allow",
+          "architect": "allow",
+          "qa": "allow",
+          "backend": "allow",
+          "frontend": "allow"
+        }
+      }
+    }
   },
   "command": {
     "task": {

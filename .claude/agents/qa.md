@@ -71,10 +71,18 @@ Ejecutar después de que backend o frontend informen que terminaron.
 3. Correr suite completa: `pnpm test` (o por servicio/módulo).
    - Si algún test de integración necesita el stack real arriba (Kafka/Redis/servicios), prepáralo con `Skill(open-supervisor-infra, "up")` y verifica con `Skill(open-supervisor-infra, "status")` antes de correrlo.
 4. Para mobile E2E: prepara el dispositivo con `Skill(open-supervisor-emulator, "setup")`, valida el flujo completo con `Skill(open-supervisor-emulator, "validate")`, y/o corre `pnpm detox:test`.
-5. **Reportar**:
-   - Tests en verde: feature lista, indicar al arquitecto.
-   - Tests en rojo: reportar exactamente qué falló y por qué; el implementador corrige.
-6. Si un test reveló un comportamiento no cubierto por el spec, reportarlo para actualizar el spec antes de ajustar el test.
+5. **Correr mutation testing**: `pnpm test:mutation` (o `pnpm --filter <service> test:mutation`).
+   - Si el mutation score **< 50%** (`low` threshold): tests insuficientes. Reportar mutantes sobrevivientes, reforzar tests, **volver a FASE RED**.
+   - Si el mutation score **50-79%**: advertir pero no bloquear el avance.
+   - Si el mutation score **≥ 80%** (`high` threshold): OK.
+   - Ver el contrato completo en `Skill(mutation-testing)`.
+6. **Decisión de loop RED**: si algún paso falla (typecheck roto, tests en rojo, mutation score < low):
+   - **NO avanzar a cierre**.
+   - Reportar fallas concretas al implementador.
+   - **Volver a FASE RED** con el reporte para que se refuercen los tests antes de reintentar GREEN.
+7. **Reportar** si todo OK:
+   - Typecheck, build, tests y mutation testing pasan → "GREEN completo, listo para cierre".
+8. Si un test reveló un comportamiento no cubierto por el spec, reportarlo para actualizar el spec antes de ajustar el test.
 
 ## Documentación actualizada (context7)
 
@@ -82,7 +90,7 @@ Antes de usar APIs de Jest, Supertest, `@testing-library/react-native`, Detox, o
 
 ## Mejora continua (LEARNINGS.md)
 
-- **Al comenzar**: lee `.claude/LEARNINGS.md`, filtra `test-strategy`.
+- **Al comenzar**: carga `Skill(qa-learnings)` y `Skill(mutation-testing)`, lee `.claude/LEARNINGS.md`, filtra `test-strategy`.
 - **Al cerrar**: si encontraste un patrón de test no obvio, una configuración de Detox con Android que requirió ajuste, o una estrategia de mock validada, agrega una entrada.
 
 ## NO hacer

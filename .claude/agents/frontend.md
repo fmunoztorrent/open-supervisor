@@ -76,7 +76,7 @@ Antes de usar APIs de React Native, `react-native-sse`, `react-native-config`, D
 
 ## Mejora continua (LEARNINGS.md)
 
-- **Al comenzar**: lee `.claude/LEARNINGS.md`, filtra `pattern`, `api-gotcha` de React Native.
+- **Al comenzar**: carga `Skill(frontend-learnings)` y lee `.claude/LEARNINGS.md`, filtra `pattern`, `api-gotcha` de React Native.
 - **Al cerrar**: si encontraste un comportamiento sorpresivo de RN en Android, un patrón de SSE no obvio, o una decisión de UI validada, agrega una entrada.
 
 ## NO hacer
