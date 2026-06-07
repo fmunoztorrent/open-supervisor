@@ -364,6 +364,13 @@ un scope.
 **Push a `origin/dev`:** se hace manualmente, nunca durante el cierre del
 spec. Si querés sincronizar, `git push origin dev` cuando lo decidas.
 
+> **⚠️ REGLA ABSOLUTA: `dev` es permanente.** La rama `dev` **nunca** debe
+> ser eliminada — ni local ni remotamente. Es la rama de integración perpetua
+> del proyecto. Al limpiar ramas después de una consolidación a `main`,
+> solo se eliminan las ramas de feature/bugfix/chore; `dev` se preserva
+> intacta. Cualquier operación de limpieza (`git branch -d`, `git push
+> --delete`) debe excluir explícitamente `dev`.
+
 ### Git pre-commit hook
 
 ```bash

@@ -58,6 +58,11 @@ Cuando marques el **último todo de un scope** como `completed`:
 > para scopes `feature` y `bugfix` con spec. Si hay conflicto al fusionar a
 > `dev`, **no avances** a los pasos siguientes — reportá al usuario y esperá
 > que resuelva manualmente.
+>
+> **⚠️ `dev` es permanente:** la rama `dev` **nunca** se elimina (ni local ni
+> remota). Al limpiar ramas post-consolidación a `main`, solo se borran feature,
+> bugfix y chore. `dev` se preserva intacta. Si el usuario pide "limpiar ramas"
+> o "consolidar en main", confirmá explícitamente que `dev` se mantiene.
 
 ### Ejemplo de todowrite multi-scope
 
