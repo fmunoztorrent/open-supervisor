@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post, ConflictException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, ConflictException, BadRequestException } from '@nestjs/common';
 import { ResolveAuthorizationUseCase } from '../domain/use-cases/resolve-authorization.use-case';
 import { IAuthorizationRepository, AUTHORIZATION_REPOSITORY } from '../domain/ports/authorization-repository.port';
 import { Inject } from '@nestjs/common';
 import { ResolveAuthorizationDto } from './dtos/resolve-authorization.dto';
+import { AuthorizationStatus } from '@open-supervisor/shared-types';
 
 @Controller('authorization')
 export class AuthorizationController {
@@ -26,6 +27,35 @@ export class AuthorizationController {
       amount: r.amount,
       employee_id: r.employeeId,
       status: r.status,
+      created_at: r.createdAt.toISOString(),
+    }));
+  }
+
+  @Get('store/:storeId/history')
+  async getHistory(@Param('storeId') storeId: string, @Query('status') status?: string) {
+    let resolvedStatus: AuthorizationStatus | undefined;
+    if (status) {
+      const upper = status.toUpperCase();
+      if (upper !== AuthorizationStatus.APPROVED && upper !== AuthorizationStatus.REJECTED) {
+        throw new BadRequestException(`Invalid status: ${status}. Valid values: APPROVED, REJECTED`);
+      }
+      resolvedStatus = upper as AuthorizationStatus;
+    }
+    const requests = await this.repository.findResolvedByStore(storeId, resolvedStatus);
+    return requests.map((r) => ({
+      id: r.id,
+      store_id: r.storeId,
+      pos_id: r.posId,
+      correlation_id: r.correlationId,
+      type: r.type,
+      amount: r.amount,
+      employee_id: r.employeeId,
+      product_id: r.productId,
+      original_price: r.originalPrice,
+      requested_price: r.requestedPrice,
+      status: r.status,
+      resolved_by: r.resolvedBy,
+      resolved_at: r.resolvedAt?.toISOString(),
       created_at: r.createdAt.toISOString(),
     }));
   }

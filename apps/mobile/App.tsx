@@ -9,8 +9,15 @@ import { GluestackUIProvider, HStack, Pressable, Box, Text } from '@gluestack-ui
 import { SessionProvider, useSession } from './src/context/SessionContext';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
+import { HamburgerMenu } from './src/components/HamburgerMenu';
+import { PendingBadge } from './src/components/PendingBadge';
+import { PhysicalPresenceBadge } from './src/components/PhysicalPresenceBadge';
 import { useSSERequests, RequestWithResolved } from './src/hooks/useSSERequests';
 import { useDecision } from './src/hooks/useDecision';
+import { usePhysicalPresenceDispatches } from './src/hooks/usePhysicalPresenceDispatches';
+import { useLogout } from './src/hooks/useLogout';
+
+type AppView = 'list' | 'detail' | 'profile' | 'history';
 
 interface DetailViewProps {
   request: RequestWithResolved;
@@ -50,39 +57,106 @@ function DetailView({ request, supervisorId, onBack, onDecisionComplete }: Detai
 function SupervisorApp() {
   const { storeId, supervisorId } = useSession();
   const { requests, isLoading, isReconnecting, isRefreshingBackground, refetch } = useSSERequests(storeId);
+  const { dispatches, count: presenceCount } = usePhysicalPresenceDispatches(storeId);
+  const { logout } = useLogout();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<AppView>('list');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const selectedRequest = selectedId
     ? requests.find(r => r.correlation_id === selectedId)
     : undefined;
 
-  if (selectedRequest) {
+  const pendingCount = requests.filter(r => !r.resolved).length;
+
+  const handleNavigate = (destination: 'profile' | 'history' | 'logout') => {
+    setIsMenuOpen(false);
+    if (destination === 'logout') {
+      logout();
+      return;
+    }
+    setCurrentView(destination === 'profile' ? 'profile' : 'history');
+    setSelectedId(null);
+  };
+
+  // Detail view
+  if (currentView === 'detail' && selectedRequest) {
     return (
       <DetailView
         request={selectedRequest}
         supervisorId={supervisorId}
-        onBack={() => setSelectedId(null)}
-        onDecisionComplete={() => {
-          refetch(); // trigger GET /pending to remove the resolved request from the list
+        onBack={() => {
           setSelectedId(null);
+          setCurrentView('list');
+        }}
+        onDecisionComplete={() => {
+          refetch();
+          setSelectedId(null);
+          setCurrentView('list');
         }}
       />
     );
   }
 
+  // Profile view (placeholder until US-02 is implemented)
+  if (currentView === 'profile') {
+    const { UserProfileScreen } = require('./src/screens/UserProfileScreen');
+    return (
+      <SafeAreaView style={styles.container}>
+        <UserProfileScreen onBack={() => setCurrentView('list')} />
+      </SafeAreaView>
+    );
+  }
+
+  // History view (placeholder until US-04 is implemented)
+  if (currentView === 'history') {
+    const { HistoryScreen } = require('./src/screens/HistoryScreen');
+    return (
+      <SafeAreaView style={styles.container}>
+        <HistoryScreen storeId={storeId} onBack={() => setCurrentView('list')} />
+      </SafeAreaView>
+    );
+  }
+
+  // List view (default)
   return (
     <SafeAreaView style={styles.container}>
-      <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 12 }}>
+      <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 8 }}>
+        <Pressable
+          testID="hamburger-button"
+          onPress={() => setIsMenuOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir menú"
+        >
+          <Text style={{ fontSize: 22 }}>☰</Text>
+        </Pressable>
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#212121', flex: 1 }}>Solicitudes</Text>
+        <Box testID="presence-badge-container">
+          <PhysicalPresenceBadge count={presenceCount} />
+        </Box>
+        <PendingBadge count={pendingCount} />
         {isReconnecting && (
           <Box bg="$warning100" px="$2" py="$1" borderRadius="$sm">
             <Text color="$warning700" fontSize="$xs">Reconectando...</Text>
           </Box>
         )}
       </HStack>
+
+      {isMenuOpen && (
+        <HamburgerMenu
+          isOpen={isMenuOpen}
+          onClose={() => setIsMenuOpen(false)}
+          onNavigate={handleNavigate}
+        />
+      )}
+
       <AuthorizationList
         requests={requests}
-        onPressRequest={setSelectedId}
+        physicalPresenceDispatches={dispatches}
+        onPressRequest={(correlationId) => {
+          setSelectedId(correlationId);
+          setCurrentView('detail');
+        }}
         isLoading={isLoading}
         isRefreshingBackground={isRefreshingBackground}
       />

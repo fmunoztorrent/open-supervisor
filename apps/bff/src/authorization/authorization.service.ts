@@ -33,6 +33,22 @@ export class AuthorizationService {
     }
   }
 
+  async getHistory(storeId: string, status?: string): Promise<unknown> {
+    let url = `${this.authServiceUrl}/authorization/store/${storeId}/history`;
+    if (status) {
+      url += `?status=${status}`;
+    }
+    try {
+      const response = await firstValueFrom(this.http.get<unknown>(url));
+      return response.data;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status: number } };
+      const status = axiosError.response?.status ?? 500;
+      this.logger.error(`Auth service responded ${status} for history ${storeId}`);
+      throw new HttpException(`Auth service error: ${status}`, status);
+    }
+  }
+
   async getPending(storeId: string): Promise<unknown> {
     const url = `${this.authServiceUrl}/authorization/store/${storeId}/pending`;
     try {

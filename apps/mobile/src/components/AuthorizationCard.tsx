@@ -16,6 +16,7 @@ type RequestWithResolved = AuthorizationRequestDto & {
 interface AuthorizationCardProps {
   request: RequestWithResolved;
   onPress: () => void;
+  isPhysicalPresence?: boolean;
 }
 
 function formatDate(isoString: string): string {
@@ -48,13 +49,18 @@ const TYPE_COLORS: Record<RequestType, string> = {
 export const AuthorizationCard: React.FC<AuthorizationCardProps> = ({
   request,
   onPress,
+  isPhysicalPresence = false,
 }) => {
   const badgeLabel = getBadgeLabel(request.resolved);
   const typeColor = TYPE_COLORS[request.type] ?? '#607D8B';
+  const testID = isPhysicalPresence
+    ? `presence-card-${request.correlation_id}`
+    : 'authorization-card';
+  const cardBackground = isPhysicalPresence ? '#FEF3C7' : '#FFFFFF';
 
   return (
     <Pressable
-      testID="authorization-card"
+      testID={testID}
       onPress={onPress}
       style={{
         flexDirection: 'row',
@@ -62,47 +68,86 @@ export const AuthorizationCard: React.FC<AuthorizationCardProps> = ({
         padding: 12,
         marginVertical: 4,
         marginHorizontal: 8,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: cardBackground,
         borderRadius: 8,
         elevation: 2,
       }}
     >
-      <Box
-        testID={`type-icon-${request.type}`}
-        style={{
-          width: 8,
-          borderRadius: 4,
-          alignSelf: 'stretch',
-          marginRight: 12,
-          backgroundColor: typeColor,
-        }}
-      />
+      {!isPhysicalPresence && (
+        <Box
+          testID={`type-icon-${request.type}`}
+          style={{
+            width: 8,
+            borderRadius: 4,
+            alignSelf: 'stretch',
+            marginRight: 12,
+            backgroundColor: typeColor,
+          }}
+        />
+      )}
       <VStack style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '600', color: '#212121' }}>
-          {request.type}
-        </Text>
-        <Text style={{ fontSize: 12, color: '#616161', marginTop: 2 }}>
-          {request.pos_id}
-        </Text>
-        <Text
-          testID="card-created-at"
-          style={{ fontSize: 11, color: '#9E9E9E', marginTop: 2 }}
-        >
-          {formatDate(request.created_at)}
-        </Text>
+        {isPhysicalPresence ? (
+          <>
+            <Text
+              style={{ fontSize: 14, fontWeight: '600', color: '#212121' }}
+            >
+              {request.product_id}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#616161', marginTop: 2 }}>
+              {request.pos_id}
+            </Text>
+            <Text style={{ fontSize: 11, color: '#9E9E9E', marginTop: 2 }}>
+              ${request.original_price} → ${request.requested_price}
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text
+              style={{ fontSize: 14, fontWeight: '600', color: '#212121' }}
+            >
+              {request.type}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#616161', marginTop: 2 }}>
+              {request.pos_id}
+            </Text>
+            <Text
+              testID="card-created-at"
+              style={{ fontSize: 11, color: '#9E9E9E', marginTop: 2 }}
+            >
+              {formatDate(request.created_at)}
+            </Text>
+          </>
+        )}
       </VStack>
-      <Badge
-        style={{
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          backgroundColor: '#EEEEEE',
-          borderRadius: 12,
-        }}
-      >
-        <BadgeText style={{ fontSize: 11, color: '#424242' }}>
-          {badgeLabel}
-        </BadgeText>
-      </Badge>
+      {isPhysicalPresence ? (
+        <Badge
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            backgroundColor: '#FEF3C7',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#F59E0B',
+          }}
+        >
+          <BadgeText style={{ fontSize: 11, color: '#92400E' }}>
+            Presencial
+          </BadgeText>
+        </Badge>
+      ) : (
+        <Badge
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            backgroundColor: '#EEEEEE',
+            borderRadius: 12,
+          }}
+        >
+          <BadgeText style={{ fontSize: 11, color: '#424242' }}>
+            {badgeLabel}
+          </BadgeText>
+        </Badge>
+      )}
     </Pressable>
   );
 };

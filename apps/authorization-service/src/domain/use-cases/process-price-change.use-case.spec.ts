@@ -37,6 +37,7 @@ beforeEach(() => {
     findById: jest.fn(),
     findByCorrelationId: jest.fn(),
     findPendingByStore: jest.fn(),
+    findResolvedByStore: jest.fn(),
   };
   mockEventEmitter = { emit: jest.fn().mockResolvedValue(undefined) };
 
