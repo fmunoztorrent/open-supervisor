@@ -912,3 +912,16 @@ slug: hamburger-menu-presencia-fisica
 
 **Cómo aplicar**: antes de diseñar un endpoint o consumer nuevo, rastrear el evento desde origen (Redis channel → sse-server → BFF adapter → SSE endpoint). Si el BFF ya re-emite el evento, solo falta el listener en mobile. Para merges con conflictos en `pnpm-lock.yaml`, regenerar con `pnpm install --no-frozen-lockfile` en vez de resolver manualmente.
 
+
+---
+date: 2026-06-08
+agent: frontend
+category: api-gotcha
+tags: [react-native, android, safe-area, statusbar, edge-to-edge]
+slug: header-solapado-status-bar-android
+---
+
+**Contexto**: el header (`☰ Solicitudes`) se dibujaba debajo del reloj/íconos del sistema en Android.
+**Qué pasó**: `SafeAreaView` de `react-native` es un **no-op en Android** (solo iOS aplica insets). Con `targetSdkVersion = 35` (Android 15) la status bar es edge-to-edge y el contenido se dibuja detrás; `StatusBar backgroundColor` no reserva espacio.
+**Lección**: para inset superior en Android sin dependencia nativa, aplicar `paddingTop: StatusBar.currentHeight ?? 0` al contenedor, **leído en tiempo de render** (no en `StyleSheet.create`, que se evalúa una sola vez al importar y rompe la testabilidad). `currentHeight` es Android-only (iOS → `undefined` → `0`, donde el `SafeAreaView` nativo ya resuelve). Cambio JS puro, sin rebuild.
+**Cómo aplicar**: cualquier pantalla con header propio en esta app. Si en el futuro se necesitan insets de notch/cutout/bottom robustos, evaluar `react-native-safe-area-context` (requiere rebuild + linking). Testear con `getByTestId(...).toHaveStyle({ paddingTop })` tras setear `StatusBar.currentHeight` en `beforeEach`.

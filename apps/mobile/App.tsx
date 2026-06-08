@@ -37,7 +37,7 @@ function DetailView({ request, supervisorId, onBack, onDecisionComplete }: Detai
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingTop: StatusBar.currentHeight ?? 0 }]}>
       <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 12 }}>
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Volver">
           <Text style={{ fontSize: 16, color: '#2196F3' }}>← Volver</Text>
@@ -102,7 +102,7 @@ function SupervisorApp() {
   if (currentView === 'profile') {
     const { UserProfileScreen } = require('./src/screens/UserProfileScreen');
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: StatusBar.currentHeight ?? 0 }]}>
         <UserProfileScreen onBack={() => setCurrentView('list')} />
       </SafeAreaView>
     );
@@ -112,7 +112,7 @@ function SupervisorApp() {
   if (currentView === 'history') {
     const { HistoryScreen } = require('./src/screens/HistoryScreen');
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: StatusBar.currentHeight ?? 0 }]}>
         <HistoryScreen storeId={storeId} onBack={() => setCurrentView('list')} />
       </SafeAreaView>
     );
@@ -120,7 +120,7 @@ function SupervisorApp() {
 
   // List view (default)
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView testID="app-safe-area" style={[styles.container, { paddingTop: StatusBar.currentHeight ?? 0 }]}>
       <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 8 }}>
         <Pressable
           testID="hamburger-button"
