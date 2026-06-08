@@ -7,7 +7,7 @@ import {
   Spinner,
   Text,
 } from '@gluestack-ui/themed';
-import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
+import { AuthorizationRequestDto, PhysicalPresenceDispatchDto } from '@open-supervisor/shared-types';
 import { AuthorizationCard } from './AuthorizationCard';
 
 type RequestWithResolved = AuthorizationRequestDto & {
@@ -16,6 +16,7 @@ type RequestWithResolved = AuthorizationRequestDto & {
 
 interface AuthorizationListProps {
   requests: RequestWithResolved[];
+  physicalPresenceDispatches?: PhysicalPresenceDispatchDto[];
   onPressRequest: (correlationId: string) => void;
   isLoading?: boolean;
   isRefreshingBackground?: boolean;
@@ -23,6 +24,7 @@ interface AuthorizationListProps {
 
 export const AuthorizationList: React.FC<AuthorizationListProps> = ({
   requests,
+  physicalPresenceDispatches = [],
   onPressRequest,
   isLoading = false,
   isRefreshingBackground = false,
@@ -35,7 +37,9 @@ export const AuthorizationList: React.FC<AuthorizationListProps> = ({
     );
   }
 
-  if (requests.length === 0) {
+  const hasContent = requests.length > 0 || physicalPresenceDispatches.length > 0;
+
+  if (!hasContent) {
     return (
       <Center style={{ flex: 1 }}>
         <Text>Sin solicitudes pendientes</Text>
@@ -46,7 +50,27 @@ export const AuthorizationList: React.FC<AuthorizationListProps> = ({
   return (
     <Box style={{ flex: 1 }}>
       <ScrollView style={{ flex: 1 }}>
-        {requests.map(request => (
+        {/* Physical presence dispatches first */}
+        {physicalPresenceDispatches.map((dispatch) => (
+          <AuthorizationCard
+            key={`presence-${dispatch.correlation_id}`}
+            request={{
+              store_id: dispatch.store_id,
+              pos_id: dispatch.pos_id,
+              correlation_id: dispatch.correlation_id,
+              type: 'PRICE_CHANGE' as any,
+              product_id: dispatch.product_id,
+              original_price: dispatch.original_price,
+              requested_price: dispatch.requested_price,
+              created_at: new Date().toISOString(),
+            }}
+            isPhysicalPresence={true}
+            onPress={() => {}}
+          />
+        ))}
+
+        {/* Authorization requests */}
+        {requests.map((request) => (
           <AuthorizationCard
             key={request.correlation_id}
             request={request}

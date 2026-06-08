@@ -6,9 +6,9 @@
     "main": {
       "active": false,
       "type": "feature",
-      "step": 1,
+      "step": 6,
       "started_at": "2026-06-04T12:00:00.000Z",
-      "completed_at": null
+      "completed_at": "2026-06-08T17:05:00.000Z"
     },
     "bugfix.login-enter": {
       "active": false,

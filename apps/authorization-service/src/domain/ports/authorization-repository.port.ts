@@ -1,4 +1,5 @@
 import { AuthorizationRequest } from '../entities/authorization-request.entity';
+import { AuthorizationStatus } from '@open-supervisor/shared-types';
 
 export const AUTHORIZATION_REPOSITORY = 'AUTHORIZATION_REPOSITORY';
 
@@ -12,4 +13,5 @@ export interface IAuthorizationRepository {
    */
   findByCorrelationId(correlationId: string): Promise<AuthorizationRequest | null>;
   findPendingByStore(storeId: string): Promise<AuthorizationRequest[]>;
+  findResolvedByStore(storeId: string, status?: AuthorizationStatus): Promise<AuthorizationRequest[]>;
 }

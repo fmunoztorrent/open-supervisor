@@ -50,6 +50,7 @@ beforeEach(() => {
     findById: jest.fn(),
     findByCorrelationId: jest.fn(),
     findPendingByStore: jest.fn(),
+    findResolvedByStore: jest.fn(),
   };
   mockOutboxRepo = {
     save: jest.fn().mockResolvedValue(undefined),
