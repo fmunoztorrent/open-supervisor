@@ -896,3 +896,39 @@ slug: learnings-skills-self-improvement-loop
 
 **Cómo aplicar**: al diseñar cualquier loop de aprendizaje automático en un sistema de agentes: (1) usar skills como caché de conocimiento específico por rol, (2) el trigger debe ser automático vía hooks (plugin + Claude Code Stop), (3) el script extractor debe ser standalone (sin dependencias externas), (4) el fallback manual en el checklist de cierre asegura que el loop nunca se rompa completamente.
 
+---
+date: 2026-06-06
+agent: architect
+category: pattern
+tags: [keycloak, openldap, oidc, ropc, nestjs, hexagonal, mobile]
+slug: keycloak-openldap-auth-hexagonal-pattern
+---
+
+**Contexto**: implementación de login con Active Directory federado vía Keycloak + OpenLDAP simulado, siguiendo arquitectura hexagonal en el BFF.
+
+**Qué pasó**: el BFF no tenía estructura hexagonal previa para auth. Se creó siguiendo el patrón existente del `authorization-service`:
+- Port `IAuthenticationPort` con método `authenticate(employeeId, password): Promise<AuthResult>`
+- Adapter `KeycloakAuthenticationAdapter` usando `HttpService` de `@nestjs/axios`
+- Binding port→adapter en `auth.module.ts` vía `useFactory` con `HttpService` + `ConfigService` inyectados
+- Excepciones de dominio mapeadas a HTTP en el controller (no en el adapter)
+
+**Lección**: para integrar un proveedor OIDC externo (Keycloak) en un BFF NestJS hexagonal, el adapter debe usar `isAxiosError()` (no `instanceof AxiosError`) porque en tests los mocks son objetos planos. El `KeycloakAuthenticationAdapter` debe recibir `keycloakUrl`, `realm`, `clientId`, `clientSecret` como strings simples inyectados desde `ConfigService`, no hardcodeados en el adapter.
+
+**Cómo aplicar**: al agregar cualquier integración HTTP externa en el BFF o authorization-service: (1) definir port en `domain/ports/`, (2) adapter usa `HttpService` + `isAxiosError`, (3) binding en módulo con `useFactory` + `ConfigService`, (4) test del adapter mockea `httpService.post` con `throwError(() => ({ isAxiosError: true, response: { status, data } }))`.
+
+---
+date: 2026-06-06
+agent: frontend
+category: pattern
+tags: [react-native, asyncstorage, session, jwt, gluestack]
+slug: rn-asyncstorage-mock-jest-hoisting
+---
+
+**Contexto**: actualización del `SessionContext` para usar token JWT real desde AsyncStorage; los tests de App rompieron.
+
+**Qué pasó**: al mockear `AsyncStorage` en `App.test.tsx` usando una variable externa (`mockGetItem`), el mock no funcionaba porque las factories de `jest.mock` son hoisteadas pero las variables del scope del test no están disponibles en el factory. Esto causaba que `SessionProvider` recibiera `undefined` en lugar del mock, mostrando la pantalla de login en lugar del contenido esperado. Además, `bffClient` pasó de `fetch(url)` a `fetch(url, { headers })` por el header `Authorization` automático, rompiendo los `toHaveBeenCalledWith` que esperaban un solo argumento.
+
+**Lección**: en Jest + React Native, los mocks de módulos nativos (AsyncStorage) deben definirse inline en la factory de `jest.mock`, no referenciando variables externas. Los tests que verifican llamadas a `fetch` deben actualizarse cuando se agregan headers automáticos.
+
+**Cómo aplicar**: al modificar `bffClient` o cualquier utilidad que cambie la firma de `fetch`: (1) buscar todos los `toHaveBeenCalledWith` sobre `global.fetch` en tests, (2) agregar `expect.any(Object)` como segundo argumento si ahora se pasan headers. Para mocks de AsyncStorage: usar `jest.fn().mockResolvedValue(...)` directamente dentro de la factory.
+

@@ -6,3 +6,4 @@ coverage/
 android/app/build/
 ios/build/
 .git/
+spec/archived/

@@ -22,6 +22,17 @@ stream/
 authorization/
   authorization.service.ts    # fetch() HTTP a authorization-service
   authorization.controller.ts # GET pending + POST resolve
+
+auth/
+  domain/
+    ports/authentication.port.ts      # IAuthenticationPort — authenticate(employeeId, password) → AuthResult
+    entities/auth-result.entity.ts    # { access_token, refresh_token, expires_in }
+    exceptions/auth.exceptions.ts     # InvalidCredentials, AccountDisabled, AuthUnavailable
+  infrastructure/
+    keycloak/keycloak-authentication.adapter.ts  # POST /realms/{realm}/protocol/openid-connect/token (ROPC)
+  auth.service.ts                   # Delega en el port, propaga excepciones
+  auth.controller.ts                # POST /auth/login — mapea excepciones a HTTP 401/403/503
+  auth.module.ts                    # Binding: AUTHENTICATION_PORT → KeycloakAuthenticationAdapter
 ```
 
 ## Endpoints expuestos a la app móvil
@@ -31,6 +42,7 @@ authorization/
 | GET | `/stream/store/:storeId` | `{SSE_SERVER_URL}/events/store/:storeId` |
 | GET | `/authorization/store/:storeId/pending` | `{AUTH_SERVICE_URL}/authorization/store/:storeId/pending` |
 | POST | `/authorization/:id/resolve` | `{AUTH_SERVICE_URL}/authorization/:id/resolve` |
+| POST | `/auth/login` | `{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token` (ROPC) |
 
 ## Variables de entorno
 
@@ -38,6 +50,11 @@ authorization/
 |---|---|
 | `SSE_SERVER_URL` | URL base del sse-server (ej. `http://sse-server:3002`) |
 | `AUTH_SERVICE_URL` | URL base del authorization-service (ej. `http://authorization-service:3001`) |
+| `KEYCLOAK_URL` | URL base de Keycloak (ej. `http://localhost:8080`) |
+| `KEYCLOAK_REALM` | Realm de Keycloak (ej. `open-supervisor`) |
+| `KEYCLOAK_CLIENT_ID` | Client ID OIDC (ej. `bff`) |
+| `KEYCLOAK_CLIENT_SECRET` | Client secret OIDC |
+| `KEYCLOAK_TIMEOUT_MS` | Timeout HTTP para ROPC grant (default: 5000) |
 
 ## Convenciones
 

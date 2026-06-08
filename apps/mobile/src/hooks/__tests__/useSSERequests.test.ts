@@ -54,6 +54,7 @@ describe('useSSERequests', () => {
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
           expect.stringContaining(`/authorization/store/${STORE_ID}/pending`),
+          expect.any(Object),
         );
       });
     });
