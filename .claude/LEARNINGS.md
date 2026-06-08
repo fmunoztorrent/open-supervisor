@@ -925,3 +925,16 @@ slug: header-solapado-status-bar-android
 **Qué pasó**: `SafeAreaView` de `react-native` es un **no-op en Android** (solo iOS aplica insets). Con `targetSdkVersion = 35` (Android 15) la status bar es edge-to-edge y el contenido se dibuja detrás; `StatusBar backgroundColor` no reserva espacio.
 **Lección**: para inset superior en Android sin dependencia nativa, aplicar `paddingTop: StatusBar.currentHeight ?? 0` al contenedor, **leído en tiempo de render** (no en `StyleSheet.create`, que se evalúa una sola vez al importar y rompe la testabilidad). `currentHeight` es Android-only (iOS → `undefined` → `0`, donde el `SafeAreaView` nativo ya resuelve). Cambio JS puro, sin rebuild.
 **Cómo aplicar**: cualquier pantalla con header propio en esta app. Si en el futuro se necesitan insets de notch/cutout/bottom robustos, evaluar `react-native-safe-area-context` (requiere rebuild + linking). Testear con `getByTestId(...).toHaveStyle({ paddingTop })` tras setear `StatusBar.currentHeight` en `beforeEach`.
+
+---
+date: 2026-06-08
+agent: claude
+category: setup
+tags: [coordinacion, claude-code, opencode, git, hooks, working-tree]
+slug: coordinacion-sesiones-working-tree-compartido
+---
+
+**Contexto**: Claude Code y opencode comparten el mismo working tree. Durante una tarea, cambios de rama de la sesión concurrente descartaron trabajo sin commitear (tracked y untracked) dos veces.
+**Qué pasó**: no había ningún mecanismo que avisara/bloqueara operaciones git destructivas (`checkout -f`, `reset --hard`, `clean -f`) cuando el árbol compartido tenía cambios pendientes.
+**Lección**: la protección efectiva NO es un lock complejo entre herramientas, sino un guard tool-agnóstico que bloquea operaciones git destructivas **cuando `git status --porcelain` no está vacío**. Como el árbol es compartido, proteger "árbol sucio" protege a ambas sesiones por construcción. Implementado en `.opencode/pipeline/coordination.sh` (`guard-git`), cableado en Claude Code vía `PreToolUse(Bash)` y en opencode vía plugin. Estado compartido en `coordination.json` (gitignored).
+**Cómo aplicar**: para detectar comandos en un string sin parser de shell, anclar el match a posición de comando (`(^|[;&|(])` + comando) para no matchear menciones en comillas; aun así quedan falsos positivos con separadores dentro de comillas → ofrecer override (`COORD_OVERRIDE=1`). Defensa de fondo > precisión perfecta: commitea o `git stash -u` antes de cambiar de contexto. La lección operativa más barata: **commitear temprano** protege contra clobbers de sesiones concurrentes (es lo que cortó la sangría aquí).
