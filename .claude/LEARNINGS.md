@@ -896,3 +896,19 @@ slug: learnings-skills-self-improvement-loop
 
 **Cómo aplicar**: al diseñar cualquier loop de aprendizaje automático en un sistema de agentes: (1) usar skills como caché de conocimiento específico por rol, (2) el trigger debe ser automático vía hooks (plugin + Claude Code Stop), (3) el script extractor debe ser standalone (sin dependencias externas), (4) el fallback manual en el checklist de cierre asegura que el loop nunca se rompa completamente.
 
+---
+date: 2026-06-08
+agent: architect + backend + frontend
+category: pattern
+tags: [mobile, sse, physical-presence, gluestack-ui, animated-api]
+slug: hamburger-menu-presencia-fisica
+---
+
+**Contexto**: implementando menú hamburguesa con badges de pendientes y presencia física en la app móvil React Native + Gluestack-UI.
+
+**Qué pasó**: el evento SSE `physical_presence_dispatch` ya fluía por todo el backend (Redis → sse-server → BFF → SSE proxy) pero la app móvil lo ignoraba completamente porque `useSSERequests` solo registraba listener para `authorization_request`. El `PhysicalPresenceDispatchDto` existía en `shared-types` desde antes pero sin usar en mobile.
+
+**Lección**: al agregar features que dependen de streams de eventos existentes, verificar primero si el dato ya está disponible en el pipeline. En este caso, solo se necesitó un hook nuevo (`usePhysicalPresenceDispatches`) que abre su propio EventSource y escucha `physical_presence_dispatch`, sin tocar el backend. Para `useLogout`, `multiRemove` no estaba tipado en la versión instalada de `@react-native-async-storage/async-storage` — usar `removeItem` individual en su lugar.
+
+**Cómo aplicar**: antes de diseñar un endpoint o consumer nuevo, rastrear el evento desde origen (Redis channel → sse-server → BFF adapter → SSE endpoint). Si el BFF ya re-emite el evento, solo falta el listener en mobile. Para merges con conflictos en `pnpm-lock.yaml`, regenerar con `pnpm install --no-frozen-lockfile` en vez de resolver manualmente.
+
