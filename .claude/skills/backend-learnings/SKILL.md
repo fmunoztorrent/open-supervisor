@@ -9,6 +9,13 @@ description: Aprendizajes acumulados del backend engineer. Patrones validados en
 ## Reglas activas (validadas ≥2 veces)
 *Esta sección se llena automáticamente por el script `scripts/extract-learnings.ts` al cierre de cada tarea. Cuando un mismo patrón aparece en ≥2 entradas de LEARNINGS.md, se promueve aquí.*
 
+### Accionables del agente backend
+
+| ID | Accionable | Severidad |
+|----|-----------|-----------|
+| **A11** | Al modificar cualquier archivo `.ts` en servicios NestJS, el paso final del agente DEBE ser: `nest build && pkill -f "node dist/main" && node dist/main &`. No marcar la tarea como completada sin rebuild + restart | **ALTA** |
+| **A12** | Después de restart, verificar con `lsof -i :<port> -P | grep LISTEN` + `curl -s -o /dev/null -w "%{http_code}" <healthcheck>` que el servicio responde antes de continuar | **ALTA** |
+
 ## Lecciones recientes
 *Últimas 5 entradas de `.claude/LEARNINGS.md` con `agent: backend`. Se actualizan automáticamente al cierre de cada scope.*
 
