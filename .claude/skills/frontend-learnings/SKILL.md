@@ -8,7 +8,7 @@ description: Aprendizajes acumulados del frontend engineer. Patrones validados e
 *Esta sección se llena automáticamente por el script `scripts/extract-learnings.ts` al cierre de cada tarea. Cuando un mismo patrón aparece en ≥2 entradas de LEARNINGS.md, se promueve aquí.*
 
 ## Lecciones recientes
-- [2026-06-08] header-solapado-status-bar-android — **Lección**: para inset superior en Android sin dependencia nativa, aplicar `paddingTop: StatusBar.currentHeight ?? 0` a
+- [2026-06-08] reintegrar-login-huerfano-en-app-tsx — **Lección**: cuando un gate de auth envuelve la app, TODOS los tests que renderizan `<App/>` y esperan la pantalla inter
 
 ## Promovidas a CLAUDE.md
 *Entradas que ya han sido migradas a reglas permanentes en CLAUDE.md. Hacer tracking aquí evita duplicar.*
