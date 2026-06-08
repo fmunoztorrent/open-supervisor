@@ -495,3 +495,21 @@ terraform plan
 - El consumer group `authorization-service-group` es exclusivo del `authorization-service`.
 - `.env` por defecto (ver `.env.example` en la raíz): Kafka en `localhost:9092`, Redis en `localhost:6379`.
 - Referenciar contenedores por **nombre de servicio** (`kafka`/`redis`/`zookeeper`) vía `$COMPOSE exec`, nunca por nombre de contenedor con prefijo de proyecto.
+
+## Validación Empírica (Paso 5b/6)
+
+### Checks D (Infra/Dependencias)
+
+| Check | Qué valida | Referencia |
+|---|---|---|
+| **D.1** Native compat | Dependencia nueva compatible con Kotlin | Ver kotlinVersion en `android/build.gradle` |
+| **D.2** Container health | Todos los contenedores healthy | `$COMPOSE ps` |
+| **D.3** Port binding | Sin conflictos de puertos | `lsof -i :3000 -i :3001 -i :3002 -P | grep LISTEN` |
+
+### Checks B (Endpoints REST)
+
+| Check | Qué valida | Referencia |
+|---|---|---|
+| **B.1** Rebuild + restart | Código compilado actualizado | `nest build` + `pkill` + `node dist/main &` |
+
+Ver procedimiento completo en `.opencode/pipeline/validate-empirica.md`.

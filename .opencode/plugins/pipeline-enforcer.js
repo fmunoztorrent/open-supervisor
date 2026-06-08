@@ -1,12 +1,13 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
-import { spawn } from "child_process"
+import { spawn, execSync } from "child_process"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const STATE_PATH = join(__dirname, "..", "pipeline", "state.json")
 const CLOSE_PENDING_PATH = join(__dirname, "..", "pipeline", "close-pending.json")
 const PATTERNS_PATH = join(__dirname, "..", "pipeline", "hardcode-patterns.json")
+const REPO_ROOT = dirname(dirname(__dirname))
 
 const SCOPE_REGEX = /^\[([\w.-]+)\]\s*/
 
@@ -91,6 +92,16 @@ Archivos en allowlist: ${allowlistFiles.join(", ") || "ninguno"}
 `
 }
 // ── End hardcode detection ────────────────────────────────────────────────────
+
+// A16: Permitir ediciones durante resolución de conflictos de merge
+function hasUnmergedFiles() {
+  try {
+    const status = execSync("git status --porcelain", { encoding: "utf8", cwd: REPO_ROOT })
+    return status.split("\n").some((line) => line.startsWith("UU "))
+  } catch {
+    return false
+  }
+}
 
 function loadState() {
   try {
@@ -324,6 +335,12 @@ export default async () => {
       updateStateFromTodos(todos)
     },
 
+    // A17: Ignorar cambios en state.json — archivo interno del plugin
+    "todo.updated": async (input) => {
+      const filePath = input?.filePath || input?.path || ""
+      if (filePath.includes(".opencode/pipeline/state.json")) return
+    },
+
     "tool.execute.before": async (input, output) => {
       if (!EDIT_TOOLS.has(input?.tool)) return
 
@@ -349,6 +366,9 @@ export default async () => {
 
       const state = loadState()
       if (state.global.pipeline_active) return
+
+      // A16: Permitir ediciones durante resolución de conflictos de merge
+      if (hasUnmergedFiles()) return
 
       throw new Error(
         `Pipeline enforcement: no puedes editar archivos sin iniciar el pipeline primero.

@@ -898,17 +898,17 @@ slug: learnings-skills-self-improvement-loop
 
 ---
 date: 2026-06-08
-agent: architect + backend + frontend
-category: pattern
-tags: [mobile, sse, physical-presence, gluestack-ui, animated-api]
-slug: hamburger-menu-presencia-fisica
+agent: principal
+category: pipeline-gap
+tags: [pipeline, validacion-empirica, automejora, accionables, retrospectiva]
+slug: mejora-pipeline-validacion-empirica
 ---
 
-**Contexto**: implementando menú hamburguesa con badges de pendientes y presencia física en la app móvil React Native + Gluestack-UI.
+**Contexto**: realizando una retrospectiva de la feature `hamburger-menu` donde 4 bugs sobrevivieron a QA GREEN (tests + typecheck): dependencia incompatible con Kotlin, endpoint 404 por dist desactualizado, servicio crasheó tras restart, ruta incorrecta en spec.
 
-**Qué pasó**: el evento SSE `physical_presence_dispatch` ya fluía por todo el backend (Redis → sse-server → BFF → SSE proxy) pero la app móvil lo ignoraba completamente porque `useSSERequests` solo registraba listener para `authorization_request`. El `PhysicalPresenceDispatchDto` existía en `shared-types` desde antes pero sin usar en mobile.
+**Qué pasó**: el pipeline cerraba features en verde sin validar en entorno real. Se identificaron 22 accionables (A1-A22) asignados a 7 agentes. Se diseñó un paso 5b/6 Validación Empírica con 4 checklists (A: Mobile UI, B: Endpoints REST, C: SSE/Real-time, D: Infra/Dependencias) y un paso 7 Automejora que promueve lecciones recurrentes: nivel 1 → skill, nivel 2 → regla activa, nivel 3 → bloqueante del pipeline.
 
-**Lección**: al agregar features que dependen de streams de eventos existentes, verificar primero si el dato ya está disponible en el pipeline. En este caso, solo se necesitó un hook nuevo (`usePhysicalPresenceDispatches`) que abre su propio EventSource y escucha `physical_presence_dispatch`, sin tocar el backend. Para `useLogout`, `multiRemove` no estaba tipado en la versión instalada de `@react-native-async-storage/async-storage` — usar `removeItem` individual en su lugar.
+**Lección**: `pnpm test` + `pnpm typecheck` no detectan bugs de integración (build Android, runtime, rutas HTTP). La validación empírica (build real + curl + UIAutomator) debe ser parte del pipeline, no un paso manual opcional. La automejora debe ser automática: `extract-learnings.ts` → contar ocurrencias → promover a reglas.
 
-**Cómo aplicar**: antes de diseñar un endpoint o consumer nuevo, rastrear el evento desde origen (Redis channel → sse-server → BFF adapter → SSE endpoint). Si el BFF ya re-emite el evento, solo falta el listener en mobile. Para merges con conflictos en `pnpm-lock.yaml`, regenerar con `pnpm install --no-frozen-lockfile` en vez de resolver manualmente.
+**Cómo aplicar**: (1) cada feature que toca mobile ejecuta checks A.1-A.5 obligatoriamente, (2) cada feature que agrega endpoints ejecuta B.1-B.5, (3) si un check falla, el pipeline vuelve a RED con el output exacto del fallo, (4) el agente principal ejecuta el paso 7 tras cada cierre, (5) skills de agente se actualizan automáticamente con lecciones promovidas.
 
