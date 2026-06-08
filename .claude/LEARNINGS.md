@@ -938,3 +938,16 @@ slug: coordinacion-sesiones-working-tree-compartido
 **Qué pasó**: no había ningún mecanismo que avisara/bloqueara operaciones git destructivas (`checkout -f`, `reset --hard`, `clean -f`) cuando el árbol compartido tenía cambios pendientes.
 **Lección**: la protección efectiva NO es un lock complejo entre herramientas, sino un guard tool-agnóstico que bloquea operaciones git destructivas **cuando `git status --porcelain` no está vacío**. Como el árbol es compartido, proteger "árbol sucio" protege a ambas sesiones por construcción. Implementado en `.opencode/pipeline/coordination.sh` (`guard-git`), cableado en Claude Code vía `PreToolUse(Bash)` y en opencode vía plugin. Estado compartido en `coordination.json` (gitignored).
 **Cómo aplicar**: para detectar comandos en un string sin parser de shell, anclar el match a posición de comando (`(^|[;&|(])` + comando) para no matchear menciones en comillas; aun así quedan falsos positivos con separadores dentro de comillas → ofrecer override (`COORD_OVERRIDE=1`). Defensa de fondo > precisión perfecta: commitea o `git stash -u` antes de cambiar de contexto. La lección operativa más barata: **commitear temprano** protege contra clobbers de sesiones concurrentes (es lo que cortó la sangría aquí).
+
+---
+date: 2026-06-08
+agent: frontend
+category: pattern
+tags: [auth, integracion, merge, react-native, session, gate]
+slug: reintegrar-login-huerfano-en-app-tsx
+---
+
+**Contexto**: tras varios merges entre sesiones concurrentes (hamburguesa + login Keycloak), `App.tsx` quedó en la versión hamburguesa y el flujo de login (LoginScreen/useLogin/SessionContext token-based) quedó huérfano: los archivos existían pero nada los usaba. Además `SessionContext` había sido revertido a la versión simple sin `isAuthenticated`.
+**Qué pasó**: integrar = restaurar el `SessionContext` token-based (lee `access_token`, decodifica JWT, expone `isAuthenticated`/`isInitializing`) + un gate `AuthenticatedApp` en `App.tsx` (Spinner mientras inicializa → LoginScreen si no auth → SupervisorApp si auth). Para que login y logout transicionen, se expuso `refresh()` en el contexto y `useLogout` recibió un callback `onLoggedOut`.
+**Lección**: cuando un gate de auth envuelve la app, TODOS los tests que renderizan `<App/>` y esperan la pantalla interna deben mockear sesión autenticada (`AsyncStorage.getItem→token` + `jwtDecode→claims`) y usar `waitFor` (el gate es async por el `useEffect` que lee el token). En emulador, un token viejo en AsyncStorage (de otra sesión) hace que el gate salte directo a la app — usar `adb shell pm clear <pkg>` para validar el estado no-autenticado.
+**Cómo aplicar**: al reconciliar dos features que tocan el mismo entrypoint (`App.tsx`), no basta con que los archivos de ambas existan; hay que verificar el WIRING en el entrypoint. El guard de coordinación de sesiones previene la causa raíz (clobber entre sesiones), pero la auditoría del wiring post-merge sigue siendo manual.

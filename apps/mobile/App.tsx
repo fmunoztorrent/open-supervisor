@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
 import { config } from '@gluestack-ui/config';
-import { GluestackUIProvider, HStack, Pressable, Box, Text } from '@gluestack-ui/themed';
+import { GluestackUIProvider, HStack, Pressable, Box, Text, Center, Spinner } from '@gluestack-ui/themed';
 import { SessionProvider, useSession } from './src/context/SessionContext';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { HamburgerMenu } from './src/components/HamburgerMenu';
 import { PendingBadge } from './src/components/PendingBadge';
 import { PhysicalPresenceBadge } from './src/components/PhysicalPresenceBadge';
@@ -54,11 +55,11 @@ function DetailView({ request, supervisorId, onBack, onDecisionComplete }: Detai
   );
 }
 
-function SupervisorApp() {
+function SupervisorApp({ onLoggedOut }: { onLoggedOut: () => void }) {
   const { storeId, supervisorId } = useSession();
   const { requests, isLoading, isReconnecting, isRefreshingBackground, refetch } = useSSERequests(storeId);
   const { dispatches, count: presenceCount } = usePhysicalPresenceDispatches(storeId);
-  const { logout } = useLogout();
+  const { logout } = useLogout(onLoggedOut);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('list');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -164,12 +165,35 @@ function SupervisorApp() {
   );
 }
 
+// Gate de autenticación: decide entre splash, login y la app del supervisor
+// según el estado de la sesión (token Keycloak en AsyncStorage).
+function AuthenticatedApp() {
+  const { isAuthenticated, isInitializing, refresh } = useSession();
+  const handleLoginSuccess = useCallback(() => {
+    refresh();
+  }, [refresh]);
+
+  if (isInitializing) {
+    return (
+      <Center style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+        <Spinner testID="session-spinner" size="large" />
+      </Center>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  return <SupervisorApp onLoggedOut={refresh} />;
+}
+
 export default function App() {
   return (
     <GluestackUIProvider config={config}>
       <SessionProvider>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <SupervisorApp />
+        <AuthenticatedApp />
       </SessionProvider>
     </GluestackUIProvider>
   );
