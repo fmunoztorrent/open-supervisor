@@ -912,3 +912,16 @@ slug: mejora-pipeline-validacion-empirica
 
 **Cómo aplicar**: (1) cada feature que toca mobile ejecuta checks A.1-A.5 obligatoriamente, (2) cada feature que agrega endpoints ejecuta B.1-B.5, (3) si un check falla, el pipeline vuelve a RED con el output exacto del fallo, (4) el agente principal ejecuta el paso 7 tras cada cierre, (5) skills de agente se actualizan automáticamente con lecciones promovidas.
 
+
+---
+date: 2026-06-08
+agent: frontend
+category: api-gotcha
+tags: [react-native, android, safe-area, statusbar, edge-to-edge]
+slug: header-solapado-status-bar-android
+---
+
+**Contexto**: el header (`☰ Solicitudes`) se dibujaba debajo del reloj/íconos del sistema en Android.
+**Qué pasó**: `SafeAreaView` de `react-native` es un **no-op en Android** (solo iOS aplica insets). Con `targetSdkVersion = 35` (Android 15) la status bar es edge-to-edge y el contenido se dibuja detrás; `StatusBar backgroundColor` no reserva espacio.
+**Lección**: para inset superior en Android sin dependencia nativa, aplicar `paddingTop: StatusBar.currentHeight ?? 0` al contenedor, **leído en tiempo de render** (no en `StyleSheet.create`, que se evalúa una sola vez al importar y rompe la testabilidad). `currentHeight` es Android-only (iOS → `undefined` → `0`, donde el `SafeAreaView` nativo ya resuelve). Cambio JS puro, sin rebuild.
+**Cómo aplicar**: cualquier pantalla con header propio en esta app. Si en el futuro se necesitan insets de notch/cutout/bottom robustos, evaluar `react-native-safe-area-context` (requiere rebuild + linking). Testear con `getByTestId(...).toHaveStyle({ paddingTop })` tras setear `StatusBar.currentHeight` en `beforeEach`.
