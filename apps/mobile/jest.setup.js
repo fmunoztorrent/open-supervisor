@@ -12,6 +12,12 @@ jest.mock('react-native-config', () => ({
   BFF_BASE_URL: 'http://localhost:3000',
 }));
 
+// AsyncStorage no tiene NativeModules en el entorno de Jest → usar el mock
+// oficial del paquete. Requerido por hooks como useLogout que lo importan.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 require('@testing-library/react-native/extend-expect');
 
 // renderWithProvider — wraps render in GluestackUIProvider when available
