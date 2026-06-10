@@ -4,6 +4,8 @@ Ejecutar **inmediatamente** cuando el último todo de un scope se marca como `co
 
 ## Pasos
 
+> **Precondición:** El paso **5b/6 Validación Empírica** (`.opencode/pipeline/validate-empirica.md`) debe haberse ejecutado y pasado todos los checks antes de iniciar el cierre. Si 5b falló, el pipeline volvió a QA RED y NO se debe cerrar.
+
 ### 1. Actualizar spec (si aplica)
 
 - Buscar el spec relacionado en `spec/` por fecha/asunto (formato: `<YYYY-MM-DD>-<slug>.spec.xml`)
@@ -76,7 +78,15 @@ slug: descripcion-corta-en-kebab-case
 - Ejecutar la extracción automática: `npx tsx scripts/extract-learnings.ts`
 - Esto lee la última entrada de LEARNINGS.md y actualiza el skill correspondiente en `.claude/skills/{agent}-learnings/SKILL.md`
 - Si una lección aparece por segunda vez, el script la promueve automáticamente a "Reglas activas"
+- Si una lección aparece por tercera vez, el script la agrega a "Accionables bloqueantes" en `.claude/AGENTS.md`
 - La extracción también se ejecuta automáticamente vía hooks del plugin y de Claude Code. Este paso manual es un fallback.
+
+### 4c. Automejora del pipeline (Paso 7)
+
+- Después de la extracción de learnings, verificar si hubo promociones a nivel 3 (pipeline-blocker)
+- Si `extract-learnings.ts` generó cambios en `.opencode/pipeline/validate-empirica.md` o `.opencode/pipeline/close.md`, revisarlos y commitearlos
+- El pipeline se vuelve más estricto con cada error que se repite 3 veces
+- Si no hubo promociones, este paso no produce cambios
 
 ### 6. Revisar CLAUDE.md
 

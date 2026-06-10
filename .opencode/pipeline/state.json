@@ -6,15 +6,8 @@
     "main": {
       "active": false,
       "type": "feature",
-      "step": 1,
+      "step": 6,
       "started_at": "2026-06-04T12:00:00.000Z",
-      "completed_at": null
-    },
-    "bugfix.app-build": {
-      "active": true,
-      "type": "bugfix",
-      "step": 3,
-      "started_at": "2026-06-07T04:08:20.636Z",
       "completed_at": null
     }
   }

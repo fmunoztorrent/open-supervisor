@@ -18,6 +18,18 @@ Orquesta la ejecución de specs con **≥3 USTs independientes** descomponiéndo
 
 ---
 
+## Reglas activas
+
+### Accionables del agente task (subagentes)
+
+| ID | Accionable | Severidad |
+|----|-----------|-----------|
+| **A13** | Antes de `pnpm add`, verificar en `package.json` si la dependencia ya existe. Si existe, NO reinstalar con versión diferente. Si no existe, leer `android/build.gradle` para verificar kotlinVersion y buscar la versión máxima compatible | **ALTA** |
+| **A14** | Regla: NUNCA simplificar o reemplazar archivos existentes que no están en el scope de la tarea. Si un archivo necesita cambios, aplicar la mínima modificación posible con `edit` (no `write` completo) | **ALTA** |
+| **A15** | El prompt del task agent debe incluir el hash del commit base (`HEAD`) para que pueda hacer `git diff` y ver qué ya fue modificado por otros agents | **MEDIA** |
+
+---
+
 ## Paso 1 — Análisis de dependencias
 
 Leer la sección `## Dependencias entre USTs` del spec (si no existe, el architect la agrega primero). Construir la tabla:

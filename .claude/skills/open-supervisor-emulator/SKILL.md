@@ -439,3 +439,21 @@ El request ya estaba resuelto — el 500 es falso positivo del BFF. Verificar es
 | Botón Volver | `Volver` | `[42,36][210,93]` | (126, 64) — poco fiable vía adb |
 
 Pueden variar si el layout o el tamaño de pantalla cambia. Siempre verificar con **[inspect]** si hay dudas.
+
+---
+
+## Validación Empírica (Paso 5b/6)
+
+Este skill es utilizado por el paso 5b/6 del pipeline para validar features mobile en entorno real.
+
+### Checks A (Mobile UI)
+
+| Check | Qué valida | Referencia |
+|---|---|---|
+| **A.1** Build Android | APK compila sin errores Gradle | Procedimiento: `cd apps/mobile && pnpm android` |
+| **A.2** No red screen | App carga sin errores JS fatales | Procedimiento: `adb logcat -d | grep ReactNativeJS` |
+| **A.3** UI elements | Nuevos componentes renderizan | Usar `[inspect]` para verificar testID/text del spec |
+| **A.4** SSE flow | Eventos SSE llegan a la UI | Usar `[validate]` paso 3-4 |
+| **A.5** No regressions | Vistas previas intactas | Usar `[inspect]` comparando con dump anterior |
+
+Ver procedimiento completo en `.opencode/pipeline/validate-empirica.md`.

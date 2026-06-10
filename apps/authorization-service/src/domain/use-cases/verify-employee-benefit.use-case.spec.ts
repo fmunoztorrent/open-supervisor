@@ -62,6 +62,7 @@ beforeEach(() => {
     findById: jest.fn(),
     findByCorrelationId: jest.fn(),
     findPendingByStore: jest.fn(),
+    findResolvedByStore: jest.fn(),
   };
   mockLogger = {
     log: jest.fn(),

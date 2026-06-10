@@ -7,7 +7,8 @@
   },
   "default_agent": "pipeline",
   "plugin": [
-    ".opencode/plugins/pipeline-enforcer.js"
+    ".opencode/plugins/pipeline-enforcer.js",
+    ".opencode/plugins/coordination.js"
   ],
   "skills": {
     "paths": [".claude/skills"]
