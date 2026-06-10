@@ -1003,3 +1003,25 @@ slug: reintegrar-login-huerfano-en-app-tsx
 **Qué pasó**: integrar = restaurar el `SessionContext` token-based (lee `access_token`, decodifica JWT, expone `isAuthenticated`/`isInitializing`) + un gate `AuthenticatedApp` en `App.tsx` (Spinner mientras inicializa → LoginScreen si no auth → SupervisorApp si auth). Para que login y logout transicionen, se expuso `refresh()` en el contexto y `useLogout` recibió un callback `onLoggedOut`.
 **Lección**: cuando un gate de auth envuelve la app, TODOS los tests que renderizan `<App/>` y esperan la pantalla interna deben mockear sesión autenticada (`AsyncStorage.getItem→token` + `jwtDecode→claims`) y usar `waitFor` (el gate es async por el `useEffect` que lee el token). En emulador, un token viejo en AsyncStorage (de otra sesión) hace que el gate salte directo a la app — usar `adb shell pm clear <pkg>` para validar el estado no-autenticado.
 **Cómo aplicar**: al reconciliar dos features que tocan el mismo entrypoint (`App.tsx`), no basta con que los archivos de ambas existan; hay que verificar el WIRING en el entrypoint. El guard de coordinación de sesiones previene la causa raíz (clobber entre sesiones), pero la auditoría del wiring post-merge sigue siendo manual.
+
+---
+date: 2026-06-10
+agent: frontend
+category: test-strategy
+tags: [detox, e2e, testid, mock-server, typescript, react-native]
+slug: detox-e2e-testids-y-mock-server-js-ts-declarations
+---
+
+**Contexto**: configurando Detox E2E por primera vez para apps/mobile. Se necesitó agregar testIDs en 4 componentes (AuthorizationList, AuthorizationCard, AuthorizationDetailScreen, App.tsx) y crear un mock server Express en JS para las suites E2E.
+
+**Qué pasó**: 
+1. Los testIDs existentes no cubrían el flujo Detox completo. Falta de `authorize-button`, `reject-button`, `back-button`, `empty-list-text` bloqueaba los tests E2E. El `testID` de `AuthorizationCard` era fijo (`authorization-card`) en vez de dinámico (`card-{correlation_id}`), impidiendo identificar cards individuales.
+2. El mock server (`e2e/mock-server/index.js`) era JS, pero las suites E2E son TypeScript. El typecheck fallaba con `TS7016: Could not find a declaration file for module` hasta que se creó `index.d.ts` con las firmas de `startServer`/`stopServer`.
+
+**Lección**: 
+1. **Siempre** verificar que cada elemento interactivo de la UI que será targeteado por `by.id()` tenga un `testID` único. Para listas dinámicas, usar IDs compuestos (ej. `card-{correlation_id}`), no fijos. Documentar los testIDs esperados en el spec (US-03/04/05 ya los listan).
+2. Cuando se importan módulos JS desde suites TypeScript (mock server, helpers), crear `.d.ts` con las firmas exportadas. Con `strict: true` en tsconfig, TypeScript exige tipos para todo import JS.
+
+**Cómo aplicar**: 
+1. Antes de escribir tests Detox, hacer un audit de testIDs: listar cada `by.id()` del test y confirmar que el componente correspondiente lo declara. Si falta, agregarlo en el mismo scope que el test.
+2. Para cualquier módulo JS importado desde TS en e2e/: crear `index.d.ts` con `export function name(...): ReturnType`. No usar `declare module` — TypeScript lo trata como ambient module y falla con `TS2306: File is not a module`.
