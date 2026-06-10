@@ -60,6 +60,8 @@ Todos los componentes visuales usan `@gluestack-ui/themed`. **No usar `StyleShee
 
 `SafeAreaView` y `StatusBar` de React Native se mantienen — no tienen equivalente en Gluestack v1.
 
+> ⚠️ **Inset superior en Android:** `SafeAreaView` de `react-native` es un **no-op en Android** (solo aplica insets en iOS). Con `targetSdkVersion = 35` la status bar es edge-to-edge y el header se solapa. Por eso cada `SafeAreaView` en `App.tsx` lleva `paddingTop: StatusBar.currentHeight ?? 0` (Android-only; en iOS es `undefined` → `0`). Leer `StatusBar.currentHeight` en tiempo de render, nunca dentro de `StyleSheet.create`.
+
 ## Endpoints del BFF que consume
 
 | Operación | Ruta | Descripción |

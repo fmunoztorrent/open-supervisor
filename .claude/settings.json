@@ -30,6 +30,39 @@
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .opencode/pipeline/coordination.sh register claude 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .opencode/pipeline/coordination.sh release claude 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .opencode/pipeline/coordination-claude-hook.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",

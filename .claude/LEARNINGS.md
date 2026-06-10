@@ -898,6 +898,49 @@ slug: learnings-skills-self-improvement-loop
 
 ---
 date: 2026-06-08
+agent: architect + backend + frontend
+category: pattern
+tags: [mobile, sse, physical-presence, gluestack-ui, animated-api]
+slug: hamburger-menu-presencia-fisica
+---
+
+**Contexto**: implementando menú hamburguesa con badges de pendientes y presencia física en la app móvil React Native + Gluestack-UI.
+
+**Qué pasó**: el evento SSE `physical_presence_dispatch` ya fluía por todo el backend (Redis → sse-server → BFF → SSE proxy) pero la app móvil lo ignoraba completamente porque `useSSERequests` solo registraba listener para `authorization_request`. El `PhysicalPresenceDispatchDto` existía en `shared-types` desde antes pero sin usar en mobile.
+
+**Lección**: al agregar features que dependen de streams de eventos existentes, verificar primero si el dato ya está disponible en el pipeline. En este caso, solo se necesitó un hook nuevo (`usePhysicalPresenceDispatches`) que abre su propio EventSource y escucha `physical_presence_dispatch`, sin tocar el backend. Para `useLogout`, `multiRemove` no estaba tipado en la versión instalada de `@react-native-async-storage/async-storage` — usar `removeItem` individual en su lugar.
+
+**Cómo aplicar**: antes de diseñar un endpoint o consumer nuevo, rastrear el evento desde origen (Redis channel → sse-server → BFF adapter → SSE endpoint). Si el BFF ya re-emite el evento, solo falta el listener en mobile. Para merges con conflictos en `pnpm-lock.yaml`, regenerar con `pnpm install --no-frozen-lockfile` en vez de resolver manualmente.
+
+
+---
+date: 2026-06-08
+agent: frontend
+category: api-gotcha
+tags: [react-native, android, safe-area, statusbar, edge-to-edge]
+slug: header-solapado-status-bar-android
+---
+
+**Contexto**: el header (`☰ Solicitudes`) se dibujaba debajo del reloj/íconos del sistema en Android.
+**Qué pasó**: `SafeAreaView` de `react-native` es un **no-op en Android** (solo iOS aplica insets). Con `targetSdkVersion = 35` (Android 15) la status bar es edge-to-edge y el contenido se dibuja detrás; `StatusBar backgroundColor` no reserva espacio.
+**Lección**: para inset superior en Android sin dependencia nativa, aplicar `paddingTop: StatusBar.currentHeight ?? 0` al contenedor, **leído en tiempo de render** (no en `StyleSheet.create`, que se evalúa una sola vez al importar y rompe la testabilidad). `currentHeight` es Android-only (iOS → `undefined` → `0`, donde el `SafeAreaView` nativo ya resuelve). Cambio JS puro, sin rebuild.
+**Cómo aplicar**: cualquier pantalla con header propio en esta app. Si en el futuro se necesitan insets de notch/cutout/bottom robustos, evaluar `react-native-safe-area-context` (requiere rebuild + linking). Testear con `getByTestId(...).toHaveStyle({ paddingTop })` tras setear `StatusBar.currentHeight` en `beforeEach`.
+
+---
+date: 2026-06-08
+agent: claude
+category: setup
+tags: [coordinacion, claude-code, opencode, git, hooks, working-tree]
+slug: coordinacion-sesiones-working-tree-compartido
+---
+
+**Contexto**: Claude Code y opencode comparten el mismo working tree. Durante una tarea, cambios de rama de la sesión concurrente descartaron trabajo sin commitear (tracked y untracked) dos veces.
+**Qué pasó**: no había ningún mecanismo que avisara/bloqueara operaciones git destructivas (`checkout -f`, `reset --hard`, `clean -f`) cuando el árbol compartido tenía cambios pendientes.
+**Lección**: la protección efectiva NO es un lock complejo entre herramientas, sino un guard tool-agnóstico que bloquea operaciones git destructivas **cuando `git status --porcelain` no está vacío**. Como el árbol es compartido, proteger "árbol sucio" protege a ambas sesiones por construcción. Implementado en `.opencode/pipeline/coordination.sh` (`guard-git`), cableado en Claude Code vía `PreToolUse(Bash)` y en opencode vía plugin. Estado compartido en `coordination.json` (gitignored).
+**Cómo aplicar**: para detectar comandos en un string sin parser de shell, anclar el match a posición de comando (`(^|[;&|(])` + comando) para no matchear menciones en comillas; aun así quedan falsos positivos con separadores dentro de comillas → ofrecer override (`COORD_OVERRIDE=1`). Defensa de fondo > precisión perfecta: commitea o `git stash -u` antes de cambiar de contexto. La lección operativa más barata: **commitear temprano** protege contra clobbers de sesiones concurrentes (es lo que cortó la sangría aquí).
+
+---
+date: 2026-06-08
 agent: principal
 category: pipeline-gap
 tags: [pipeline, validacion-empirica, automejora, accionables, retrospectiva]
@@ -911,4 +954,3 @@ slug: mejora-pipeline-validacion-empirica
 **Lección**: `pnpm test` + `pnpm typecheck` no detectan bugs de integración (build Android, runtime, rutas HTTP). La validación empírica (build real + curl + UIAutomator) debe ser parte del pipeline, no un paso manual opcional. La automejora debe ser automática: `extract-learnings.ts` → contar ocurrencias → promover a reglas.
 
 **Cómo aplicar**: (1) cada feature que toca mobile ejecuta checks A.1-A.5 obligatoriamente, (2) cada feature que agrega endpoints ejecuta B.1-B.5, (3) si un check falla, el pipeline vuelve a RED con el output exacto del fallo, (4) el agente principal ejecuta el paso 7 tras cada cierre, (5) skills de agente se actualizan automáticamente con lecciones promovidas.
-

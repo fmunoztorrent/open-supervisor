@@ -553,3 +553,22 @@ Si un hardcodeo es legítimo (ej. en `.claude/settings.local.json`), hay dos mec
 2. **Comentario inline:** agregar `# hardcode-ok: <razón>` en el archivo para excluir líneas específicas.
 
 Los patrones están definidos en `.opencode/pipeline/hardcode-patterns.json` (fuente única compartida por el plugin JS y el script bash).
+
+## Coordinación de sesiones (Claude Code ↔ opencode)
+
+Claude Code y opencode operan sobre el **mismo working tree**. Si una sesión hace una operación git destructiva (`checkout -f`, `reset --hard`, `clean -f`, `checkout -- <archivo>`) mientras la otra tiene cambios sin commitear, se pierde trabajo. Esto ya ocurrió.
+
+**Mecanismo (estado compartido + guard tool-agnóstico):**
+
+| Pieza | Archivo | Rol |
+|---|---|---|
+| Helper | `.opencode/pipeline/coordination.sh` | `register`/`heartbeat`/`release`/`list`/`guard-git`. Fuente única de la lógica. |
+| Estado compartido | `.opencode/pipeline/coordination.json` | Sesiones vivas (tool, rama, pid, heartbeat). **Gitignored** (transitorio, por máquina). TTL 30 min. |
+| Hook Claude Code | `.opencode/pipeline/coordination-claude-hook.sh` + `PreToolUse(Bash)` en `.claude/settings.json` | Cada comando Bash pasa por `guard-git`. `SessionStart`/`SessionEnd` registran/dan de baja. |
+| Plugin opencode | `.opencode/plugins/coordination.js` (registrado en `opencode.json`) | `tool.execute.before(bash)` delega en el mismo `guard-git`. |
+
+**Regla del guard:** bloquea (exit 2) una operación git destructiva **solo si el working tree está sucio** (`git status --porcelain` no vacío). Árbol limpio = nada que perder = se permite. El árbol es compartido, así que protege a ambas herramientas por construcción. El `git` destructivo debe estar en **posición de comando** (inicio de línea o tras `;`/`&&`/`||`/`|`/`(`) — menciones dentro de comillas (ej. un mensaje de commit) no disparan el bloqueo.
+
+- `git stash` → solo aviso (es recuperable con `git stash list`).
+- **Override puntual:** `COORD_OVERRIDE=1 <comando>`.
+- **Limitación conocida:** el guard es regex sobre el string del comando, no un parser de shell. No intercepta git destructivo ejecutado *dentro* de un script (`bash foo.sh`), y un separador (`;`/`&&`) dentro de comillas puede dar un falso positivo. Ante un bloqueo incorrecto, usar `COORD_OVERRIDE=1`. La protección real de fondo (árbol sucio) es lo que importa; commitea o `git stash -u` antes de cambiar de contexto.
