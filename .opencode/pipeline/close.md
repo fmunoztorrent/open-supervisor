@@ -17,6 +17,7 @@ Ejecutar **inmediatamente** cuando el último todo de un scope se marca como `co
 - Cambiar `spec@status` de `draft` a `completed`
 - Marcar `<meta>/<archived>` como `true`
 - Incrementar `spec@revision` y agregar `<revision>` en `<history>`
+- **Mover el archivo** de `spec/<archivo>.spec.md` a `spec/archived/<archivo>.spec.md`
 - Si no hay spec asociado, saltar este paso
 
 ### 2. Fusionar rama actual en `dev` local (integración)

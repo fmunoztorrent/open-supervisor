@@ -1,0 +1,157 @@
+# Bootstrap users for OpenLDAP — Simulated Active Directory
+
+# Organizational Unit for users
+dn: ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: organizationalUnit
+ou: users
+
+# User 1 — Supervisor tienda store-1
+dn: uid=12345678-9,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 12345678-9
+cn: Juan Pérez
+sn: Pérez
+givenName: Juan
+userPassword: password1
+employeeType: Supervisor de Turno
+departmentNumber: Operaciones
+carLicense: store-1
+
+# User 2 — Supervisor tienda store-2
+dn: uid=23456789-0,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 23456789-0
+cn: María García
+sn: García
+givenName: María
+userPassword: password2
+employeeType: Supervisor Senior
+departmentNumber: Operaciones
+carLicense: store-2
+
+# User 3 — Supervisor tienda store-3
+dn: uid=34567890-1,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 34567890-1
+cn: Carlos López
+sn: López
+givenName: Carlos
+userPassword: password3
+employeeType: Supervisor
+departmentNumber: Ventas
+carLicense: store-3
+
+# User 4 — Supervisor tienda store-1
+dn: uid=45678901-2,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 45678901-2
+cn: Ana Martínez
+sn: Martínez
+givenName: Ana
+userPassword: password4
+employeeType: Supervisor de Turno
+departmentNumber: Operaciones
+carLicense: store-1
+
+# User 5 — Supervisor tienda store-2
+dn: uid=56789012-3,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 56789012-3
+cn: Pedro Rodríguez
+sn: Rodríguez
+givenName: Pedro
+userPassword: password5
+employeeType: Supervisor
+departmentNumber: Ventas
+carLicense: store-2
+
+# User 6 — Supervisor tienda store-3
+dn: uid=67890123-4,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 67890123-4
+cn: Laura Fernández
+sn: Fernández
+givenName: Laura
+userPassword: password6
+employeeType: Supervisor Senior
+departmentNumber: Operaciones
+carLicense: store-3
+
+# User 7 — Supervisor tienda store-1
+dn: uid=78901234-5,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 78901234-5
+cn: Diego Torres
+sn: Torres
+givenName: Diego
+userPassword: password7
+employeeType: Supervisor
+departmentNumber: Ventas
+carLicense: store-1
+
+# User 8 — Supervisor tienda store-2
+dn: uid=89012345-6,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 89012345-6
+cn: Sofía Ramírez
+sn: Ramírez
+givenName: Sofía
+userPassword: password8
+employeeType: Supervisor de Turno
+departmentNumber: Operaciones
+carLicense: store-2
+
+# User 9 — Supervisor tienda store-3
+dn: uid=90123456-7,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 90123456-7
+cn: Felipe Castro
+sn: Castro
+givenName: Felipe
+userPassword: password9
+employeeType: Supervisor
+departmentNumber: Ventas
+carLicense: store-3
+
+# User 10 — CUENTA DESHABILITADA
+dn: uid=99999999-0,ou=users,dc=opensupervisor,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 99999999-0
+cn: Roberto Inactivo
+sn: Inactivo
+givenName: Roberto
+userPassword: password0
+employeeType: Ex-Supervisor
+departmentNumber: Operaciones
+carLicense: store-1

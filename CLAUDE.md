@@ -22,6 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `packages/shared-messaging/` | Ports: IMessagePublisher, IMessageConsumer, INotificationSubscriber |
 | `scripts/` | Tooling de desarrollo: `inject-request.ts` para simular solicitudes POS sin infraestructura de tienda |
 | `collections/` | Colecciones Postman para testing manual de endpoints REST |
+| `spec/` | Specs activos (draft). Los completados se mueven a `spec/archived/` (excluido del contexto) |
 
 ## Arquitectura
 
@@ -395,6 +396,7 @@ Al completar la implementación de un spec (siguiendo `close.md`):
    - Cambiar `spec@status` de `draft` a `completed`
    - Marcar `<meta>/<archived>` como `true`
    - Incrementar `spec@revision` y agregar entrada en `<history>`
+   - **Mover el spec** de `spec/` a `spec/archived/`
 2. El spec queda como registro histórico inmutable de lo planeado vs lo entregado.
 
 ### Pipeline bugfix (pasos simplificados)

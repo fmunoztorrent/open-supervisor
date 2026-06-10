@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
 import { config } from '@gluestack-ui/config';
-import { GluestackUIProvider, HStack, Pressable, Box, Text } from '@gluestack-ui/themed';
+import { GluestackUIProvider, HStack, Pressable, Box, Text, Spinner, Center } from '@gluestack-ui/themed';
 import { SessionProvider, useSession } from './src/context/SessionContext';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
 import { HamburgerMenu } from './src/components/HamburgerMenu';
@@ -55,7 +56,7 @@ function DetailView({ request, supervisorId, onBack, onDecisionComplete }: Detai
 }
 
 function SupervisorApp() {
-  const { storeId, supervisorId } = useSession();
+  const { storeId, supervisorId, displayName } = useSession();
   const { requests, isLoading, isReconnecting, isRefreshingBackground, refetch } = useSSERequests(storeId);
   const { dispatches, count: presenceCount } = usePhysicalPresenceDispatches(storeId);
   const { logout } = useLogout();
@@ -164,12 +165,36 @@ function SupervisorApp() {
   );
 }
 
+function AuthenticatedApp({ onLoginSuccess }: { onLoginSuccess: () => void }) {
+  const { isAuthenticated, isInitializing } = useSession();
+
+  if (isInitializing) {
+    return (
+      <Center style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+        <Spinner testID="session-spinner" size="large" />
+      </Center>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLoginSuccess={onLoginSuccess} />;
+  }
+
+  return <SupervisorApp />;
+}
+
 export default function App() {
+  const [loginKey, setLoginKey] = useState(0);
+
+  const handleLoginSuccess = useCallback(() => {
+    setLoginKey((k) => k + 1);
+  }, []);
+
   return (
     <GluestackUIProvider config={config}>
-      <SessionProvider>
+      <SessionProvider key={`session-${loginKey}`}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <SupervisorApp />
+        <AuthenticatedApp onLoginSuccess={handleLoginSuccess} />
       </SessionProvider>
     </GluestackUIProvider>
   );
