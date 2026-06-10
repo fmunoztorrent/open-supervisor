@@ -8,7 +8,7 @@ description: Aprendizajes acumulados del frontend engineer. Patrones validados e
 *Esta sección se llena automáticamente por el script `scripts/extract-learnings.ts` al cierre de cada tarea. Cuando un mismo patrón aparece en ≥2 entradas de LEARNINGS.md, se promueve aquí.*
 
 ## Lecciones recientes
-- [2026-06-08] reintegrar-login-huerfano-en-app-tsx — **Lección**: cuando un gate de auth envuelve la app, TODOS los tests que renderizan `<App/>` y esperan la pantalla inter
+- [2026-06-10] detox-e2e-testids-y-mock-server-js-ts-declarations — **Lección**:
 
 ## Promovidas a CLAUDE.md
 *Entradas que ya han sido migradas a reglas permanentes en CLAUDE.md. Hacer tracking aquí evita duplicar.*
