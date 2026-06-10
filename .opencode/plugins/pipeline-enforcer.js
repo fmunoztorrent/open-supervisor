@@ -103,6 +103,30 @@ function hasUnmergedFiles() {
   }
 }
 
+// Pre-spec guard: corre pre-spec.sh cuando un scope nuevo se activa.
+// Lanza error si el check falla — bloquea la activación del pipeline.
+const PRE_SPEC_PATH = join(__dirname, "..", "pipeline", "pre-spec.sh")
+
+function runPreSpecCheck(scopeName) {
+  if (!existsSync(PRE_SPEC_PATH)) return // script aún no existe — graceful
+
+  try {
+    execSync(`bash "${PRE_SPEC_PATH}"`, {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+  } catch (e) {
+    const out = (e.stdout || "") + (e.stderr || "")
+    throw new Error(
+      `Pre-spec check falló al activar el scope '${scopeName}'.\n` +
+      `Resuelve los issues antes de iniciar el pipeline:\n\n` +
+      out +
+      `\nEjecuta: bash .opencode/pipeline/pre-spec.sh para ver el detalle completo.\n`
+    )
+  }
+}
+
 function loadState() {
   try {
     if (existsSync(STATE_PATH)) {
@@ -342,6 +366,24 @@ export default async () => {
     },
 
     "tool.execute.before": async (input, output) => {
+      // ── Pre-spec check: bloquear activación de nuevo scope ─────────────
+      if (input?.tool === "todowrite") {
+        const todos = input?.args?.todos || []
+        const parsed = parseScopeGroups(todos)
+        if (parsed) {
+          for (const [name, data] of Object.entries(parsed.groups)) {
+            const wasActive = previousScopeState[name]?.hasActive || false
+            const nowActive = data.hasActive
+            // Solo bloquear cuando un scope pasa de inactivo a activo (nueva activación)
+            if (!wasActive && nowActive) {
+              runPreSpecCheck(name) // lanza si falla
+            }
+          }
+        }
+        return // todowrite no necesita los checks de edit/write
+      }
+      // ── End pre-spec check ─────────────────────────────────────────────
+
       if (!EDIT_TOOLS.has(input?.tool)) return
 
       // ── Hardcode detection (runs regardless of pipeline state) ─────────
