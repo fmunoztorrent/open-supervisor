@@ -12,26 +12,11 @@ jest.mock('react-native-config', () => ({
   BFF_BASE_URL: 'http://localhost:3000',
 }));
 
-// AsyncStorage no tiene NativeModules en el entorno de Jest → mock con store
-// en memoria. Requerido por hooks como useLogout que lo importan.
-jest.mock('@react-native-async-storage/async-storage', () => {
-  const store = {};
-  return {
-    getItem: jest.fn((key) => Promise.resolve(store[key] || null)),
-    setItem: jest.fn((key, value) => {
-      store[key] = value;
-      return Promise.resolve();
-    }),
-    removeItem: jest.fn((key) => {
-      delete store[key];
-      return Promise.resolve();
-    }),
-    clear: jest.fn(() => {
-      Object.keys(store).forEach((k) => delete store[k]);
-      return Promise.resolve();
-    }),
-  };
-});
+// AsyncStorage no tiene NativeModules en el entorno de Jest → usar el mock
+// oficial del paquete. Requerido por hooks como useLogout que lo importan.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
 
 jest.mock('jwt-decode', () => ({
   jwtDecode: jest.fn((token) => {
