@@ -896,3 +896,19 @@ slug: learnings-skills-self-improvement-loop
 
 **Cómo aplicar**: al diseñar cualquier loop de aprendizaje automático en un sistema de agentes: (1) usar skills como caché de conocimiento específico por rol, (2) el trigger debe ser automático vía hooks (plugin + Claude Code Stop), (3) el script extractor debe ser standalone (sin dependencias externas), (4) el fallback manual en el checklist de cierre asegura que el loop nunca se rompa completamente.
 
+---
+date: 2026-06-08
+agent: principal
+category: pipeline-gap
+tags: [pipeline, validacion-empirica, automejora, accionables, retrospectiva]
+slug: mejora-pipeline-validacion-empirica
+---
+
+**Contexto**: realizando una retrospectiva de la feature `hamburger-menu` donde 4 bugs sobrevivieron a QA GREEN (tests + typecheck): dependencia incompatible con Kotlin, endpoint 404 por dist desactualizado, servicio crasheó tras restart, ruta incorrecta en spec.
+
+**Qué pasó**: el pipeline cerraba features en verde sin validar en entorno real. Se identificaron 22 accionables (A1-A22) asignados a 7 agentes. Se diseñó un paso 5b/6 Validación Empírica con 4 checklists (A: Mobile UI, B: Endpoints REST, C: SSE/Real-time, D: Infra/Dependencias) y un paso 7 Automejora que promueve lecciones recurrentes: nivel 1 → skill, nivel 2 → regla activa, nivel 3 → bloqueante del pipeline.
+
+**Lección**: `pnpm test` + `pnpm typecheck` no detectan bugs de integración (build Android, runtime, rutas HTTP). La validación empírica (build real + curl + UIAutomator) debe ser parte del pipeline, no un paso manual opcional. La automejora debe ser automática: `extract-learnings.ts` → contar ocurrencias → promover a reglas.
+
+**Cómo aplicar**: (1) cada feature que toca mobile ejecuta checks A.1-A.5 obligatoriamente, (2) cada feature que agrega endpoints ejecuta B.1-B.5, (3) si un check falla, el pipeline vuelve a RED con el output exacto del fallo, (4) el agente principal ejecuta el paso 7 tras cada cierre, (5) skills de agente se actualizan automáticamente con lecciones promovidas.
+

@@ -31,6 +31,16 @@ infrastructure/
 3. **DTOs compartidos** viven en `packages/shared-types/`. DTOs de APIs externas van locales al adapter.
 4. **Variables de entorno**: siempre via `ConfigModule` (`@nestjs/config`), nunca `process.env` directo.
 
+## Reglas activas
+
+### Accionables
+
+| ID | Accionable | Severidad |
+|----|-----------|-----------|
+| **A4** | Para dependencias nativas nuevas en mobile, verificar compatibilidad con kotlinVersion del proyecto | **ALTA** |
+| **A5** | Validar rutas de endpoints contra `@Controller()` prefixes reales | **ALTA** |
+| **A11** | Tras modificar .ts en NestJS: `nest build` + restart + verify con lsof | **ALTA** |
+
 ## Orden de implementación
 
 1. DTOs y tipos compartidos (`packages/shared-types/`)
