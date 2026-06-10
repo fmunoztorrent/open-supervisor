@@ -9,7 +9,11 @@ interface UseLogoutResult {
 
 const AUTH_KEYS = ['access_token', 'refresh_token', 'expires_at'] as const;
 
-export function useLogout(): UseLogoutResult {
+/**
+ * @param onLoggedOut callback opcional invocado tras limpiar los tokens.
+ *   App.tsx pasa `refresh` de la sesión para volver al LoginScreen.
+ */
+export function useLogout(onLoggedOut?: () => void): UseLogoutResult {
   const [isLoading, setIsLoading] = useState(false);
 
   const logout = useCallback(async () => {
@@ -24,13 +28,14 @@ export function useLogout(): UseLogoutResult {
             await AsyncStorage.removeItem(AUTH_KEYS[0]);
             await AsyncStorage.removeItem(AUTH_KEYS[1]);
             await AsyncStorage.removeItem(AUTH_KEYS[2]);
+            onLoggedOut?.();
           } finally {
             setIsLoading(false);
           }
         },
       },
     ]);
-  }, []);
+  }, [onLoggedOut]);
 
   return { logout, isLoading };
 }

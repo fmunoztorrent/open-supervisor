@@ -1,15 +1,15 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
 import { config } from '@gluestack-ui/config';
-import { GluestackUIProvider, HStack, Pressable, Box, Text, Spinner, Center } from '@gluestack-ui/themed';
+import { GluestackUIProvider, HStack, Pressable, Box, Text, Center, Spinner } from '@gluestack-ui/themed';
 import { SessionProvider, useSession } from './src/context/SessionContext';
-import { LoginScreen } from './src/screens/LoginScreen';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { HamburgerMenu } from './src/components/HamburgerMenu';
 import { PendingBadge } from './src/components/PendingBadge';
 import { PhysicalPresenceBadge } from './src/components/PhysicalPresenceBadge';
@@ -55,11 +55,11 @@ function DetailView({ request, supervisorId, onBack, onDecisionComplete }: Detai
   );
 }
 
-function SupervisorApp() {
-  const { storeId, supervisorId, displayName } = useSession();
+function SupervisorApp({ onLoggedOut }: { onLoggedOut: () => void }) {
+  const { storeId, supervisorId } = useSession();
   const { requests, isLoading, isReconnecting, isRefreshingBackground, refetch } = useSSERequests(storeId);
   const { dispatches, count: presenceCount } = usePhysicalPresenceDispatches(storeId);
-  const { logout } = useLogout();
+  const { logout } = useLogout(onLoggedOut);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('list');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -165,8 +165,13 @@ function SupervisorApp() {
   );
 }
 
-function AuthenticatedApp({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { isAuthenticated, isInitializing } = useSession();
+// Gate de autenticación: decide entre splash, login y la app del supervisor
+// según el estado de la sesión (token Keycloak en AsyncStorage).
+function AuthenticatedApp() {
+  const { isAuthenticated, isInitializing, refresh } = useSession();
+  const handleLoginSuccess = useCallback(() => {
+    refresh();
+  }, [refresh]);
 
   if (isInitializing) {
     return (
@@ -177,24 +182,18 @@ function AuthenticatedApp({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   }
 
   if (!isAuthenticated) {
-    return <LoginScreen onLoginSuccess={onLoginSuccess} />;
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
-  return <SupervisorApp />;
+  return <SupervisorApp onLoggedOut={refresh} />;
 }
 
 export default function App() {
-  const [loginKey, setLoginKey] = useState(0);
-
-  const handleLoginSuccess = useCallback(() => {
-    setLoginKey((k) => k + 1);
-  }, []);
-
   return (
     <GluestackUIProvider config={config}>
-      <SessionProvider key={`session-${loginKey}`}>
+      <SessionProvider>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <AuthenticatedApp onLoginSuccess={handleLoginSuccess} />
+        <AuthenticatedApp />
       </SessionProvider>
     </GluestackUIProvider>
   );

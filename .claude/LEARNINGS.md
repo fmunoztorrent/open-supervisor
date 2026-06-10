@@ -990,3 +990,16 @@ slug: mejora-pipeline-validacion-empirica
 **Lección**: `pnpm test` + `pnpm typecheck` no detectan bugs de integración (build Android, runtime, rutas HTTP). La validación empírica (build real + curl + UIAutomator) debe ser parte del pipeline, no un paso manual opcional. La automejora debe ser automática: `extract-learnings.ts` → contar ocurrencias → promover a reglas.
 
 **Cómo aplicar**: (1) cada feature que toca mobile ejecuta checks A.1-A.5 obligatoriamente, (2) cada feature que agrega endpoints ejecuta B.1-B.5, (3) si un check falla, el pipeline vuelve a RED con el output exacto del fallo, (4) el agente principal ejecuta el paso 7 tras cada cierre, (5) skills de agente se actualizan automáticamente con lecciones promovidas.
+
+---
+date: 2026-06-08
+agent: frontend
+category: pattern
+tags: [auth, integracion, merge, react-native, session, gate]
+slug: reintegrar-login-huerfano-en-app-tsx
+---
+
+**Contexto**: tras varios merges entre sesiones concurrentes (hamburguesa + login Keycloak), `App.tsx` quedó en la versión hamburguesa y el flujo de login (LoginScreen/useLogin/SessionContext token-based) quedó huérfano: los archivos existían pero nada los usaba. Además `SessionContext` había sido revertido a la versión simple sin `isAuthenticated`.
+**Qué pasó**: integrar = restaurar el `SessionContext` token-based (lee `access_token`, decodifica JWT, expone `isAuthenticated`/`isInitializing`) + un gate `AuthenticatedApp` en `App.tsx` (Spinner mientras inicializa → LoginScreen si no auth → SupervisorApp si auth). Para que login y logout transicionen, se expuso `refresh()` en el contexto y `useLogout` recibió un callback `onLoggedOut`.
+**Lección**: cuando un gate de auth envuelve la app, TODOS los tests que renderizan `<App/>` y esperan la pantalla interna deben mockear sesión autenticada (`AsyncStorage.getItem→token` + `jwtDecode→claims`) y usar `waitFor` (el gate es async por el `useEffect` que lee el token). En emulador, un token viejo en AsyncStorage (de otra sesión) hace que el gate salte directo a la app — usar `adb shell pm clear <pkg>` para validar el estado no-autenticado.
+**Cómo aplicar**: al reconciliar dos features que tocan el mismo entrypoint (`App.tsx`), no basta con que los archivos de ambas existan; hay que verificar el WIRING en el entrypoint. El guard de coordinación de sesiones previene la causa raíz (clobber entre sesiones), pero la auditoría del wiring post-merge sigue siendo manual.

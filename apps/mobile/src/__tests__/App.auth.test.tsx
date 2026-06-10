@@ -1,13 +1,12 @@
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react-native';
-import { StatusBar } from 'react-native';
 
 // renderWithProvider is injected by jest.setup.js
 declare const renderWithProvider: (ui: React.ReactElement, options?: any) => ReturnType<typeof import('@testing-library/react-native').render>;
 
-// Sesión autenticada: el gate de auth debe dejar pasar a la app del supervisor
+const mockGetItem = jest.fn();
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  getItem: jest.fn().mockResolvedValue('valid-token'),
+  getItem: (...args: unknown[]) => mockGetItem(...args),
   setItem: jest.fn().mockResolvedValue(undefined),
   removeItem: jest.fn().mockResolvedValue(undefined),
   clear: jest.fn().mockResolvedValue(undefined),
@@ -22,17 +21,18 @@ jest.mock('jwt-decode', () => ({
   }),
 }));
 
-const mockUseSSERequests = jest.fn();
 jest.mock('../hooks/useSSERequests', () => ({
-  useSSERequests: (...args: unknown[]) => mockUseSSERequests(...args),
+  useSSERequests: () => ({
+    requests: [],
+    isLoading: false,
+    isReconnecting: false,
+    isRefreshingBackground: false,
+    refetch: jest.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 jest.mock('../hooks/usePhysicalPresenceDispatches', () => ({
   usePhysicalPresenceDispatches: () => ({ dispatches: [], count: 0 }),
-}));
-
-jest.mock('../hooks/useLogout', () => ({
-  useLogout: () => ({ logout: jest.fn() }),
 }));
 
 jest.mock('../components/AuthorizationList', () => ({
@@ -41,26 +41,30 @@ jest.mock('../components/AuthorizationList', () => ({
 
 import App from '../../App';
 
-describe('App — safe area / status bar', () => {
-  const STATUS_BAR_HEIGHT = 24;
-
+describe('App — gate de autenticación', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Simula la altura de la barra de estado de Android
-    (StatusBar as unknown as { currentHeight: number }).currentHeight = STATUS_BAR_HEIGHT;
-    mockUseSSERequests.mockReturnValue({
-      requests: [],
-      isLoading: false,
-      isReconnecting: false,
-      isRefreshingBackground: false,
-      refetch: jest.fn().mockResolvedValue(undefined),
-    });
   });
 
-  it('aplica paddingTop = StatusBar.currentHeight al contenedor para no solapar la status bar', async () => {
+  it('muestra LoginScreen cuando NO hay token almacenado', async () => {
+    mockGetItem.mockResolvedValue(null);
+
     renderWithProvider(<App />);
 
-    const safeArea = await waitFor(() => screen.getByTestId('app-safe-area'));
-    expect(safeArea).toHaveStyle({ paddingTop: STATUS_BAR_HEIGHT });
+    await waitFor(() => {
+      expect(screen.getByTestId('login-title')).toBeOnTheScreen();
+    });
+    expect(screen.queryByTestId('app-safe-area')).toBeNull();
+  });
+
+  it('muestra la app (header) cuando hay un token válido', async () => {
+    mockGetItem.mockResolvedValue('valid-token');
+
+    renderWithProvider(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('app-safe-area')).toBeOnTheScreen();
+    });
+    expect(screen.queryByTestId('login-title')).toBeNull();
   });
 });
