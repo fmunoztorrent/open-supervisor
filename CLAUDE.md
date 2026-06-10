@@ -259,6 +259,11 @@ Cada vez que se inicia, avanza o termina un paso del pipeline, se DEBE:
 > **REGLA ABSOLUTA — SIN EXCEPCIONES:** Cualquier modificación al código fuente (feature, refactor, hot fix, test, renombrado, corrección de typo en lógica) requiere ejecutar este flujo completo antes de escribir código. No existe tarea "demasiado pequeña" para saltarse el flujo.
 
 ```
+0. pre-spec               → leer .opencode/pipeline/start.md y ejecutar:
+                              bash .opencode/pipeline/pre-spec.sh
+                           Si falla: resolver issues antes de continuar.
+                           Crear rama desde origin/main:
+                              git checkout -b feature/<slug> origin/main
 1. /spec-generator        → spec formal en spec/ con REASONS Canvas (XML)
 2. architect agent        → valida viabilidad técnica, enriquece paths y escenarios de test
 3. qa agent (RED)         → escribe tests que fallan por la razón correcta
@@ -271,9 +276,8 @@ Cada vez que se inicia, avanza o termina un paso del pipeline, se DEBE:
                              (c) `adb logcat | grep ReactNativeJS` sin errores críticos
                              (d) Screenshot del emulador confirma UI correcta (sin red screen)
 5. qa agent (GREEN)       → corre la suite completa y reporta
-6. cierre                 → (a) actualizar spec con tareas completadas,
-                           (b) entrada en .claude/LEARNINGS.md,
-                           (c) actualizar CLAUDE.md si corresponde
+6. cierre                 → leer .opencode/pipeline/close.md y ejecutar todos los pasos
+                           incluidos 2b (verificar commits capturados) y 3b (sync dev←main)
 ```
 
 Un hook `Stop` en `.claude/settings.json` recuerda el paso 6 al terminar cada turno.
@@ -402,12 +406,15 @@ Al completar la implementación de un spec (siguiendo `close.md`):
 ### Pipeline bugfix (pasos simplificados)
 
 ```
+0. pre-spec               → bash .opencode/pipeline/pre-spec.sh
+                           Crear rama: git checkout -b fix/<slug> origin/main
 1. triage                → confirmar el bug, recolectar evidencias (logs, stacks)
 2. reproducir            → escribir test que reproduzca el bug (falla en rojo)
 3. architect (opcional)  → si el fix requiere cambios arquitecturales
 4. fix                   → implementar la corrección
 5. verify                → correr suite completa + typecheck
 6. cierre                → leer `.opencode/pipeline/close.md` y ejecutar instrucciones
+                          incluidos pasos 2b y 3b
 ```
 
 ### Cierre automático (close-agent)

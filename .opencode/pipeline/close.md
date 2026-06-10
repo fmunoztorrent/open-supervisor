@@ -34,12 +34,29 @@ Ejecutar **inmediatamente** cuando el último todo de un scope se marca como `co
   - Si `dev` no existe: crearla desde `main` (`git branch dev main`).
   - Si `dev` existe: hacer `git merge --no-ff` de la rama actual hacia `dev`.
   - Si hay conflicto: aborta el merge (`git merge --abort`) y devuelve exit 2.
-    Reportar al usuario y **no continuar** con los pasos siguientes hasta
-    resolver.
-- Al terminar, el worktree vuelve a la rama original automáticamente.
+- **⛔ Si `merge-to-dev.sh` retorna exit 2 (conflicto): STOP — no continuar al
+  paso 2b ni al 3.** Resolver el conflicto primero, luego reanudar desde este paso.
+- Al terminar sin conflicto, el worktree vuelve a la rama original automáticamente.
 - **Solo local:** este paso no hace `git push`. El push queda para cuando
   se decida sincronizar el remoto (no se hace por defecto en el cierre).
 - Si se trabajó directamente en `main` sin spec, saltar este paso.
+
+### 2b. Verificar cobertura del PR (commits capturados)
+
+> Este paso previene commits huérfanos en `dev` — el problema donde trabajo
+> hecho post-merge nunca llega a un PR.
+
+```bash
+git log origin/main..HEAD --no-merges --oneline
+```
+
+- Si la lista está **vacía**: no hay nada nuevo que subir — el PR no es necesario
+  (solo cambios de integración), saltar al paso 3 y omitir el push.
+- Si la lista tiene commits: **confirmar que todos están relacionados con esta feature**.
+  - Si hay commits que no deberían estar en esta rama (ej. se hicieron en `dev`
+    y no en la feature branch): **STOP** — mover esos commits a la rama correcta
+    antes de crear el PR.
+- Registrar mentalmente los commits para verificar que el PR los incluye todos.
 
 ### 3. Crear Pull Request
 
@@ -49,6 +66,27 @@ Ejecutar **inmediatamente** cuando el último todo de un scope se marca como `co
   - Asegurar que el PR apunte a `main` (no a `dev` — `dev` es solo integración local)
 - Si se trabajó directamente en `main` (solo cambios triviales sin spec), saltar este paso
 - No mergear el PR aún — marcar como "ready for review"
+
+### 3b. Post-merge: sincronizar dev con main
+
+Ejecutar **después de que el PR sea mergeado a `main`** (puede ser inmediato o diferido):
+
+```bash
+git fetch origin main
+git checkout dev
+git merge origin/main --no-edit
+```
+
+Luego verificar que no quedaron commits huérfanos:
+
+```bash
+git log origin/main..dev --no-merges --oneline
+```
+
+- Si la lista está **vacía**: dev está limpio. ✓
+- Si hay commits de feature/fix: son huérfanos — crear un PR adicional para capturarlos.
+- Si hay commits de chore/learnings (archivar specs, auto-update hooks): son artefactos
+  legítimos de integración, no requieren PR adicional.
 
 ### 4. Entrada en LEARNINGS.md
 
@@ -98,9 +136,13 @@ slug: descripcion-corta-en-kebab-case
 
 ### 7. Limpiar close-pending
 
-- Verificar que `.opencode/pipeline/close-pending.json` exista
-- Si existe, dejarlo como registro histórico (no eliminarlo)
-- Marcar `completed_at` en state.json para el scope cerrado
+- **Eliminar** `.opencode/pipeline/close-pending.json`:
+  ```bash
+  rm -f .opencode/pipeline/close-pending.json
+  git add .opencode/pipeline/close-pending.json
+  ```
+- El historial de cierre queda en git (el commit que elimina el archivo) — no se necesita preservar el JSON.
+- Marcar `completed_at` en state.json para el scope cerrado.
 
 ### 8. Anunciar cierre
 
