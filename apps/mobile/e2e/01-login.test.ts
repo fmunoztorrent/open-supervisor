@@ -1,0 +1,102 @@
+/**
+ * 01-login.test.ts — Suite E2E: Login del supervisor (US-03)
+ *
+ * Cubre:
+ *   1. Happy path: credenciales válidas → app-safe-area visible
+ *   2. Credenciales inválidas → login-error visible
+ *   3. Login exitoso + lista vacía → empty-list-text visible
+ *
+ * FASE RED — Razones por las que estos tests DEBEN fallar:
+ *   1. `import { device, element, by, waitFor, expect as detoxExpect } from 'detox'`
+ *      lanzará MODULE_NOT_FOUND porque Detox no está instalado en apps/mobile.
+ *   2. El testID 'empty-list-text' no existe en AuthorizationList.tsx
+ *      (el Text "Sin solicitudes pendientes" no tiene testID aún).
+ *   3. Las dependencias del mock server (express, jsonwebtoken) tampoco están instaladas.
+ */
+
+import { device, element, by, waitFor, expect as detoxExpect } from 'detox';
+import { startServer, stopServer } from './mock-server/index';
+import { resetMockServer, seedPendingRequests } from './setup/testHelpers';
+
+const TIMEOUT_LOGIN = 15000;
+const TIMEOUT_NAVIGATION = 5000;
+
+describe('US-03 — Login del supervisor', () => {
+  beforeAll(async () => {
+    // El mock server se inicia UNA VEZ para toda la suite.
+    // Detox ya garantizó que el emulador está corriendo antes de llegar acá.
+    await startServer(3001);
+  });
+
+  afterAll(async () => {
+    await stopServer();
+  });
+
+  beforeEach(async () => {
+    // Reset del estado del servidor y app nueva por cada test.
+    await resetMockServer();
+    await device.launchApp({ newInstance: true });
+  });
+
+  it('login exitoso — app-safe-area visible tras credenciales válidas', async () => {
+    // El mock server tiene lista vacía por defecto (reset en beforeEach)
+    await waitFor(element(by.id('rut-input')))
+      .toBeVisible()
+      .withTimeout(TIMEOUT_LOGIN);
+
+    await element(by.id('rut-input')).typeText('e2e-supervisor');
+    await element(by.id('password-input')).typeText('test1234');
+    await element(by.id('login-button')).tap();
+
+    // La pantalla de lista debe aparecer dentro de 15s
+    await waitFor(element(by.id('app-safe-area')))
+      .toBeVisible()
+      .withTimeout(TIMEOUT_LOGIN);
+
+    // El LoginScreen ya no debe ser visible
+    await detoxExpect(element(by.id('rut-input'))).not.toBeVisible();
+  });
+
+  it('credenciales inválidas — login-error visible', async () => {
+    await waitFor(element(by.id('rut-input')))
+      .toBeVisible()
+      .withTimeout(TIMEOUT_LOGIN);
+
+    await element(by.id('rut-input')).typeText('supervisor-invalido');
+    await element(by.id('password-input')).typeText('wrongpass');
+    await element(by.id('login-button')).tap();
+
+    // El spinner del botón debe aparecer y luego desaparecer
+    // El error debe mostrarse después
+    await waitFor(element(by.id('login-error')))
+      .toBeVisible()
+      .withTimeout(TIMEOUT_LOGIN);
+
+    // El usuario sigue en la pantalla de login
+    await detoxExpect(element(by.id('rut-input'))).toBeVisible();
+  });
+
+  it('login exitoso con lista vacía — empty-list-text visible', async () => {
+    // Lista vacía ya está garantizada por resetMockServer en beforeEach
+    await seedPendingRequests([]);
+
+    await waitFor(element(by.id('rut-input')))
+      .toBeVisible()
+      .withTimeout(TIMEOUT_LOGIN);
+
+    await element(by.id('rut-input')).typeText('e2e-supervisor');
+    await element(by.id('password-input')).typeText('test1234');
+    await element(by.id('login-button')).tap();
+
+    // Esperar que la lista cargue (spinner desaparezca)
+    await waitFor(element(by.id('list-spinner')))
+      .not.toBeVisible()
+      .withTimeout(TIMEOUT_NAVIGATION);
+
+    // FALLA EN FASE RED: 'empty-list-text' no existe en AuthorizationList.tsx
+    // El Text "Sin solicitudes pendientes" no tiene testID todavía.
+    await waitFor(element(by.id('empty-list-text')))
+      .toBeVisible()
+      .withTimeout(TIMEOUT_NAVIGATION);
+  });
+});

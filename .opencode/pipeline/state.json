@@ -4,7 +4,7 @@
   },
   "scopes": {
     "main": {
-      "active": false,
+      "active": true,
       "type": "feature",
       "step": 6,
       "started_at": "2026-06-04T12:00:00.000Z",

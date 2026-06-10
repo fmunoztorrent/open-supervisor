@@ -85,6 +85,7 @@ android {
         versionCode 1
         versionName "1.0"
         manifestPlaceholders = [usesCleartextTraffic: "true"]
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
         debug {
@@ -119,4 +120,6 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    androidTestImplementation('com.wix:detox:+')
 }
