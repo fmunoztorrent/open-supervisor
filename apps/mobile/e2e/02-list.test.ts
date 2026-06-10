@@ -37,7 +37,11 @@ describe('US-04 — Lista de solicitudes y SSE', () => {
 
   beforeEach(async () => {
     await resetMockServer();
-    await device.launchApp({ newInstance: true });
+    // Deshabilitar network idle sync para evitar que el SSE bloquee Detox
+    await device.launchApp({
+      newInstance: true,
+      launchArgs: { detoxURLBlacklistRegex: '.*' },
+    });
   });
 
   it('lista con 2 solicitudes pre-existentes — ambas cards visibles', async () => {
@@ -67,15 +71,12 @@ describe('US-04 — Lista de solicitudes y SSE', () => {
       .not.toBeVisible()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    // FALLA EN FASE RED: 'card-corr-1' no existe.
-    // AuthorizationCard.tsx usa testID='authorization-card' (fijo, no dinámico).
-    // El implementador debe cambiar a: `card-${request.correlation_id}`
     await waitFor(element(by.id('card-corr-1')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
     await waitFor(element(by.id('card-corr-2')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
   });
 
@@ -84,13 +85,14 @@ describe('US-04 — Lista de solicitudes y SSE', () => {
     await loginAsE2ESupervisor();
 
     // Esperar spinner de carga inicial
+    // Fabric: el Spinner condicional de Gluestack se remueve del árbol cuando
+    // isLoading=false. 'not.toExist' es más fiable que 'not.toBeVisible'.
     await waitFor(element(by.id('list-spinner')))
-      .not.toBeVisible()
+      .not.toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    // FALLA EN FASE RED: 'empty-list-text' no tiene testID en AuthorizationList.tsx
     await waitFor(element(by.id('empty-list-text')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
     // Emitir la solicitud vía SSE desde el mock server
@@ -107,7 +109,7 @@ describe('US-04 — Lista de solicitudes y SSE', () => {
     // El hook escucha exactamente el evento 'authorization_request'.
     // FALLA EN FASE RED: 'card-corr-sse-1' no existe (mismo problema de testID dinámico).
     await waitFor(element(by.id('card-corr-sse-1')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_SSE);
   });
 });

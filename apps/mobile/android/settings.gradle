@@ -4,3 +4,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autoli
 rootProject.name = 'OpenSupervisor'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')
+
+// Detox E2E — Android test library desde node_modules
+include ':detox'
+project(':detox').projectDir = new File(rootProject.projectDir, '../node_modules/detox/android/detox')

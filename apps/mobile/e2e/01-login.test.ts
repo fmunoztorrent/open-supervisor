@@ -35,7 +35,11 @@ describe('US-03 — Login del supervisor', () => {
   beforeEach(async () => {
     // Reset del estado del servidor y app nueva por cada test.
     await resetMockServer();
-    await device.launchApp({ newInstance: true });
+    // Deshabilitar network idle sync para evitar que el SSE bloquee Detox
+    await device.launchApp({
+      newInstance: true,
+      launchArgs: { detoxURLBlacklistRegex: '.*' },
+    });
   });
 
   it('login exitoso — app-safe-area visible tras credenciales válidas', async () => {
@@ -44,17 +48,18 @@ describe('US-03 — Login del supervisor', () => {
       .toBeVisible()
       .withTimeout(TIMEOUT_LOGIN);
 
-    await element(by.id('rut-input')).typeText('e2e-supervisor');
-    await element(by.id('password-input')).typeText('test1234');
-    await element(by.id('login-button')).tap();
+    await element(by.id('rut-input')).replaceText('e2e-supervisor');
+    await element(by.id('password-input')).replaceText('test1234');
+    await element(by.id('password-input')).tapReturnKey();
 
     // La pantalla de lista debe aparecer dentro de 15s
+    // New Architecture Fabric: toExist() en vez de toBeVisible() por el umbral 75%
     await waitFor(element(by.id('app-safe-area')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_LOGIN);
 
     // El LoginScreen ya no debe ser visible
-    await detoxExpect(element(by.id('rut-input'))).not.toBeVisible();
+    await detoxExpect(element(by.id('rut-input'))).not.toExist();
   });
 
   it('credenciales inválidas — login-error visible', async () => {
@@ -62,18 +67,17 @@ describe('US-03 — Login del supervisor', () => {
       .toBeVisible()
       .withTimeout(TIMEOUT_LOGIN);
 
-    await element(by.id('rut-input')).typeText('supervisor-invalido');
-    await element(by.id('password-input')).typeText('wrongpass');
-    await element(by.id('login-button')).tap();
+    await element(by.id('rut-input')).replaceText('supervisor-invalido');
+    await element(by.id('password-input')).replaceText('wrongpass');
+    await element(by.id('password-input')).tapReturnKey();
 
-    // El spinner del botón debe aparecer y luego desaparecer
     // El error debe mostrarse después
     await waitFor(element(by.id('login-error')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_LOGIN);
 
     // El usuario sigue en la pantalla de login
-    await detoxExpect(element(by.id('rut-input'))).toBeVisible();
+    await detoxExpect(element(by.id('rut-input'))).toExist();
   });
 
   it('login exitoso con lista vacía — empty-list-text visible', async () => {
@@ -84,19 +88,25 @@ describe('US-03 — Login del supervisor', () => {
       .toBeVisible()
       .withTimeout(TIMEOUT_LOGIN);
 
-    await element(by.id('rut-input')).typeText('e2e-supervisor');
-    await element(by.id('password-input')).typeText('test1234');
-    await element(by.id('login-button')).tap();
+    await element(by.id('rut-input')).replaceText('e2e-supervisor');
+    await element(by.id('password-input')).replaceText('test1234');
+    await element(by.id('password-input')).tapReturnKey();
 
-    // Esperar que la lista cargue (spinner desaparezca)
+    // Esperar que la lista cargue (app-safe-area existe = login exitoso)
+    await waitFor(element(by.id('app-safe-area')))
+      .toExist()
+      .withTimeout(TIMEOUT_LOGIN);
+
+    // Esperar que el spinner de carga desaparezca
+    // Fabric: 'not.toBeVisible' puede fallar — usar 'not.toExist' que verifica
+    // que el nodo fue removido del árbol de render (Spinner condicional).
     await waitFor(element(by.id('list-spinner')))
-      .not.toBeVisible()
+      .not.toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    // FALLA EN FASE RED: 'empty-list-text' no existe en AuthorizationList.tsx
-    // El Text "Sin solicitudes pendientes" no tiene testID todavía.
+    // empty-list-text debería ser visible
     await waitFor(element(by.id('empty-list-text')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
   });
 });

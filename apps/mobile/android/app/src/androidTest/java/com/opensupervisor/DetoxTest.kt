@@ -11,7 +11,7 @@ import androidx.test.rule.ActivityTestRule
 @RunWith(AndroidJUnit4::class)
 class DetoxTest {
     @get:Rule
-    var mActivityRule = ActivityTestRule(MainActivity::class.java, false, true)
+    var mActivityRule = ActivityTestRule(MainActivity::class.java, false, false)
 
     @Test
     fun runDetoxTests() {

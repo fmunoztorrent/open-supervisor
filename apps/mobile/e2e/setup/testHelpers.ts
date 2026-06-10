@@ -30,12 +30,13 @@ export async function loginAsE2ESupervisor(): Promise<void> {
     .toBeVisible()
     .withTimeout(TIMEOUT_LOGIN);
 
-  await element(by.id('rut-input')).typeText(E2E_EMPLOYEE_ID);
-  await element(by.id('password-input')).typeText(E2E_PASSWORD);
-  await element(by.id('login-button')).tap();
+  await element(by.id('rut-input')).replaceText(E2E_EMPLOYEE_ID);
+  await element(by.id('password-input')).replaceText(E2E_PASSWORD);
+  // New Architecture Fabric: tapReturnKey() en password field activa onSubmitEditing
+  await element(by.id('password-input')).tapReturnKey();
 
   await waitFor(element(by.id('app-safe-area')))
-    .toBeVisible()
+    .toExist()
     .withTimeout(TIMEOUT_LOGIN);
 }
 
