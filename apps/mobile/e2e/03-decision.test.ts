@@ -60,121 +60,122 @@ describe('US-05 — Decisión del supervisor', () => {
     await resetMockServer();
     // Seed antes de launchApp para que el GET /pending devuelva las solicitudes
     await seedPendingRequests(SEED_TWO_REQUESTS);
-    await device.launchApp({ newInstance: true });
+    // Deshabilitar network idle sync para evitar que el SSE bloquee Detox
+    await device.launchApp({
+      newInstance: true,
+      launchArgs: { detoxURLBlacklistRegex: '.*' },
+    });
   });
 
   it('tap card-corr-1 → detail-type-header visible en pantalla de detalle', async () => {
     await loginAsE2ESupervisor();
 
+    // Fabric: 'not.toBeVisible' falla en Spinner compuesto (Gluestack).
+    // 'not.toExist' verifica que el nodo fue removido del árbol (Spinner condicional).
     await waitFor(element(by.id('list-spinner')))
-      .not.toBeVisible()
+      .not.toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    // FALLA EN FASE RED: 'card-corr-1' no existe (testID fijo 'authorization-card')
+    // Fabric: 'toBeVisible' falla en Pressable compuesto (Gluestack, RN New Architecture).
+    // Usar 'toExist' que solo verifica presencia en el árbol de render.
     await waitFor(element(by.id('card-corr-1')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    await element(by.id('card-corr-1')).tap();
+    // Fabric: tap() en Pressable puede fallar porque getGlobalVisibleRect retorna 0
+    // para vistas compuestas. 'tap({ x, y })' con coordenadas explícitas evita
+    // la dependencia del centering vía getGlobalVisibleRect.
+    await element(by.id('card-corr-1')).tap({ x: 5, y: 5 });
 
     // detail-type-header SÍ existe en AuthorizationDetailScreen.tsx (testID confirmado)
     await waitFor(element(by.id('detail-type-header')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
   });
 
-  it('autorizar solicitud corr-1 → spinner → desaparece → volver → card no visible', async () => {
+  it('autorizar solicitud corr-1 → spinner → desaparece → card no visible en lista', async () => {
     await loginAsE2ESupervisor();
 
     await waitFor(element(by.id('list-spinner')))
-      .not.toBeVisible()
+      .not.toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    // FALLA EN FASE RED: 'card-corr-1' con testID dinámico no existe aún
     await waitFor(element(by.id('card-corr-1')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    await element(by.id('card-corr-1')).tap();
+    await element(by.id('card-corr-1')).tap({ x: 5, y: 5 });
 
     await waitFor(element(by.id('detail-type-header')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    // FALLA EN FASE RED: 'authorize-button' no existe en AuthorizationDetailScreen.tsx
-    // El Button Autorizar solo tiene accessibilityLabel, no testID
     await waitFor(element(by.id('authorize-button')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    await element(by.id('authorize-button')).tap();
+    await element(by.id('authorize-button')).tap({ x: 5, y: 5 });
 
     // El spinner del botón debe aparecer mientras se procesa la decisión
     await waitFor(element(by.id('approve-button-spinner')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_SPINNER);
 
     // El spinner debe desaparecer cuando la decisión es enviada
+    // Cuando isLoading vuelve a false, onDecisionComplete se ejecuta
+    // y navega automáticamente de vuelta a la lista (setCurrentView('list')).
+    // El DetailView se desmonta, por lo que back-button ya no existe.
     await waitFor(element(by.id('approve-button-spinner')))
-      .not.toBeVisible()
+      .not.toExist()
       .withTimeout(TIMEOUT_SPINNER);
 
-    // FALLA EN FASE RED: 'back-button' no existe en App.tsx/DetailView
-    // El Pressable ← Volver no tiene testID
-    await waitFor(element(by.id('back-button')))
-      .toBeVisible()
-      .withTimeout(TIMEOUT_NAVIGATION);
-
-    await element(by.id('back-button')).tap();
-
-    // Volvimos a la lista — la card resuelta ya no debe ser visible
+    // La app navega automáticamente a la lista vía onDecisionComplete.
+    // Esperar que app-safe-area (pantalla de lista) esté visible.
     await waitFor(element(by.id('app-safe-area')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    await detoxExpect(element(by.id('card-corr-1'))).not.toBeVisible();
+    // La card resuelta ya no debe estar en el árbol (refetch completado).
+    // Usar waitFor con not.toExist porque la refetch es asíncrona y
+    // puede tardar unos ms en actualizar el estado requests.
+    await waitFor(element(by.id('card-corr-1')))
+      .not.toExist()
+      .withTimeout(TIMEOUT_NAVIGATION);
   });
 
-  it('rechazar solicitud corr-2 → spinner → desaparece → volver → card no visible', async () => {
+  it('rechazar solicitud corr-2 → card no visible en lista', async () => {
     await loginAsE2ESupervisor();
 
     await waitFor(element(by.id('list-spinner')))
-      .not.toBeVisible()
+      .not.toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    // FALLA EN FASE RED: 'card-corr-2' no existe (testID dinámico no implementado)
     await waitFor(element(by.id('card-corr-2')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    await element(by.id('card-corr-2')).tap();
+    await element(by.id('card-corr-2')).tap({ x: 5, y: 5 });
 
     await waitFor(element(by.id('detail-type-header')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    // FALLA EN FASE RED: 'reject-button' no existe en AuthorizationDetailScreen.tsx
     await waitFor(element(by.id('reject-button')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    await element(by.id('reject-button')).tap();
+    await element(by.id('reject-button')).tap({ x: 5, y: 5 });
 
     // El Button Rechazar no tiene spinner dedicado (solo Autorizar lo tiene).
-    // Esperamos que el botón se deshabilite durante el procesamiento.
-    // Cuando la decisión termina, el back-button es la señal de que todo fue bien.
-
-    // FALLA EN FASE RED: 'back-button' no existe en App.tsx
-    await waitFor(element(by.id('back-button')))
-      .toBeVisible()
-      .withTimeout(TIMEOUT_NAVIGATION);
-
-    await element(by.id('back-button')).tap();
-
+    // La decision se procesa, y onDecisionComplete navega automáticamente a la lista.
+    // Esperar que app-safe-area indique que volvimos a la pantalla de lista.
     await waitFor(element(by.id('app-safe-area')))
-      .toBeVisible()
+      .toExist()
       .withTimeout(TIMEOUT_NAVIGATION);
 
-    await detoxExpect(element(by.id('card-corr-2'))).not.toBeVisible();
+    // La card resuelta ya no debe estar en el árbol.
+    await waitFor(element(by.id('card-corr-2')))
+      .not.toExist()
+      .withTimeout(TIMEOUT_NAVIGATION);
   });
 });

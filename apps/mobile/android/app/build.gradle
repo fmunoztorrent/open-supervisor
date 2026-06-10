@@ -1,6 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -86,6 +87,7 @@ android {
         versionName "1.0"
         manifestPlaceholders = [usesCleartextTraffic: "true"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        missingDimensionStrategy 'detox', 'full'
     }
     signingConfigs {
         debug {
@@ -121,5 +123,5 @@ dependencies {
         implementation jscFlavor
     }
 
-    androidTestImplementation('com.wix:detox:+')
+    androidTestImplementation(project(':detox'))
 }

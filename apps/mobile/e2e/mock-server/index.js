@@ -59,7 +59,8 @@ function createApp() {
     };
 
     const access_token = jwt.sign(payload, JWT_SECRET);
-    return res.status(200).json({ access_token });
+    const refresh_token = jwt.sign({ sub: payload.sub, type: 'refresh' }, JWT_SECRET, { expiresIn: '30d' });
+    return res.status(200).json({ access_token, refresh_token, expires_in: 28800 });
   });
 
   // ── Solicitudes pendientes ───────────────────────────────────────────────────
