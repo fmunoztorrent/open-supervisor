@@ -12,3 +12,10 @@ description: Aprendizajes acumulados del frontend engineer. Patrones validados e
 
 ## Promovidas a CLAUDE.md
 *Entradas que ya han sido migradas a reglas permanentes en CLAUDE.md. Hacer tracking aquí evita duplicar.*
+
+### Accionables del agente frontend
+
+| ID | Accionable | Severidad |
+|----|-----------|-----------|
+| **A14** | NUNCA simplificar o reemplazar archivos existentes fuera del scope. Usar `edit` mínimo | **ALTA** |
+| **A.1-A.5** | Validación empírica mobile: build Android, no red screen, UI elements, SSE flow, no regressions. Ver `.opencode/pipeline/validate-empirica.md` | **ALTA** |
