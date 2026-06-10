@@ -57,6 +57,9 @@ help:
 	@echo "$(YELLOW)Targets individuales:$(NC)"
 	@echo "  $(GREEN)infra$(NC)       Levanta contenedores (Kafka, Redis, Zookeeper, Postgres)"
 	@echo "  $(GREEN)services$(NC)    Compila y arranca authorization-service, sse-server, bff"
+	@echo "  $(GREEN)detox-build$(NC) Compila el APK debug para tests Detox E2E"
+	@echo "  $(GREEN)detox-test$(NC)  Ejecuta los tests Detox E2E en el emulador"
+	@echo "  $(GREEN)e2e$(NC)         Pipeline completo E2E (detox-build + detox-test)"
 	@echo "  $(GREEN)down$(NC)        Detiene servicios backend + contenedores + emulador"
 	@echo "  $(GREEN)status$(NC)      Muestra estado de contenedores, puertos y emulador"
 	@echo ""
@@ -206,6 +209,31 @@ status:
 	@echo ""
 	@echo "$(CYAN)=== Procesos Node en background ===$(NC)"
 	@ps aux | grep "node dist/main" | grep -v grep || echo "  Sin procesos node dist/main"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# detox-build — Compilar el APK debug para tests Detox E2E
+# ═══════════════════════════════════════════════════════════════════════════════
+detox-build:
+	@echo "$(CYAN)📦 Compilando APK debug para Detox E2E...$(NC)"
+	@cd $(ROOT_DIR)/apps/mobile && pnpm detox:build
+	@echo ""
+	@echo "$(GREEN)✅ APK E2E compilado$(NC)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# detox-test — Ejecutar los tests Detox E2E en el emulador
+# ═══════════════════════════════════════════════════════════════════════════════
+detox-test:
+	@echo "$(CYAN)🧪 Ejecutando tests Detox E2E...$(NC)"
+	@cd $(ROOT_DIR)/apps/mobile && pnpm detox:test
+	@echo ""
+	@echo "$(GREEN)✅ Tests E2E completados$(NC)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# e2e — Pipeline completo E2E: build + test
+# ═══════════════════════════════════════════════════════════════════════════════
+e2e: detox-build detox-test
+	@echo ""
+	@echo "$(GREEN)✅ Pipeline E2E completo$(NC)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # clean — Limpiar builds y archivos temporales

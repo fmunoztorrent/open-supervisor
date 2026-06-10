@@ -42,7 +42,7 @@ export const AuthorizationList: React.FC<AuthorizationListProps> = ({
   if (!hasContent) {
     return (
       <Center style={{ flex: 1 }}>
-        <Text>Sin solicitudes pendientes</Text>
+        <Text testID="empty-list-text">Sin solicitudes pendientes</Text>
       </Center>
     );
   }

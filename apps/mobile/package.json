@@ -7,7 +7,10 @@
     "start": "react-native start",
     "test": "jest",
     "lint": "eslint src --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "detox:build": "ENVFILE=.env.e2e detox build --configuration android.emu.debug",
+    "detox:test": "detox test --configuration android.emu.debug --loglevel verbose",
+    "detox:test-headless": "detox test --configuration android.emu.debug --headless"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.7",
@@ -26,6 +29,11 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@types/express": "^4.17",
+    "@types/jsonwebtoken": "^9",
+    "detox": "^20.51.3",
+    "express": "^4.21",
+    "jsonwebtoken": "^9",
     "@babel/plugin-transform-class-static-block": "^7.29.7",
     "@babel/preset-env": "^7.24.0",
     "@babel/preset-react": "^7.23.3",

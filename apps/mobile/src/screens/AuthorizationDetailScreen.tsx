@@ -185,6 +185,7 @@ export const AuthorizationDetailScreen: React.FC<AuthorizationDetailScreenProps>
         {/* Action buttons */}
         <HStack style={{ padding: 16, gap: 12 }}>
           <Button
+            testID="authorize-button"
             accessibilityRole="button"
             accessibilityLabel="Autorizar"
             accessibilityState={{ disabled: isDisabled }}
@@ -200,6 +201,7 @@ export const AuthorizationDetailScreen: React.FC<AuthorizationDetailScreenProps>
           </Button>
 
           <Button
+            testID="reject-button"
             accessibilityRole="button"
             accessibilityLabel="Rechazar"
             accessibilityState={{ disabled: isDisabled }}

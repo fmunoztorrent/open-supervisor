@@ -47,7 +47,7 @@ describe('AuthorizationCard', () => {
       renderWithProvider(
         <AuthorizationCard request={baseRequest} onPress={onPress} />,
       );
-      fireEvent.press(screen.getByTestId('authorization-card'));
+      fireEvent.press(screen.getByTestId('card-corr-abc'));
       expect(onPress).toHaveBeenCalledTimes(1);
     });
   });
