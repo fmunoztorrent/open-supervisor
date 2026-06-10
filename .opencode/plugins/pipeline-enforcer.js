@@ -333,6 +333,8 @@ export default async () => {
         output?.output?.todos ??
         []
       updateStateFromTodos(todos)
+      const model = process.env.OPENCODE_MODEL || process.env.MODEL || "desconocido"
+      console.log(`── Modelo activo: ${model} ──`)
     },
 
     // A17: Ignorar cambios en state.json — archivo interno del plugin
