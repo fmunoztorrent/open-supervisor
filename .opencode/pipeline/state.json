@@ -1,14 +1,17 @@
 {
   "global": {
-    "pipeline_active": false
+    "pipeline_active": true
   },
   "scopes": {
     "main": {
-      "active": false,
+      "active": true,
       "type": "feature",
       "step": 6,
-      "started_at": "2026-06-04T12:00:00.000Z",
-      "completed_at": "2026-06-11T00:02:57.146Z"
+      "name": "main",
+      "pipelineStep": "Implementación",
+      "started_at": "2026-06-11T00:27:23.432Z",
+      "completed_at": null
     }
-  }
+  },
+  "activeScope": "main"
 }

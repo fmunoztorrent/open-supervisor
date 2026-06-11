@@ -32,7 +32,7 @@ export class AuthorizationController {
   }
 
   @Get('store/:storeId/history')
-  async getHistory(@Param('storeId') storeId: string, @Query('status') status?: string) {
+  async getHistory(@Param('storeId') storeId: string, @Query('status') status?: string, @Query('supervisorId') supervisorId?: string) {
     let resolvedStatus: AuthorizationStatus | undefined;
     if (status) {
       const upper = status.toUpperCase();
@@ -41,7 +41,7 @@ export class AuthorizationController {
       }
       resolvedStatus = upper as AuthorizationStatus;
     }
-    const requests = await this.repository.findResolvedByStore(storeId, resolvedStatus);
+    const requests = await this.repository.findResolvedByStore(storeId, resolvedStatus, supervisorId);
     return requests.map((r) => ({
       id: r.id,
       store_id: r.storeId,
