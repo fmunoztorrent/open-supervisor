@@ -4,11 +4,11 @@
   },
   "scopes": {
     "main": {
-      "active": true,
+      "active": false,
       "type": "feature",
-      "step": 5,
+      "step": 6,
       "started_at": "2026-06-04T12:00:00.000Z",
-      "completed_at": "2026-06-08T23:21:51.106Z"
+      "completed_at": "2026-06-11T00:02:57.146Z"
     }
   }
 }
