@@ -40,19 +40,41 @@ else
   echo "  $WARN gh CLI no disponible — no se pudo verificar PRs abiertos"
 fi
 
-# ── Check 3: Sin commits de feature huérfanos en dev ─────────────────
+# ── Check 3: dev no debe tener commits feature/fix huérfanos ─────────
 # Busca commits no-merge en dev que no estén en origin/main.
 # Merge commits de integración (merge: X → dev) son esperados y se ignoran.
+#
+# Clasificación: feature/fix → FAIL (necesitan PR a main)
+#                 chore/learnings → WARN (artefactos de integración)
 git fetch origin main --quiet 2>/dev/null || true
 orphans=$(git log origin/main..dev --no-merges --oneline 2>/dev/null || true)
 if [ -z "$orphans" ]; then
   echo "  $PASS Sin commits huérfanos en dev"
 else
-  echo "  $WARN dev tiene commits no-merge por encima de origin/main:"
-  echo "$orphans" | sed 's/^/       /'
-  echo "       Verifica que estén capturados en un PR antes de continuar."
-  echo "       Si son chores legítimos (archivar specs, learnings), puedes ignorar."
-  # Advertencia, no error duro — el operador decide
+  # Clasificar los commits por tipo
+  feature_orphans=""
+  safe_orphans=""
+  while IFS= read -r line; do
+    if echo "$line" | grep -qiE '^(feat|fix|feature|bugfix)'; then
+      feature_orphans="$feature_orphans$line"$'\n'
+    else
+      safe_orphans="$safe_orphans$line"$'\n'
+    fi
+  done <<< "$orphans"
+
+  if [ -n "$feature_orphans" ]; then
+    echo "  $FAIL dev tiene feature/fix commits no mergeados a main:"
+    echo "$feature_orphans" | sed '/^$/d' | sed 's/^/       /'
+    echo "       Estos commits deben estar en un PR hacia main antes de iniciar."
+    echo "       Ejecuta: gh pr create --base main --head dev"
+    ok=false
+  fi
+
+  if [ -n "$safe_orphans" ]; then
+    echo "  $WARN dev tiene otros commits no-merge (chore/learnings):"
+    echo "$safe_orphans" | sed '/^$/d' | sed 's/^/       /'
+    echo "       Artefactos de integración — puedes ignorar o hacer push a dev."
+  fi
 fi
 
 # ── Check 4: Sin cierre pendiente ────────────────────────────────────

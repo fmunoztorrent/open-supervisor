@@ -17,7 +17,7 @@ Si el script sale con error, **detener aquí**. Resolver cada issue antes de con
 |---|---|
 | Working tree sucio | `git add . && git commit` o `git stash -u` |
 | PRs abiertos | Mergear, cerrar o esperar decisión del equipo |
-| Commits huérfanos en dev (feat/fix) | Crear PR para capturarlos o cherry-pick a una rama |
+| Commits huérfanos en dev (feat/fix) | Crear PR para capturarlos: `gh pr create --base main --head dev`. Son un **FAIL duro** — no se puede iniciar un spec hasta que dev esté limpio de feature work no mergeado a main |
 | Commits huérfanos (chore/learnings) | Ignorar — son artefactos de integración, no feature work |
 | Cierre pendiente | Ejecutar `close.md` para el scope indicado |
 | dev detrás de origin/main | `git checkout dev && git merge origin/main --no-edit` |
