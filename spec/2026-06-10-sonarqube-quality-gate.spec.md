@@ -3,7 +3,7 @@
 **Fecha:** 2026-06-10  
 **Stack inferido:** NestJS + TypeScript (monorepo pnpm), Jest, GitHub Actions, Docker/Podman  
 **Estado:** Draft  
-**Revisión:** 2 (architect review)  
+**Revisión:** 5 (US-05 completed)  
 **Arquitecto:** fabianmunoz
 
 <history>
@@ -39,6 +39,13 @@
     added coverageDirectory + coverageReporters ["lcov","text"] to bff and sse-server.
     24 tests pass in QA GREEN phase (8 per service).
   </entry>
+  <entry revision="5" date="2026-06-10" author="backend (feature-sonar-cli)">
+    US-05 completed: Local analysis command (pnpm sonar).
+    - Created scripts/sonarqube/run-local-analysis.sh with pre-flight check, coverage, scanner, links
+    - Added "sonar" script to root package.json
+    - 13 tests pass in QA GREEN phase for the script
+    - No regressions: US-03 stays at 19/19
+  </entry>
 </history>
 
 ---
@@ -48,6 +55,7 @@
   <implemented>
     <item scope="feature-sonar-infra">US-01: SonarQube container infrastructure</item>
     <item scope="feature-sonar-projects">US-02: Project configuration — sonar-project.properties + Jest coverage</item>
+    <item scope="feature-sonar-cli">US-05: Local analysis command — pnpm sonar</item>
   </implemented>
   <deviations>
     <item>Image tag changed from spec's original `25.x-community` to `26.6.0.123539-community` per architect review (arm64 confirmed)</item>
@@ -55,6 +63,7 @@
   <tests>
     <item>scripts/test-sonarqube-infra.sh: 9/9 GREEN phase tests passing</item>
     <item>apps/*/src/sonar-config.spec.ts: 24/24 GREEN phase tests passing (8 per service)</item>
+    <item>scripts/sonarqube/local-analysis.spec.sh: 13/13 GREEN phase tests passing</item>
   </tests>
 </result>
 
@@ -255,12 +264,12 @@ The mobile app (React Native) is **out of scope** — only backend services are 
 > Como **desarrollador**, quiero **ejecutar `pnpm sonar` para analizar todos los servicios backend localmente contra una instancia SonarQube corriendo**, para que **pueda verificar la calidad de mi código antes de abrir un PR**.
 
 **Criterios de aceptación:**
-- [ ] Root-level `package.json` script `sonar` added: runs Jest with coverage + SonarScanner for all three services
-- [ ] Script uses `sonar.host.url=http://localhost:9000` and default credentials
-- [ ] Script reports clear output: service name, Quality Gate status (PASSED/FAILED), and a link to the SonarQube dashboard (`http://localhost:9000/dashboard?id=...`)
-- [ ] Script fails with non-zero exit code if any service's Quality Gate is ERROR
-- [ ] Pre-requisite documented: `make sonar` must be running before `pnpm sonar`
-- [ ] Script uses `npx sonar-scanner` (no global installation required) or a thin wrapper script
+- [x] Root-level `package.json` script `sonar` added: runs Jest with coverage + SonarScanner for all three services
+- [x] Script uses `sonar.host.url=http://localhost:9000` and default credentials
+- [x] Script reports clear output: service name, Quality Gate status (PASSED/FAILED), and a link to the SonarQube dashboard (`http://localhost:9000/dashboard?id=...`)
+- [x] Script fails with non-zero exit code if any service's Quality Gate is ERROR
+- [x] Pre-requisite documented: `make sonar` must be running before `pnpm sonar`
+- [x] Script uses `npx sonar-scanner` (no global installation required) or a thin wrapper script
 
 **Notas:** This is marked `[Could]` because developers can also achieve the same result by running the CI workflow locally via `act` or by manually running `pnpm test -- --collectCoverage && npx sonar-scanner` per service. A convenience script reduces friction. If SonarQube is not running, the script should fail with a clear message: "SonarQube not reachable at http://localhost:9000. Run `make sonar` first."
 

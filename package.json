@@ -8,6 +8,7 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "inject": "tsx scripts/inject-request.ts",
+    "sonar": "bash scripts/sonarqube/run-local-analysis.sh",
     "test:mutation": "pnpm -r test:mutation"
   },
   "pnpm": {
