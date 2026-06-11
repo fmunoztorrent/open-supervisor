@@ -1087,3 +1087,28 @@ slug: multi-scope-parallel-coordination
 2. Incluir en el prompt: archivos exactos a modificar, instrucción de no cerrar, hash del commit base
 3. Después de que todos los sub-agentes terminen, verificar `git log`, correr `pnpm typecheck`, y coordinar el cierre único
 4. Si hay dirty files de pipeline state/close-pending entre pasos, commitearlos como chores
+
+---
+date: 2026-06-10
+agent: orchestrator
+category: spec-process
+tags: [pipeline, pre-spec, xml, language-standardization]
+slug: pipeline-improvements-2026-06-10
+---
+
+**Contexto**: Mejorando el pipeline para estandarizar procesos: evitar iniciar features cuando dev tiene trabajo pendiente, formalizar el formato XML de instrucciones a sub-agentes, y estandarizar el idioma de specs/instrucciones.
+
+**Qué pasó**: Tres mejoras implementadas:
+1. `pre-spec.sh` ahora clasifica commits huérfanos en dev: feature/fix → FAIL duro (deben tener PR a main), chore/learnings → WARN suave
+2. Nuevo validador XML (`scripts/validate-agent-instructions.ts`) que chequea well-formedness, elementos requeridos (`<meta>`, `<context>`, `<tasks>`, `<constraints>`) y tags no vacíos antes de enviar instrucciones a backend/frontend
+3. Todas las definiciones de agentes (.opencode y .claude) traducidas a inglés + política de idioma documentada en CLAUDE.md
+
+**Lección**: 
+- El pre-spec check debe bloquear proactivamente escenarios que causarán problemas más adelante (dev con feature work no mergeado a main = nueva feature desde main no incluye ese trabajo)
+- La validación XML evita que sub-agentes reciban instrucciones mal formadas y tomen decisiones incorrectas
+- La estandarización de idioma (specs y agentes en inglés, conversación con usuario en su idioma) reduce ambigüedad entre herramientas
+
+**Cómo aplicar**:
+1. Antes de iniciar cualquier feature, ejecutar `bash .opencode/pipeline/pre-spec.sh` — si falla por feature/fix commits en dev, abrir PR dev→main
+2. Al preparar instrucciones para backend/frontend, validar con `npx tsx scripts/validate-agent-instructions.ts <archivo>` antes de enviar
+3. Escribir specs y prompts de agentes en inglés; mantener conversación con el usuario en el idioma inicial
