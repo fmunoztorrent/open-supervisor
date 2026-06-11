@@ -30,6 +30,13 @@
     - Capa 3: US-07 CI/CD pipeline (34+38 checks)
     Total: 36 files, 5629 lines, 250+ validation checks, 173 backend tests passing, typecheck clean.
   </entry>
+  <entry revision="4" date="2026-06-11" author="orchestrator">
+    Post-cierre optimization (bugfix): pnpm store cache cleanup in Dockerfiles.
+    Root cause: `/root/.local/share/pnpm/store` (322 MB) was captured in the pnpm deploy layer.
+    Fix: `&& rm -rf /root/.local/share/pnpm/store ...` in same RUN command.
+    Result: image sizes reduced by 61% (auth: 548→215 MB, sse: 488→192 MB, bff: 508→203 MB).
+    All 276 tests passing, typecheck clean.
+  </entry>
 </history>
 
 <result>
@@ -43,7 +50,7 @@
     <item>US-06: SSM Parameter Store + Secrets Manager scripts ✓</item>
     <item>US-07: GitHub Actions CI/CD pipeline (deploy.yml) ✓</item>
   </implemented>
-  <deviations>None — spec implemented as designed with architect corrections applied.</deviations>
+  <deviations>Post-cierre optimization: Dockerfiles cleaned pnpm store cache (revision 4), reducing image sizes 61%. Spec limits met after fix.</deviations>
   <tests>
     <suite name="backend-unit">173 passed, 0 failed (authorization-service: 112, sse-server: 20, bff: 41)</suite>
     <suite name="ecr-spec">25 passed, 0 failed</suite>
