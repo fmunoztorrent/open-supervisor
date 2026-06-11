@@ -51,6 +51,9 @@ ios/*.xcworkspace
 tmp/
 temp/
 
+# Figma MCP plugin (local bridge, only needed in Figma Desktop)
+.figma-plugin/
+
 # Claude Code personal settings (not tracked)
 .claude/settings.local.json
 .stryker-tmp
