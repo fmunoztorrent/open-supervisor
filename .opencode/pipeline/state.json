@@ -6,12 +6,10 @@
     "main": {
       "active": true,
       "type": "feature",
-      "step": 0,
-      "name": "main",
-      "pipelineStep": "Implementación",
-      "started_at": "2026-06-11T00:27:23.432Z",
+      "step": 6,
+      "started_at": "2026-06-11T03:12:29.092Z",
       "completed_at": null
     }
   },
-  "activeScope": "main"
+  "activeScope": null
 }

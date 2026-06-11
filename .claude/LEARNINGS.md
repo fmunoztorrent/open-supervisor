@@ -825,3 +825,19 @@ slug: quality-gate-metric-names-match-architect-contract-over-criteria
 
 **Cómo aplicar**: al escribir tests RED para configuraciones de API (JSON, propiedades, endpoints), leer cuidadosamente la sección "Archivos a crear/modificar" del spec — ahí están los nombres exactos que el arquitecto validó. Actualizar los tests si la sección de criteria usa nombres genéricos que difieren del contrato detallado.
 
+---
+date: 2026-06-10
+agent: backend
+category: api-gotcha
+tags: [jest, coverage, sonarqube, coverageDirectory, rootDir]
+slug: jest-coverage-directory-relative-to-rootdir-not-project-root
+---
+
+**Contexto**: configurando `sonar.javascript.lcov.reportPaths` para SonarScanner en CI workflow. El valor inicial era `coverage/lcov.info` pero los archivos de cobertura no se generaban ahí.
+
+**Qué pasó**: Jest interpreta `coverageDirectory` como relativo a `rootDir`, no a la raíz del proyecto. Todos los servicios tienen `"rootDir": "src"`, por lo que `"coverageDirectory": "coverage"` produce `src/coverage/lcov.info`, no `coverage/lcov.info`. El `sonar.javascript.lcov.reportPaths` debe ser `src/coverage/lcov.info` para coincidir. authorization-service tenía un `coverage/lcov.info` legacy del viejo `coverageDirectory: "../coverage"` que ocultaba el bug — bff y sse-server mostraban el error claramente (coverage ausente en la raíz).
+
+**Lección**: siempre verificar la ruta real del coverage generado después de configurar Jest. El `coverageDirectory` es relativo a `rootDir` (o al `rootDir` del `projects[]` si se usa arrays). Para SonarQube, el `lcov.reportPaths` es relativo al directorio del `sonar-project.properties`. Si ambos no coinciden, el scanner encontrará un archivo vacío o ausente y reportará 0% coverage.
+
+**Cómo aplicar**: al configurar Jest + SonarQube en un proyecto donde `rootDir` no es el project root, generar un report de coverage y verificar la ubicación real del `lcov.info` antes de hardcodear `sonar.javascript.lcov.reportPaths`. Correr `find . -name lcov.info` después de `jest --coverage` para confirmar.
+
