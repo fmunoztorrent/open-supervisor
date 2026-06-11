@@ -6,11 +6,32 @@
     "main": {
       "active": true,
       "type": "feature",
-      "step": 6,
+      "step": 0,
       "name": "main",
       "pipelineStep": "Implementación",
       "started_at": "2026-06-11T00:27:23.432Z",
       "completed_at": null
+    },
+    "feature-validacion-empirica": {
+      "active": false,
+      "type": "feature",
+      "step": 6,
+      "started_at": "2026-06-11T00:43:28.167Z",
+      "completed_at": "2026-06-11T00:54:29.523Z"
+    },
+    "feature-accionables-agentes": {
+      "active": false,
+      "type": "feature",
+      "step": 6,
+      "started_at": "2026-06-11T00:43:28.167Z",
+      "completed_at": "2026-06-11T00:54:29.524Z"
+    },
+    "feature-automejora-postcierre": {
+      "active": false,
+      "type": "feature",
+      "step": 6,
+      "started_at": null,
+      "completed_at": "2026-06-11T00:54:29.525Z"
     }
   },
   "activeScope": "main"

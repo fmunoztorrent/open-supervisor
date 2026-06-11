@@ -17,7 +17,14 @@ Este paso se ejecuta DESPUÉS de QA GREEN (tests + typecheck) y ANTES de Cierre.
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 DEVICE="$(adb devices | awk '/emulator-[0-9]+[[:space:]]+device/{print $1; exit}')"
 ADB="adb${DEVICE:+ -s $DEVICE}"
-COMPOSE ?= $(shell command -v podman-compose >/dev/null 2>&1 && echo "podman-compose" || (command -v podman >/dev/null 2>&1 && echo "podman compose" || echo "docker compose"))
+# Detección automática del motor de contenedores
+if command -v podman-compose >/dev/null 2>&1; then
+  COMPOSE="podman-compose"
+elif command -v podman >/dev/null 2>&1; then
+  COMPOSE="podman compose"
+else
+  COMPOSE="docker compose"
+fi
 ```
 
 ## A — Mobile UI

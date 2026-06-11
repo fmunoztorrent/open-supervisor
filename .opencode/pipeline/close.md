@@ -119,12 +119,32 @@ slug: descripcion-corta-en-kebab-case
 - Si una lección aparece por tercera vez, el script la agrega a "Accionables bloqueantes" en `.claude/AGENTS.md`
 - La extracción también se ejecuta automáticamente vía hooks del plugin y de Claude Code. Este paso manual es un fallback.
 
-### 4c. Automejora del pipeline (Paso 7)
+### 4c. Automejora post-cierre (Paso 7)
 
-- Después de la extracción de learnings, verificar si hubo promociones a nivel 3 (pipeline-blocker)
-- Si `extract-learnings.ts` generó cambios en `.opencode/pipeline/validate-empirica.md` o `.opencode/pipeline/close.md`, revisarlos y commitearlos
-- El pipeline se vuelve más estricto con cada error que se repite 3 veces
-- Si no hubo promociones, este paso no produce cambios
+El paso 4b ejecuta `extract-learnings.ts`, que implementa 3 niveles de
+promoción automática de aprendizajes:
+
+| Nivel | Condición | Acción | Archivo afectado |
+|-------|-----------|--------|-----------------|
+| **1** | 1ª ocurrencia de un slug | Agrega a "Lecciones recientes" | `.claude/skills/{agent}-learnings/SKILL.md` |
+| **2** | 2ª ocurrencia (≥2) | Mueve a "Reglas activas" con marcador `(x2,)` | `.claude/skills/{agent}-learnings/SKILL.md` |
+| **3** | 3ª ocurrencia (≥3) | Agrega a "Accionables bloqueantes" | `.claude/AGENTS.md` |
+
+Después de ejecutar `npx tsx scripts/extract-learnings.ts`, revisar la salida:
+
+- Si la salida menciona **"level 3"** o **"AGENTS.md"**: revisar `.claude/AGENTS.md`
+  para confirmar que la entrada se agregó correctamente en la tabla de
+  `## Accionables bloqueantes (Nivel 3 — Auto-generados)`.
+- Si la salida menciona **"level 2"** o **"Reglas activas"**: revisar el skill
+  correspondiente en `.claude/skills/{agent}-learnings/SKILL.md`.
+- Si la salida menciona **"level 1"**: es una lección nueva, sin acción adicional.
+
+Commitear los cambios generados (skills actualizados + `AGENTS.md` si aplica).
+Si no hubo promociones (salida "nothing to do" o "skipping"), este paso no produce cambios.
+
+El pipeline se vuelve más estricto con cada error que se repite 3 veces:
+la tabla de accionables bloqueantes sirve como referencia para futuros
+agentes y puede integrarse en validaciones automáticas.
 
 ### 6. Revisar CLAUDE.md
 

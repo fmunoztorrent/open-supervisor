@@ -406,6 +406,14 @@ export default async () => {
       }
       // ── End hardcode detection ─────────────────────────────────────────
 
+      // A17: state.json y close-pending son archivos internos del plugin.
+      // Sus modificaciones no deben bloquear operaciones ni requerir pipeline activo.
+      if (
+        filePath.includes(".opencode/pipeline/state.json") ||
+        filePath.includes(".opencode/pipeline/close-pending.json")
+      )
+        return
+
       const state = loadState()
       if (state.global.pipeline_active) return
 
