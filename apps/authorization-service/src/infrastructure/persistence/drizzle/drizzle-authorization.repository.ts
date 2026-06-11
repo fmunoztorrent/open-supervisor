@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, ne } from 'drizzle-orm';
+import { eq, and, ne, desc } from 'drizzle-orm';
 import { Pool } from 'pg';
 import { DrizzleDb, DRIZZLE } from './drizzle.provider';
 import { authorizationRequests, AuthorizationRequestRow, AuthorizationRequestInsert } from './schema';
@@ -107,7 +107,7 @@ export class DrizzleAuthorizationRepository implements IAuthorizationRepository 
     return rows.map(toEntity);
   }
 
-  async findResolvedByStore(storeId: string, status?: AuthorizationStatus): Promise<AuthorizationRequest[]> {
+  async findResolvedByStore(storeId: string, status?: AuthorizationStatus, supervisorId?: string): Promise<AuthorizationRequest[]> {
     const conditions = [
       eq(authorizationRequests.storeId, storeId),
       ne(authorizationRequests.status, AuthorizationStatus.PENDING),
@@ -115,10 +115,14 @@ export class DrizzleAuthorizationRepository implements IAuthorizationRepository 
     if (status) {
       conditions.push(eq(authorizationRequests.status, status));
     }
+    if (supervisorId) {
+      conditions.push(eq(authorizationRequests.resolvedBy, supervisorId));
+    }
     const rows = await this.db
       .select()
       .from(authorizationRequests)
-      .where(and(...conditions));
+      .where(and(...conditions))
+      .orderBy(desc(authorizationRequests.createdAt));
     return rows.map(toEntity);
   }
 }

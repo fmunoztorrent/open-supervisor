@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
 import { bffClient } from '../api/bffClient';
+import { useSession } from '../context/SessionContext';
 
 export type StatusFilter = 'ALL' | 'APPROVED' | 'REJECTED';
 
@@ -13,7 +14,10 @@ interface UseRequestHistoryResult {
   refetch: () => void;
 }
 
-export function useRequestHistory(storeId: string): UseRequestHistoryResult {
+export function useRequestHistory(storeId: string, supervisorIdParam?: string): UseRequestHistoryResult {
+  const { supervisorId: contextSupervisorId } = useSession();
+  const supervisorId = supervisorIdParam || contextSupervisorId || undefined;
+
   const [requests, setRequests] = useState<AuthorizationRequestDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,14 +36,26 @@ export function useRequestHistory(storeId: string): UseRequestHistoryResult {
 
       try {
         const params = new URLSearchParams({ storeId });
+        if (supervisorId) {
+          params.set('supervisorId', supervisorId);
+        }
         if (statusFilter !== 'ALL') {
           params.set('status', statusFilter);
         }
-        const data: AuthorizationRequestDto[] = await bffClient.get(
-          `/api/requests/history?${params.toString()}`,
+        const data: any[] = await bffClient.get(
+          `/authorization/requests/history?${params.toString()}`,
         );
+        // Normalize status → resolved for AuthorizationCard compatibility
+        const normalized = data.map((item: any) => ({
+          ...item,
+          resolved: item.status === 'APPROVED'
+            ? 'APPROVED'
+            : item.status === 'REJECTED'
+            ? 'REJECTED'
+            : undefined,
+        }));
         if (!controller.signal.aborted && fetchId === fetchIdRef.current) {
-          setRequests(data);
+          setRequests(normalized);
           setIsLoading(false);
         }
       } catch (err) {
@@ -53,7 +69,7 @@ export function useRequestHistory(storeId: string): UseRequestHistoryResult {
         }
       }
     },
-    [storeId, statusFilter],
+    [storeId, supervisorId, statusFilter],
   );
 
   const refetch = useCallback(() => {

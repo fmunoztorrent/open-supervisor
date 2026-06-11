@@ -39,7 +39,9 @@ function makeRepository(
   return {
     save: jest.fn(),
     findById: jest.fn(),
+    findByCorrelationId: jest.fn(),
     findPendingByStore: jest.fn().mockResolvedValue(pending),
+    findResolvedByStore: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<IAuthorizationRepository>;
 }
 
@@ -217,6 +219,185 @@ describe('AuthorizationController', () => {
       expect(response.body).not.toHaveProperty('storeId');
       expect(response.body).not.toHaveProperty('posId');
       expect(response.body).not.toHaveProperty('correlationId');
+    });
+  });
+
+  // ─── FASE RED: Historial de autorizaciones (US-01, US-02) ──────────────────
+
+  describe('GET /authorization/store/:storeId/history — historial de autorizaciones', () => {
+    it('devuelve solicitudes resueltas para una tienda (sin filtros)', async () => {
+      const resolved = [
+        makeResolvedRequest(AuthorizationStatus.APPROVED),
+        makeResolvedRequest(AuthorizationStatus.REJECTED),
+      ];
+      await setupApp(jest.fn().mockResolvedValue(undefined));
+      mockRepository.findResolvedByStore = jest.fn().mockResolvedValue(resolved);
+
+      const response = await request(app.getHttpServer()).get(
+        '/authorization/store/store-001/history',
+      );
+
+      expect(response.status).toBe(HttpStatus.OK);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(2);
+      // Los campos snake_case deben estar presentes
+      expect(response.body[0]).toHaveProperty('store_id');
+      expect(response.body[0]).toHaveProperty('status');
+      expect(response.body[0]).toHaveProperty('resolved_by');
+      expect(response.body[0]).toHaveProperty('resolved_at');
+      expect(mockRepository.findResolvedByStore).toHaveBeenCalledWith(
+        'store-001',
+        undefined,
+        undefined,
+      );
+    });
+
+    // FASE RED — este test DEBE FALLAR porque:
+    // 1. El controller no tiene @Query('supervisorId')
+    // 2. El controller no pasa supervisorId al repositorio
+    // 3. El port findResolvedByStore no acepta supervisorId como parámetro
+    it('filtra por supervisorId cuando se envía el query param (FASE RED — DEBE FALLAR)', async () => {
+      const resolved = [makeResolvedRequest(AuthorizationStatus.APPROVED)];
+      await setupApp(jest.fn().mockResolvedValue(undefined));
+      mockRepository.findResolvedByStore = jest.fn().mockResolvedValue(resolved);
+
+      const response = await request(app.getHttpServer()).get(
+        '/authorization/store/store-001/history?supervisorId=supervisor-A',
+      );
+
+      // La respuesta HTTP en sí misma debería ser 200 OK (el mock retorna datos)
+      // pero lo que fallará es la aserción de que supervisorId se pasó al repositorio
+      expect(response.status).toBe(HttpStatus.OK);
+      // ← ESTA ASERCIÓN ES LA QUE FALLA: el controller actual no pasa supervisorId
+      expect(mockRepository.findResolvedByStore).toHaveBeenCalledWith(
+        'store-001',
+        undefined,
+        'supervisor-A',
+      );
+    });
+
+    it('retorna lista vacía cuando supervisorId no tiene solicitudes (200 OK)', async () => {
+      await setupApp(jest.fn().mockResolvedValue(undefined));
+      mockRepository.findResolvedByStore = jest.fn().mockResolvedValue([]);
+
+      const response = await request(app.getHttpServer()).get(
+        '/authorization/store/store-001/history?supervisorId=supervisor-C',
+      );
+
+      // El endpoint debe retornar 200 con array vacío, no 404
+      expect(response.status).toBe(HttpStatus.OK);
+      expect(response.body).toEqual([]);
+    });
+
+    it('combina filtros supervisorId + status (AND logic)', async () => {
+      const resolved = [
+        makeResolvedRequest(AuthorizationStatus.APPROVED),
+      ];
+      await setupApp(jest.fn().mockResolvedValue(undefined));
+      mockRepository.findResolvedByStore = jest.fn().mockResolvedValue(resolved);
+
+      const response = await request(app.getHttpServer()).get(
+        '/authorization/store/store-001/history?supervisorId=supervisor-A&status=APPROVED',
+      );
+
+      expect(response.status).toBe(HttpStatus.OK);
+      // ← FALLA: el controller actual no pasa supervisorId al repositorio
+      expect(mockRepository.findResolvedByStore).toHaveBeenCalledWith(
+        'store-001',
+        AuthorizationStatus.APPROVED,
+        'supervisor-A',
+      );
+    });
+
+    it('retorna 400 Bad Request cuando status es inválido', async () => {
+      await setupApp(jest.fn().mockResolvedValue(undefined));
+
+      const response = await request(app.getHttpServer()).get(
+        '/authorization/store/store-001/history?status=INVALID_STATUS',
+      );
+
+      expect(response.status).toBe(HttpStatus.BAD_REQUEST);
+    });
+
+    it('ignora supervisorId vacío (string vacía → sin filtro)', async () => {
+      const resolved = [
+        makeResolvedRequest(AuthorizationStatus.APPROVED),
+        makeResolvedRequest(AuthorizationStatus.REJECTED),
+      ];
+      await setupApp(jest.fn().mockResolvedValue(undefined));
+      mockRepository.findResolvedByStore = jest.fn().mockResolvedValue(resolved);
+
+      const response = await request(app.getHttpServer()).get(
+        '/authorization/store/store-001/history?supervisorId=',
+      );
+
+      expect(response.status).toBe(HttpStatus.OK);
+      // supervisorId vacío debe ignorarse: se llama sin el tercer parámetro
+      // o con undefined, no con string vacía
+      expect(response.body).toHaveLength(2);
+    });
+
+    // FASE RED — verifica que los campos opcionales (product_id, original_price, etc.)
+    // aparecen en la respuesta del historial cuando existen
+    it('incluye campos opcionales de PRICE_CHANGE en la respuesta del historial', async () => {
+      const priceChangeRequest = AuthorizationRequest.fromDto({
+        store_id: 'store-001',
+        pos_id: 'pos-01',
+        correlation_id: 'corr-price',
+        type: RequestType.PRICE_CHANGE,
+        product_id: 'prod-99',
+        original_price: 1000,
+        requested_price: 600,
+        created_at: new Date().toISOString(),
+      });
+      priceChangeRequest.approve('sup-001');
+
+      await setupApp(jest.fn().mockResolvedValue(undefined));
+      mockRepository.findResolvedByStore = jest.fn().mockResolvedValue([priceChangeRequest]);
+
+      const response = await request(app.getHttpServer()).get(
+        '/authorization/store/store-001/history',
+      );
+
+      expect(response.status).toBe(HttpStatus.OK);
+      expect(response.body[0]).toHaveProperty('product_id', 'prod-99');
+      expect(response.body[0]).toHaveProperty('original_price', 1000);
+      expect(response.body[0]).toHaveProperty('requested_price', 600);
+    });
+
+    it('mantiene compatibilidad hacia atrás: sin supervisorId retorna todas las resueltas', async () => {
+      const reqA = AuthorizationRequest.fromDto({
+        store_id: 'store-001',
+        pos_id: 'pos-01',
+        correlation_id: 'corr-a',
+        type: RequestType.DISCOUNT,
+        created_at: new Date().toISOString(),
+      });
+      reqA.approve('supervisor-A');
+
+      const reqB = AuthorizationRequest.fromDto({
+        store_id: 'store-001',
+        pos_id: 'pos-01',
+        correlation_id: 'corr-b',
+        type: RequestType.CANCEL,
+        created_at: new Date().toISOString(),
+      });
+      reqB.reject('supervisor-B');
+
+      const allResolved = [reqA, reqB];
+      await setupApp(jest.fn().mockResolvedValue(undefined));
+      mockRepository.findResolvedByStore = jest.fn().mockResolvedValue(allResolved);
+
+      const response = await request(app.getHttpServer()).get(
+        '/authorization/store/store-001/history',
+      );
+
+      expect(response.status).toBe(HttpStatus.OK);
+      expect(response.body).toHaveLength(2);
+      // Debe incluir solicitudes de ambos supervisores
+      const resolvedBys = response.body.map((item: any) => item.resolved_by);
+      expect(resolvedBys).toContain('supervisor-A');
+      expect(resolvedBys).toContain('supervisor-B');
     });
   });
 });

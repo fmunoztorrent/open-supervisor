@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { config } from '@gluestack-ui/config';
 import { GluestackUIProvider, HStack, Pressable, Box, Text, Center, Spinner } from '@gluestack-ui/themed';
+import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
 import { SessionProvider, useSession } from './src/context/SessionContext';
 import { AuthorizationList } from './src/components/AuthorizationList';
 import { AuthorizationDetailScreen } from './src/screens/AuthorizationDetailScreen';
@@ -18,7 +19,7 @@ import { useDecision } from './src/hooks/useDecision';
 import { usePhysicalPresenceDispatches } from './src/hooks/usePhysicalPresenceDispatches';
 import { useLogout } from './src/hooks/useLogout';
 
-type AppView = 'list' | 'detail' | 'profile' | 'history';
+type AppView = 'list' | 'detail' | 'profile' | 'history' | 'historyDetail';
 
 interface DetailViewProps {
   request: RequestWithResolved;
@@ -63,6 +64,7 @@ function SupervisorApp({ onLoggedOut }: { onLoggedOut: () => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('list');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [historyDetailRequest, setHistoryDetailRequest] = useState<any>(null);
 
   const selectedRequest = selectedId
     ? requests.find(r => r.correlation_id === selectedId)
@@ -109,12 +111,48 @@ function SupervisorApp({ onLoggedOut }: { onLoggedOut: () => void }) {
     );
   }
 
-  // History view (placeholder until US-04 is implemented)
+  // History view
   if (currentView === 'history') {
     const { HistoryScreen } = require('./src/screens/HistoryScreen');
     return (
       <SafeAreaView style={[styles.container, { paddingTop: StatusBar.currentHeight ?? 0 }]}>
-        <HistoryScreen storeId={storeId} onBack={() => setCurrentView('list')} />
+        <HistoryScreen
+          storeId={storeId}
+          supervisorId={supervisorId}
+          onBack={() => setCurrentView('list')}
+          onSelectRequest={(request: AuthorizationRequestDto & { status: string }) => {
+            setHistoryDetailRequest(request);
+            setCurrentView('historyDetail');
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // History detail view (readonly)
+  if (currentView === 'historyDetail' && historyDetailRequest) {
+    return (
+      <SafeAreaView style={[styles.container, { paddingTop: StatusBar.currentHeight ?? 0 }]}>
+        <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 12 }}>
+          <Pressable
+            testID="history-detail-back-button"
+            onPress={() => {
+              setHistoryDetailRequest(null);
+              setCurrentView('history');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Volver"
+          >
+            <Text style={{ fontSize: 16, color: '#2196F3' }}>← Volver</Text>
+          </Pressable>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#212121', flex: 1 }}>Detalle</Text>
+        </HStack>
+        <AuthorizationDetailScreen
+          request={historyDetailRequest}
+          isLoading={false}
+          onDecide={() => {}}
+          readonly={true}
+        />
       </SafeAreaView>
     );
   }

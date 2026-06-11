@@ -11,8 +11,8 @@ export class AuthorizationController {
   }
 
   @Get('requests/history')
-  async getHistory(@Query('storeId') storeId: string, @Query('status') status?: string) {
-    return this.authService.getHistory(storeId, status);
+  async getHistory(@Query('storeId') storeId: string, @Query('status') status?: string, @Query('supervisorId') supervisorId?: string) {
+    return this.authService.getHistory(storeId, status, supervisorId);
   }
 
   @Post(':id/resolve')
