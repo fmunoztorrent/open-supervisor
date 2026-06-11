@@ -591,6 +591,23 @@ El agente QA en FASE GREEN no solo verifica — decide si el pipeline avanza a c
 - **Skills operativos en el repo (agnósticos)**: `open-supervisor-infra` (contenedores + servicios backend + inyección + Kafka) y `open-supervisor-emulator` (validación e2e de la app Android) viven en `.claude/skills/` dentro del repo (git-trackeados), por lo que cualquiera que clone el proyecto los recibe. **Son agnósticos de máquina**: no contienen rutas absolutas — derivan la raíz con `git rev-parse --show-toplevel`, detectan el motor de contenedores (Podman/Docker) y resuelven el socket y el serial del emulador dinámicamente. opencode los lee vía `.claude/skills` agregado a `skills.paths` en `opencode.json` (fuente única, sin duplicar). Los agentes `qa`, `backend` y `frontend` tienen el tool `Skill` habilitado y deben **delegar en estos skills** en vez de improvisar comandos crudos de Podman/Docker/adb. Regla: ningún skill ni script de tooling debe contener rutas absolutas de usuario (`$HOME/...`) ni nombres de contenedor con prefijo de proyecto; usar `$COMPOSE exec <servicio>`.
 - **Skills de automejora (learnings)**: `qa-learnings`, `backend-learnings`, `frontend-learnings` y `architect-learnings` en `.claude/skills/`. Cada uno contiene reglas activas y lecciones recientes destiladas de `.claude/LEARNINGS.md` para el subagente correspondiente. Se actualizan automáticamente al cierre de cada tarea vía `scripts/extract-learnings.ts`. Los agentes cargan su skill al comenzar.
 - **Skill de mutation testing**: `mutation-testing` en `.claude/skills/`. Documenta cómo ejecutar Stryker, interpretar thresholds y el contrato QA GREEN → RED. Cargado por el agente QA al iniciar.
+## Required Skills
+
+Skills externas que el harness asume instaladas. Si no están presentes, los agentes de implementación no tendrán el comportamiento esperado.
+
+| Skill | Install | Purpose | Used by |
+|---|---|---|---|
+| `juliusbrussee/caveman@caveman` | `npx skills add juliusbrussee/caveman@caveman -g -y` | Ultra-compressed responses (~75% token savings) in implementation agents. Drops fluff, keeps technical accuracy. | `backend`, `qa`, `frontend` |
+
+**Verify installation:**
+```bash
+ls ~/.agents/skills/caveman/SKILL.md && echo "caveman: OK" || echo "caveman: MISSING — run: npx skills add juliusbrussee/caveman@caveman -g -y"
+```
+
+**Agents with caveman mode:** `.opencode/agents/backend.md`, `.opencode/agents/qa.md`, `.opencode/agents/frontend.md` (and their `.claude/` equivalents). `spec` and `architect` use normal communication (user-facing).
+
+---
+
 ## Validaciones automáticas (prevención de hardcodeos)
 
 El harness bloquea mecánicamente la introducción de hardcodeos en tres niveles:

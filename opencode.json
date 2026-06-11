@@ -6,6 +6,16 @@
     "ignore": ["spec/archived/**"]
   },
   "default_agent": "pipeline",
+  "permission": {
+    "edit": "allow"
+  },
+  "mcp": {
+    "figma": {
+      "type": "local",
+      "command": ["npx", "-y", "@vkhanhqui/figma-mcp-go"],
+      "enabled": true
+    }
+  },
   "plugin": [
     ".opencode/plugins/pipeline-enforcer.js",
     ".opencode/plugins/coordination.js"
