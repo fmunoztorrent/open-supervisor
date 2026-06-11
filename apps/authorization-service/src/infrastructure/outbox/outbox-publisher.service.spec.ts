@@ -1,7 +1,23 @@
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 import { OutboxPublisherService } from './outbox-publisher.service';
 import { IOutboxRepository, OutboxEntry } from '../../domain/ports/outbox-repository.port';
 import { IMessagePublisher } from '@open-supervisor/shared-messaging';
+
+// Suppress NestJS Logger output during tests — error/warn logs are
+// expected side effects of testing failure paths (DB down, broker down).
+// Without this, CI output shows misleading ERROR entries.
+beforeAll(() => {
+  jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'verbose').mockImplementation(() => {});
+});
+
+afterAll(() => {
+  jest.restoreAllMocks();
+});
 
 describe('OutboxPublisherService', () => {
   let service: OutboxPublisherService;
