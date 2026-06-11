@@ -182,20 +182,20 @@ The mobile app (React Native) is **out of scope** — only backend services are 
 > Como **desarrollador**, quiero **tener un archivo `sonar-project.properties` y cobertura lcov configurada en Jest por cada servicio backend**, para que **SonarQube pueda analizar correctamente el código fuente, tests, y coverage de cada servicio por separado**.
 
 **Criterios de aceptación:**
-- [ ] `apps/authorization-service/sonar-project.properties` created with:
+- [x] `apps/authorization-service/sonar-project.properties` created with:
   - `sonar.projectKey=open-supervisor-authorization-service`
   - `sonar.sources=src` (relative to project base)
   - `sonar.tests=src` (test files are co-located with source via `*.spec.ts`)
   - `sonar.test.inclusions=**/*.spec.ts`
-  - `sonar.exclusions=**/*.spec.ts` (exclude test files from duplication and code smell analysis)
+  - `sonar.cpd.exclusions=**/*.spec.ts` (architect correction: sonar.cpd.exclusions used instead of sonar.exclusions — keeps test files visible in SonarQube tree)
   - `sonar.javascript.lcov.reportPaths=coverage/lcov.info`
   - `sonar.typescript.tsconfigPath=tsconfig.json`
-- [ ] `apps/bff/sonar-project.properties` created with same pattern (projectKey: `open-supervisor-bff`)
-- [ ] `apps/sse-server/sonar-project.properties` created with same pattern (projectKey: `open-supervisor-sse-server`)
-- [ ] All three services' Jest configs include `collectCoverage: true` (enabled via CLI flag in test scripts, not hardcoded) and `coverageReporters: ["lcov", "text"]`
-- [ ] `coverageDirectory` set to `coverage` (relative to service root) in bff and sse-server jest configs (authorization-service already has it at `../coverage` — standardize to `coverage`)
-- [ ] Running `pnpm --filter <service> test -- --collectCoverage` produces `coverage/lcov.info` in the service directory
-- [ ] Test files are excluded from duplication and code smell analysis but included in coverage measurement (this is the default behavior — test files aren't measured for coverage; only source files are)
+- [x] `apps/bff/sonar-project.properties` created with same pattern (projectKey: `open-supervisor-bff`)
+- [x] `apps/sse-server/sonar-project.properties` created with same pattern (projectKey: `open-supervisor-sse-server`)
+- [x] All three services' Jest configs include `collectCoverage: true` (enabled via CLI flag in test scripts, not hardcoded) and `coverageReporters: ["lcov", "text"]`
+- [x] `coverageDirectory` set to `coverage` (relative to service root) in bff and sse-server jest configs (authorization-service standardized from `../coverage` to `coverage`)
+- [ ] Running `pnpm --filter <service> test -- --collectCoverage` produces `coverage/lcov.info` in the service directory (requires service containers running; verified config is correct via Jest config)
+- [x] Test files are excluded from duplication analysis via `sonar.cpd.exclusions` and included in coverage measurement (default behavior — test files aren't measured for coverage; only source files are)
 
 **Notas:** authorization-service currently has `coverageDirectory: "../coverage"` — this should be standardized to `"coverage"` for consistency. The `sonar.sources` must NOT include `dist/` or `node_modules/`. Test files must be excluded from duplication analysis because they naturally contain repetitive patterns (test fixtures, mock setups) that would inflate duplication metrics.
 
