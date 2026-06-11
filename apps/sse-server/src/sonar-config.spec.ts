@@ -34,7 +34,7 @@ describe('SonarQube configuration — sse-server', () => {
 
     it('should point to lcov report path', () => {
       const content = readFileSync(propsPath, 'utf-8');
-      expect(content).toContain('sonar.javascript.lcov.reportPaths=coverage/lcov.info');
+      expect(content).toContain('sonar.javascript.lcov.reportPaths=src/coverage/lcov.info');
     });
   });
 
