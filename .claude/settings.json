@@ -63,6 +63,17 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"── Modelo activo: ${CLAUDE_MODEL:-desconocido} ──\""
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",
