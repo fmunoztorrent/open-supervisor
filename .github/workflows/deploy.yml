@@ -3,14 +3,16 @@
 # US-07: CI/CD Pipeline — Build Docker images, push to ECR, deploy to ECS.
 #
 # Triggered on:
-#   - push to main (automatic deploy)
-#   - workflow_dispatch (manual deploy from any branch)
+#   - workflow_dispatch (manual trigger only — auto-deploy disabled)
+#   - deploy_enabled flag (boolean) controls whether ECS deployment runs
 #
 # Jobs:
 #   1. build-and-push — matrix build of 3 services via docker buildx
 #      (linux/amd64 + linux/arm64), push to ECR with sha + latest tags
+#      Runs unconditionally when workflow is dispatched.
 #   2. deploy — sequential ECS service updates in order:
 #      bff → sse-server → authorization-service
+#      Only runs when deploy_enabled input is set to true.
 #
 # AWS authentication: OIDC (no long-lived credentials)
 #
@@ -30,9 +32,13 @@
 name: Deploy to ECS
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_enabled:
+        description: 'Enable Fargate ECS deployment'
+        required: true
+        type: boolean
+        default: false
 
 env:
   AWS_REGION: us-east-1
@@ -114,6 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [build-and-push]
+    if: ${{ inputs.deploy_enabled }}
 
     steps:
       - name: Checkout code
