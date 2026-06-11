@@ -1,0 +1,160 @@
+# =============================================================================
+# deploy.yml
+# US-07: CI/CD Pipeline — Build Docker images, push to ECR, deploy to ECS.
+#
+# Triggered on:
+#   - push to main (automatic deploy)
+#   - workflow_dispatch (manual deploy from any branch)
+#
+# Jobs:
+#   1. build-and-push — matrix build of 3 services via docker buildx
+#      (linux/amd64 + linux/arm64), push to ECR with sha + latest tags
+#   2. deploy — sequential ECS service updates in order:
+#      bff → sse-server → authorization-service
+#
+# AWS authentication: OIDC (no long-lived credentials)
+#
+# Prerequisites:
+#   - AWS account ID must be set in GitHub Secrets: AWS_ACCOUNT_ID
+#   - OIDC provider configured in AWS IAM for this GitHub repo
+#   - ECR repositories: open-supervisor/{authorization-service,sse-server,bff}
+#   - ECS cluster: open-supervisor
+#   - ECS task definitions: open-supervisor-{authorization-service,sse-server,bff}
+#
+# Reference:
+#   - Dockerfiles: apps/<service>/Dockerfile
+#   - Task definitions: infra/ecs/task-definitions/<service>.json
+#   - Spec: spec/2026-06-11-aws-fargate-containerization.spec.md
+# =============================================================================
+
+name: Deploy to ECS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: open-supervisor
+
+jobs:
+  # ═════════════════════════════════════════════════════════════════════════
+  # Job 1: Build and push Docker images to ECR
+  # ═════════════════════════════════════════════════════════════════════════
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        service:
+          - authorization-service
+          - sse-server
+          - bff
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Setup Node.js + pnpm (consistent with ci.yml) ──────────────────
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # ── AWS OIDC authentication ─────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::<aws_account_id>:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ── Docker setup ─────────────────────────────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Build metadata ──────────────────────────────────────────────────
+      - name: Generate image tags
+        id: meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          IMAGE_URI="${{ env.ECR_REGISTRY }}/open-supervisor/${{ matrix.service }}"
+          TAGS="${IMAGE_URI}:sha-${SHORT_SHA},${IMAGE_URI}:latest"
+          echo "tags=${TAGS}" >> "${GITHUB_OUTPUT}"
+          echo "image_uri=${IMAGE_URI}:sha-${SHORT_SHA}" >> "${GITHUB_OUTPUT}"
+
+      # ── Build and push multi-arch image ─────────────────────────────────
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # Job 2: Deploy to ECS (sequential service updates)
+  # ═════════════════════════════════════════════════════════════════════════
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [build-and-push]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── AWS OIDC authentication ─────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::<aws_account_id>:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ── Deploy bff (first — front door, must be ready first) ────────────
+      - name: Deploy bff
+        run: |
+          echo "Deploying bff..."
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service open-supervisor-bff \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ bff deployment triggered"
+
+      # ── Deploy sse-server (second — SSE needs BFF ready) ────────────────
+      - name: Deploy sse-server
+        run: |
+          echo "Deploying sse-server..."
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service open-supervisor-sse-server \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ sse-server deployment triggered"
+
+      # ── Deploy authorization-service (last — core logic) ────────────────
+      - name: Deploy authorization-service
+        run: |
+          echo "Deploying authorization-service..."
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service open-supervisor-authorization-service \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ authorization-service deployment triggered"

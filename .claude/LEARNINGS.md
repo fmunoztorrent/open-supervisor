@@ -583,6 +583,22 @@ slug: redis-pubsub-un-listener-global-mapea-canales-a-handlers
 ---
 
 ---
+date: 2026-06-11
+agent: backend
+category: setup
+tags: [sse-server, supertest, devDependencies, test-setup, http]
+slug: sse-server-carece-de-supertest-en-devdependencies
+---
+
+**Contexto**: implementando health endpoints (US-02 del spec de AWS Fargate). El spec requiere usar supertest + @nestjs/testing para tests de los endpoints HTTP. El sse-server no tenía `supertest` ni `@types/supertest` en su `devDependencies` porque antes no exponía endpoints HTTP propios (solo el SSE endpoint era testeado a través de `@nestjs/testing` sin supertest).
+
+**Qué pasó**: los tests del HealthController del sse-server no compilaban con LSP error `Cannot find module 'supertest'`. Authorization-service y bff ya tenían supertest instalado (porque exponen endpoints REST desde el inicio). El sse-server nunca necesitó hacer requests HTTP en tests.
+
+**Lección**: al agregar un endpoint HTTP a un servicio que antes solo tenía tests unitarios/SSE, verificar que `supertest` y `@types/supertest` estén en `devDependencies`. No asumir que todos los servicios NestJS del monorepo los tienen.
+
+**Cómo aplicar**: antes de escribir tests que usen `import * as request from 'supertest'` en un servicio, revisar su `package.json#devDependencies`. Si falta, agregar `supertest` y `@types/supertest` + `pnpm install --filter <service>` antes de correr los tests.
+
+---
 date: 2026-06-04
 agent: backend
 category: api-gotcha

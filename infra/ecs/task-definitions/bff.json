@@ -1,0 +1,88 @@
+{
+  "family": "open-supervisor-bff",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::<aws_account_id>:role/open-supervisor-<environment>-ecs-task-execution",
+  "taskRoleArn": "arn:aws:iam::<aws_account_id>:role/open-supervisor-<environment>-task",
+  "containerDefinitions": [
+    {
+      "name": "bff",
+      "image": "<aws_account_id>.dkr.ecr.us-east-1.amazonaws.com/open-supervisor/bff:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp",
+          "name": "bff-http"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "SSE_SERVER_URL",
+          "valueFrom": "arn:aws:ssm:<aws_region>:<aws_account_id>:parameter/open-supervisor/<environment>/SSE_SERVER_URL"
+        },
+        {
+          "name": "AUTH_SERVICE_URL",
+          "valueFrom": "arn:aws:ssm:<aws_region>:<aws_account_id>:parameter/open-supervisor/<environment>/AUTH_SERVICE_URL"
+        },
+        {
+          "name": "KEYCLOAK_URL",
+          "valueFrom": "arn:aws:ssm:<aws_region>:<aws_account_id>:parameter/open-supervisor/<environment>/KEYCLOAK_URL"
+        },
+        {
+          "name": "KEYCLOAK_REALM",
+          "valueFrom": "arn:aws:ssm:<aws_region>:<aws_account_id>:parameter/open-supervisor/<environment>/KEYCLOAK_REALM"
+        },
+        {
+          "name": "KEYCLOAK_CLIENT_ID",
+          "valueFrom": "arn:aws:ssm:<aws_region>:<aws_account_id>:parameter/open-supervisor/<environment>/KEYCLOAK_CLIENT_ID"
+        },
+        {
+          "name": "KEYCLOAK_CLIENT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:/open-supervisor/<environment>/KEYCLOAK_CLIENT_SECRET"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/bff",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "key": "Name",
+      "value": "open-supervisor-bff-task"
+    },
+    {
+      "key": "Environment",
+      "value": "<environment>"
+    },
+    {
+      "key": "Project",
+      "value": "open-supervisor"
+    }
+  ]
+}
