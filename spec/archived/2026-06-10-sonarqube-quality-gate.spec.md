@@ -2,8 +2,8 @@
 
 **Fecha:** 2026-06-10  
 **Stack inferido:** NestJS + TypeScript (monorepo pnpm), Jest, GitHub Actions, Docker/Podman  
-**Estado:** Draft  
-**Revisión:** 5 (US-05 completed)  
+**Estado:** completed  
+**Revisión:** 6 (all USTs implemented)  
 **Arquitecto:** fabianmunoz
 
 <history>
@@ -46,23 +46,36 @@
     - 13 tests pass in QA GREEN phase for the script
     - No regressions: US-03 stays at 19/19
   </entry>
+  <entry revision="6" date="2026-06-10" author="backend (feature-sonar-ci)">
+    US-04 completed: CI integration with ephemeral SonarQube.
+    - Created .github/workflows/sonarqube.yml with service container, scanner steps, quality gate polling
+    - Fixed sonar.javascript.lcov.reportPaths from coverage/lcov.info to src/coverage/lcov.info
+      (mismatch because jest rootDir=src makes coverageDirectory relative to src/)
+    - 25 tests pass in QA GREEN phase for ci-workflow.spec.sh
+  </entry>
 </history>
 
 ---
 
 <result>
-  <completed-at>2026-06-10T21:58:00-03:00</completed-at>
+  <completed-at>2026-06-10T23:10:00-03:00</completed-at>
   <implemented>
     <item scope="feature-sonar-infra">US-01: SonarQube container infrastructure</item>
     <item scope="feature-sonar-projects">US-02: Project configuration — sonar-project.properties + Jest coverage</item>
+    <item scope="feature-sonar-gate">US-03: Quality Gate and Quality Profile definition</item>
+    <item scope="feature-sonar-ci">US-04: CI integration — GitHub Actions with ephemeral SonarQube</item>
     <item scope="feature-sonar-cli">US-05: Local analysis command — pnpm sonar</item>
   </implemented>
   <deviations>
     <item>Image tag changed from spec's original `25.x-community` to `26.6.0.123539-community` per architect review (arm64 confirmed)</item>
+    <item>sonar.javascript.lcov.reportPaths corrected from coverage/lcov.info to src/coverage/lcov.info for all 3 services (jest rootDir=src makes coverageDirectory relative to src/)</item>
+    <item>US-04 uses ce/component API instead of ce/task (functionally equivalent, simpler to use with project keys)</item>
   </deviations>
   <tests>
     <item>scripts/test-sonarqube-infra.sh: 9/9 GREEN phase tests passing</item>
     <item>apps/*/src/sonar-config.spec.ts: 24/24 GREEN phase tests passing (8 per service)</item>
+    <item>scripts/sonarqube/quality-gate.spec.sh: 19/19 GREEN phase tests passing</item>
+    <item>scripts/sonarqube/ci-workflow.spec.sh: 25/25 GREEN phase tests passing</item>
     <item>scripts/sonarqube/local-analysis.spec.sh: 13/13 GREEN phase tests passing</item>
   </tests>
 </result>

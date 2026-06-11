@@ -1,0 +1,176 @@
+# SonarQube Quality Gate CI workflow
+#
+# Runs SonarQube analysis and Quality Gate evaluation on every PR toward `main`
+# and on push to `main` (to establish baseline for "New Code" comparison).
+#
+# Uses an ephemeral SonarQube Community Edition service container with
+# default admin/admin credentials. No secrets needed — the container is
+# isolated to this job and destroyed afterwards.
+#
+# Dependencies: sonar-project.properties per service (US-02),
+# Quality Gate definition applied to SonarQube (US-03).
+
+name: SonarQube Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Ephemeral SonarQube Community Edition container
+    services:
+      sonarqube:
+        image: sonarqube:26.6.0.123539-community
+        ports:
+          - 9000:9000
+        env:
+          # Disable Elasticsearch bootstrap checks for single-node ephemeral use
+          SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+        options: >-
+          --health-cmd "curl -sf http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 10
+          --health-start-period 60s
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Setup ──────────────────────────────────────────────────────────────
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: pnpm -r build
+
+      # ── Tests with coverage ────────────────────────────────────────────────
+
+      - name: Run tests with coverage
+        run: |
+          pnpm --filter authorization-service test --collectCoverage
+          pnpm --filter bff test --collectCoverage
+          pnpm --filter sse-server test --collectCoverage
+
+      # ── SonarScanner analysis ──────────────────────────────────────────────
+
+      - name: SonarScanner — authorization-service
+        working-directory: apps/authorization-service
+        run: |
+          npx sonar-scanner \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=admin
+
+      - name: SonarScanner — bff
+        working-directory: apps/bff
+        run: |
+          npx sonar-scanner \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=admin
+
+      - name: SonarScanner — sse-server
+        working-directory: apps/sse-server
+        run: |
+          npx sonar-scanner \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=admin
+
+      # ── Quality Gate polling ───────────────────────────────────────────────
+
+      - name: Poll Quality Gate status
+        run: |
+          set -e
+
+          PROJECTS=(
+            "open-supervisor-authorization-service:authorization-service"
+            "open-supervisor-bff:bff"
+            "open-supervisor-sse-server:sse-server"
+          )
+
+          FAILED=false
+
+          # ── Phase 1: Wait for background tasks to complete ────────────────
+          echo "⏳ Waiting for SonarQube background tasks..."
+          echo ""
+
+          for ENTRY in "${PROJECTS[@]}"; do
+            PROJECT_KEY="${ENTRY%%:*}"
+            SERVICE_NAME="${ENTRY##*:}"
+
+            echo "  Waiting for $SERVICE_NAME ($PROJECT_KEY)..."
+            for i in $(seq 1 12); do
+              # Poll ce/component to get the latest analysis task status
+              CE_RESPONSE=$(curl -sf -u admin:admin \
+                "http://localhost:9000/api/ce/component?componentKey=$PROJECT_KEY" 2>/dev/null \
+                || echo '{"current":{"status":"UNKNOWN"}}')
+              TASK_STATUS=$(echo "$CE_RESPONSE" | jq -r '.current.status // "UNKNOWN"')
+
+              if [ "$TASK_STATUS" = "SUCCESS" ] || [ "$TASK_STATUS" = "null" ]; then
+                echo "    ✅ $SERVICE_NAME: task completed"
+                break
+              elif [ "$TASK_STATUS" = "FAILED" ] || [ "$TASK_STATUS" = "CANCELED" ]; then
+                echo "    ❌ $SERVICE_NAME: task $TASK_STATUS"
+                FAILED=true
+                break
+              else
+                echo "    ⏳ $SERVICE_NAME: task $TASK_STATUS (attempt $i/12 — waiting 10s)"
+                sleep 10
+              fi
+            done
+          done
+
+          # ── Phase 2: Fetch Quality Gate status ──────────────────────────
+          echo ""
+          echo "🔎 Checking Quality Gate status..."
+
+          for ENTRY in "${PROJECTS[@]}"; do
+            PROJECT_KEY="${ENTRY%%:*}"
+            SERVICE_NAME="${ENTRY##*:}"
+
+            RESPONSE=$(curl -sf -u admin:admin \
+              "http://localhost:9000/api/qualitygates/project_status?projectKey=$PROJECT_KEY" 2>/dev/null \
+              || echo '{"projectStatus":{"status":"NONE"}}')
+            GATE_STATUS=$(echo "$RESPONSE" | jq -r '.projectStatus.status // "NONE"')
+
+            if [ "$GATE_STATUS" = "OK" ]; then
+              echo "  ✅ $SERVICE_NAME: PASSED (status: $GATE_STATUS)"
+            elif [ "$GATE_STATUS" = "ERROR" ]; then
+              echo "  ❌ $SERVICE_NAME: FAILED (status: $GATE_STATUS)"
+              echo "::error title=Quality Gate FAILED::$SERVICE_NAME ($PROJECT_KEY) reports ERROR"
+              FAILED=true
+            else
+              echo "  ⚠️  $SERVICE_NAME: $GATE_STATUS (no analysis found)"
+              echo "::warning::$SERVICE_NAME — Quality Gate not evaluated"
+            fi
+          done
+
+          # ── Phase 3: Fail pipeline if any service failed the gate ────────
+
+          if [ "$FAILED" = true ]; then
+            echo ""
+            echo "❌ Quality Gate FAILED for one or more services"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All services passed the Quality Gate"
