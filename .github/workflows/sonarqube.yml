@@ -33,6 +33,9 @@ jobs:
         env:
           # Disable Elasticsearch bootstrap checks for single-node ephemeral use
           SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+          # Disable forced authentication for ephemeral CI container
+          # (SonarQube 10+/2026+ no longer accepts default admin/admin)
+          SONAR_FORCEAUTHENTICATION: "false"
         options: >-
           --health-cmd "curl -sf http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"
           --health-interval 15s
@@ -77,25 +80,19 @@ jobs:
         working-directory: apps/authorization-service
         run: |
           npx sonar-scanner \
-            -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.login=admin \
-            -Dsonar.password=admin
+            -Dsonar.host.url=http://localhost:9000
 
       - name: SonarScanner — bff
         working-directory: apps/bff
         run: |
           npx sonar-scanner \
-            -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.login=admin \
-            -Dsonar.password=admin
+            -Dsonar.host.url=http://localhost:9000
 
       - name: SonarScanner — sse-server
         working-directory: apps/sse-server
         run: |
           npx sonar-scanner \
-            -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.login=admin \
-            -Dsonar.password=admin
+            -Dsonar.host.url=http://localhost:9000
 
       # ── Quality Gate polling ───────────────────────────────────────────────
 
@@ -122,7 +119,7 @@ jobs:
             echo "  Waiting for $SERVICE_NAME ($PROJECT_KEY)..."
             for i in $(seq 1 12); do
               # Poll ce/component to get the latest analysis task status
-              CE_RESPONSE=$(curl -sf -u admin:admin \
+              CE_RESPONSE=$(curl -sf \
                 "http://localhost:9000/api/ce/component?componentKey=$PROJECT_KEY" 2>/dev/null \
                 || echo '{"current":{"status":"UNKNOWN"}}')
               TASK_STATUS=$(echo "$CE_RESPONSE" | jq -r '.current.status // "UNKNOWN"')
@@ -149,7 +146,7 @@ jobs:
             PROJECT_KEY="${ENTRY%%:*}"
             SERVICE_NAME="${ENTRY##*:}"
 
-            RESPONSE=$(curl -sf -u admin:admin \
+            RESPONSE=$(curl -sf \
               "http://localhost:9000/api/qualitygates/project_status?projectKey=$PROJECT_KEY" 2>/dev/null \
               || echo '{"projectStatus":{"status":"NONE"}}')
             GATE_STATUS=$(echo "$RESPONSE" | jq -r '.projectStatus.status // "NONE"')
