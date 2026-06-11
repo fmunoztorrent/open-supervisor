@@ -857,3 +857,19 @@ slug: update-config-tests-when-changing-config-files
 
 **Cómo aplicar**: al revisar el diff de un commit que cambia config files, buscar `*.spec.ts` en el mismo directorio y verificar que los valores esperados coinciden. Si el spec no tiene test de validación, considerar si debería tenerlo.
 
+---
+date: 2026-06-11
+agent: principal
+category: api-gotcha
+tags: [sonarqube, ci, authentication, docker, github-actions]
+slug: sonarqube-2026-forceauthentication-default-admin-rejected
+---
+
+**Contexto**: configurando SonarQube Community Edition `26.6.0.123539-community` (≈ 2026.6) como contenedor efímero en GitHub Actions para Quality Gate en PRs.
+
+**Qué pasó**: el scanner fallaba con `Not authorized` a pesar de usar `admin:admin`. Las versiones modernas de SonarQube (10+/2025+) ya no aceptan las credenciales default `admin/admin` — el password se genera aleatoriamente en el primer arranque o se fuerza el cambio.
+
+**Lección**: para contenedores efímeros de SonarQube en CI, deshabilitar `sonar.forceAuthentication` vía variable de entorno `SONAR_FORCEAUTHENTICATION=false`. Esto elimina la necesidad de credenciales para scanner y API calls. Es seguro porque el contenedor es efímero (destruido al finalizar el job) y solo accesible dentro de la red del runner.
+
+**Cómo aplicar**: en cualquier workflow de CI que use SonarQube como service container, agregar `SONAR_FORCEAUTHENTICATION: "false"` al bloque `env` del servicio y eliminar `-Dsonar.login`/`-Dsonar.password` de los comandos del scanner. Para curl a la API, remover `-u admin:admin`.
+
