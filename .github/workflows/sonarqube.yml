@@ -114,7 +114,7 @@ jobs:
             echo "  Creating: $PROJECT"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               -u "$AUTH" -X POST \
-              "$BASE/api/projects/create?name=${PROJECT}&project=${PROJECT}" || echo "000")
+              "$BASE/api/projects/create?name=${PROJECT}&project=${PROJECT}&visibility=public" || echo "000")
             case "$HTTP_CODE" in
               200|201) echo "    ✅ Created (HTTP $HTTP_CODE)" ;;
               400)     echo "    ℹ️  Already exists (HTTP $HTTP_CODE)" ;;
