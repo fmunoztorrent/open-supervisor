@@ -161,6 +161,7 @@ pnpm install
 make dev               # infraestructura + servicios backend
 make emulator          # emulador + port forwarding + Metro + app (requiere make dev primero)
 make all               # dev + emulator (stack completo)
+pnpm sonar             # análisis local: tests + coverage + SonarScanner (requiere make sonar primero)
 make sonar             # levanta SonarQube (port 9000, health check, URLs + creds)
 make down              # detiene todo
 make status            # verifica qué está corriendo
