@@ -841,3 +841,19 @@ slug: jest-coverage-directory-relative-to-rootdir-not-project-root
 
 **Cómo aplicar**: al configurar Jest + SonarQube en un proyecto donde `rootDir` no es el project root, generar un report de coverage y verificar la ubicación real del `lcov.info` antes de hardcodear `sonar.javascript.lcov.reportPaths`. Correr `find . -name lcov.info` después de `jest --coverage` para confirmar.
 
+---
+date: 2026-06-10
+agent: principal
+category: test-strategy
+tags: [sonarqube, jest, tests, config, ci]
+slug: update-config-tests-when-changing-config-files
+---
+
+**Contexto**: corrigiendo `sonar.javascript.lcov.reportPaths` en los 3 archivos `sonar-project.properties` para que apuntaran a `src/coverage/lcov.info` (requerido por `jest rootDir: "src"`).
+
+**Qué pasó**: el cambio en los archivos de configuración fue correcto, pero los tests de validación (`sonar-config.spec.ts`) no fueron actualizados. Seguían esperando `coverage/lcov.info` en vez de `src/coverage/lcov.info`. Esto rompió CI porque el test fallaba.
+
+**Lección**: cuando se modifica un archivo de configuración que tiene un test asociado de validación (`spec.ts`), el paso de implementación DEBE incluir la actualización del test correspondiente. Los tests de configuración son código de proyecto, no solo verificaciones pasivas.
+
+**Cómo aplicar**: al revisar el diff de un commit que cambia config files, buscar `*.spec.ts` en el mismo directorio y verificar que los valores esperados coinciden. Si el spec no tiene test de validación, considerar si debería tenerlo.
+
