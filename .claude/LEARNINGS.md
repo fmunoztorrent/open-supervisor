@@ -897,3 +897,19 @@ slug: sonarqube-ephemeral-bootstrap-create-projects-before-scanner
 3. El scanner se ejecuta sin credenciales (proyectos ya existen)
 4. El Quality Gate polling usa curl sin `-u` (forceAuthentication=false)
 
+---
+date: 2026-06-11
+agent: principal
+category: api-gotcha
+tags: [sonarqube, scanner, authentication, token, ci]
+slug: sonarqube-scanner-deprecated-sonar-login-requires-token
+---
+
+**Contexto**: el scanner (`npx sonar-scanner`) seguía fallando con "not authorized to create project" después de deshabilitar `forceAuthentication` y crear los proyectos vía REST API.
+
+**Qué pasó**: SonarQube 2026.x (server 12.37) **deprecó `sonar.login`/`sonar.password`** para el scanner CLI. El scanner rechaza credenciales por password y exige `sonar.token`. Sin embargo, la REST API **sí acepta** HTTP Basic Auth con `admin:admin` (las credenciales default documentadas para Docker). Son dos mecanismos de autenticación distintos: el scanner solo acepta tokens, la REST API acepta Basic Auth.
+
+**Lección**: para CI con SonarQube 2026.x, el flujo correcto es: (1) autenticarse contra la REST API con `curl -u admin:admin`, (2) generar un token vía `POST /api/user_tokens/generate`, (3) pasar el token al scanner con `-Dsonar.token=$TOKEN`. NO usar `-Dsonar.login`/`-Dsonar.password` — están deprecados y el scanner los rechaza aunque las credenciales sean correctas.
+
+**Cómo aplicar**: en el paso de bootstrap, después de autenticarse con `admin:admin`, llamar a `POST /api/user_tokens/generate?name=ci-scanner`, extraer el token del JSON con `jq -r '.token'`, exportarlo a `$GITHUB_ENV`, y usarlo en los pasos del scanner como `-Dsonar.token="$SONAR_TOKEN"`.
+
