@@ -138,19 +138,6 @@ slug: jest-workspace-packages-necesitan-moduleNameMapper
 
 ---
 date: 2026-06-02
-agent: qa
-category: test-strategy
-tags: [jest, ts-jest, tsconfig, workspace, sse-server]
-slug: sse-server-necesita-tsconfig-spec-para-jest
----
-
-**Contexto**: al agregar el primer spec al `sse-server`, ts-jest seguía lanzando `TS2307: Cannot find module '@open-supervisor/shared-messaging'` aunque el `moduleNameMapper` estaba correctamente configurado en `package.json#jest`.
-**Qué pasó**: ts-jest resuelve los tipos en tiempo de compilación usando el tsconfig — no el `moduleNameMapper` de Jest. Sin un `tsconfig.spec.json` con `paths` apuntando a `node_modules/@open-supervisor/shared-messaging/src`, TypeScript no encontraba el módulo aunque Jest sí podía resolverlo en runtime.
-**Lección**: cualquier servicio que agregue tests con workspace packages necesita dos cosas: (1) `moduleNameMapper` en jest config para la resolución en runtime, y (2) `tsconfig.spec.json` con `baseUrl: "."` y `paths` apuntando a `node_modules/.../src` para la resolución en compilación. Seguir el patrón de `authorization-service/tsconfig.spec.json` como referencia.
-**Cómo aplicar**: al configurar Jest en un servicio NestJS nuevo que importe workspace packages, copiar tanto el `moduleNameMapper` como el `tsconfig.spec.json` del `authorization-service`. Actualizar `transform` en jest config para que ts-jest use `tsconfig.spec.json` explícitamente.
-
----
-date: 2026-06-02
 agent: backend
 category: pattern
 tags: [nestjs, controller, error-handling, http-status]
@@ -177,14 +164,6 @@ slug: sse-service-un-subject-por-store-multiples-canales-redis
 
 ---
 date: 2026-06-02
-agent: qa
-category: test-strategy
-tags: [tsc, typecheck, workspace, paths, baseUrl, pre-existing]
-slug: typecheck-tsc-falla-sin-baseurl-en-tsconfig-json
----
-
----
-date: 2026-06-02
 agent: architect
 category: spec-process
 tags: [solid, discriminated-union, dto, entidad, spec, price-change]
@@ -203,19 +182,6 @@ slug: spec-no-asumir-contratos-que-no-existen-en-el-codigo
 
 ---
 date: 2026-06-03
-agent: qa
-category: test-strategy
-tags: [react-native, jest, tsconfig, testing-library, types, rntl]
-slug: rntl-matchers-requieren-types-en-tsconfig-y-global-d-ts
----
-
-**Contexto**: FASE GREEN mobile — `pnpm typecheck` fallaba con TS2339 en `toBeOnTheScreen`, `toBeDisabled`, `toBeEnabled` y TS2304 en `global`.
-**Qué pasó**: (1) Las RNTL v12 extended matchers están declaradas en `@testing-library/react-native/build/matchers/types.d.ts` dentro de un `declare global { namespace jest {} }` block — se cargan solo si la entrada `types` del tsconfig las incluye. Sin esa entrada, `jest.Matchers` no extiende `JestNativeMatchers` y los matchers son invisibles para tsc. (2) La `lib: ["es2019"]` no incluye el global `NodeJS.Global`, así que `global.fetch` en los tests lanzaba TS2304. Solución: añadir `"types": ["jest", "@testing-library/react-native/extend-expect"]` en `tsconfig.json` y un archivo `src/global.d.ts` con `declare var global: typeof globalThis`.
-**Lección**: en proyectos React Native, el tsconfig de la app móvil necesita declarar explícitamente los tipos de test runner. Cuando se especifica `types: [...]`, TypeScript deja de incluir automáticamente los `@types/*` del `node_modules` — hay que listar `jest` además de RNTL. El `global` de Node.js no forma parte de las libs ES ni de las libs de React Native: requiere un `declare var global` o `@types/node`.
-**Cómo aplicar**: al configurar tsconfig para una app React Native con Jest + RNTL, incluir siempre `"types": ["jest", "@testing-library/react-native/extend-expect"]` y crear `src/global.d.ts` con `declare var global: typeof globalThis` antes de correr typecheck.
-
----
-date: 2026-06-03
 agent: architect
 category: spec-process
 tags: [react-native, bff, sse, contrato, mobile, spec]
@@ -226,14 +192,6 @@ slug: spec-mobile-debe-verificar-rutas-bff-antes-de-qa-red
 **Qué pasó**: el architect encontró tres divergencias críticas: (1) la ruta SSE real es `GET /stream/store/:storeId`, no `/stores/:storeId/requests/stream`; (2) el endpoint de decisión es `POST /authorization/:id/resolve` con body `{ decision: 'APPROVE'|'REJECT', supervisor_id: string }`, no `approved: boolean`; (3) el BFF expone `GET /authorization/store/:storeId/pending` para carga inicial — dato que el spec omitía completamente. El spec también usaba `onerror`/`onopen` como propiedades de EventSource cuando la API real de `react-native-sse` es `addEventListener('error'|'open', ...)`.
 **Lección**: cualquier spec de feature mobile que interactúe con el BFF debe incluir un paso explícito de verificación de rutas en el architect step. El spec no puede asumir contratos — debe leer `apps/bff/src/` antes de cerrar el spec. La omisión de la carga inicial de pendientes (GET /pending) fue el error más costoso: dejaba solicitudes previas invisibles al abrir la app.
 **Cómo aplicar**: en el architect step para features mobile↔BFF, siempre leer `apps/bff/src/**/*.controller.ts` y `apps/bff/src/**/*.service.ts` y comparar rutas/bodies contra los supuestos del spec antes de dar luz verde a QA RED.
-
----
-date: 2026-06-03
-agent: frontend
-category: setup
-tags: [react-native, jest, pnpm, scaffold, EventSource, generic]
-slug: react-native-sse-eventSource-generic-para-typecheck
----
 
 ---
 date: 2026-06-03
@@ -285,19 +243,6 @@ slug: react-native-sse-eventSource-generic-para-typecheck
 **Contexto**: scaffold inicial de `apps/mobile/` — typecheck fallaba en `useSSERequests.ts` con TS2345 al llamar `addEventListener('authorization_request', ...)`.
 **Qué pasó**: `react-native-sse`  expone `EventSource<T extends string = never>` donde `T` es el union de eventos custom. Sin el generic, TypeScript rechaza nombres de evento que no sean los built-in (`'open'`, `'error'`, `'close'`, `'message'`). La solución es declarar el nombre del evento custom en el generic: `new EventSource<'authorization_request'>(url, opts)`. Además, el tipo del `event.data` dentro del listener es `string | null` (no `string`), por lo que hay que hacer guard `if (event.data == null) return` antes de `JSON.parse`.
 **Cómo aplicar**: al instanciar `EventSource` de `react-native-sse` con eventos custom, siempre pasar el union de nombres de evento como generic. Si se escuchan múltiples eventos custom: `new EventSource<'authorization_request' | 'physical_presence_dispatch'>(...)`. Y siempre nullcheck `event.data` antes de parsear.
-
----
-date: 2026-06-03
-agent: architect
-category: setup
-tags: [lsp, typescript, opencode, claude-code, config, plugin]
-slug: lsp-built-in-opencode-plugin-oficial-claude-code
----
-
-**Contexto**: cierre del spec `mejora-agentes` (US-04 LSP). El spec original asumía que LSP requería un "plugin de code intelligence externo" y quedó bloqueado.
-**Qué pasó**: (1) opencode v1.15+ tiene LSP built-in para TypeScript vía tsserver — solo requiere `"lsp": true` en `opencode.json`. No necesita plugins externos. (2) Claude Code tiene un plugin oficial de Anthropic (`typescript-lsp@claude-plugins-official`) activado vía feature flag `ENABLE_LSP_TOOL` en `~/.claude/settings.json`. Requiere `typescript-language-server` y `typescript` instalados globalmente. (3) El feature flag está documentado en GitHub issue #15619, no en docs oficiales.
-**Lección**: LSP no requiere plugin externo en opencode — es built-in. En Claude Code, el setup es: (a) `npm install -g typescript-language-server typescript`, (b) agregar `"env": { "ENABLE_LSP_TOOL": "1" }` y `"enabledPlugins": { "typescript-lsp@claude-plugins-official": true }` a `~/.claude/settings.json`. El `ENABLE_LSP_TOOL` puede generar warnings de schema (no está en el schema oficial) pero funciona.
-**Cómo aplicar**: en cualquier proyecto TypeScript con opencode, activar LSP con `"lsp": true`. Para Claude Code, seguir los 2 pasos de instalación + config. Si se agrega un nuevo LSP para otro lenguaje (Python, Go), verificar si opencode ya lo soporta built-in antes de buscar plugins externos.
 
 ---
 date: 2026-06-03
@@ -426,52 +371,6 @@ slug: react-stately-static-class-blocks-requiere-babel-plugin
 **Lección**: Gluestack UI v1 trae transitivamente `react-stately` (vía `@gluestack-ui/menu`), cuya build CJS usa ES2022 `static {}` blocks. El preset de Babel de RN 0.76 no cubre esto. El fix es: (1) `pnpm --filter @open-supervisor/mobile add -D @babel/plugin-transform-class-static-block` y (2) agregar `plugins: ['@babel/plugin-transform-class-static-block']` en `babel.config.js`.
 
 **Cómo aplicar**: si aparece `TransformError: Static class blocks are not enabled` en Metro, el fix es el plugin de Babel mencionado. No confundir con errores de `transformIgnorePatterns` — Metro sí transforma el archivo, pero el preset no tiene el plugin. Reiniciar Metro con `--reset-cache` después del cambio para que el nuevo config surta efecto.
-
----
-date: 2026-06-04
-agent: frontend
-category: pattern
-tags: [react-native, hooks, useRef, debounce, sse]
-slug: debounce-async-refetch-useref
-
-**Contexto**: implementando background refresh automático al recibir SSE en useSSERequests hook.
-
-**Qué pasó**: al reemplazar prepend directo por refetch completo en el listener SSE, necesitábamos:
-1. Debounce de 2s para evitar múltiples refetches por ráfagas de SSE
-2. Un flag `isRefreshingBackground` para el indicador UI
-3. Cleanup correcto del timeout al desmontar
-
-**Lección**: el patrón `useRef<setTimeout>` es la forma correcta de manejar debounce dentro de hooks React que usan `useEffect` con SSE listeners. Tres cosas críticas:
-- El timeout se limpia en el `cancelled` flag del return del useEffect
-- El `setIsRefreshingBackground(true)` se dispara **sincrónicamente** en el listener (no dentro del setTimeout) para feedback inmediato
-- Para guards de "initial load complete" no se puede usar la variable `isLoading` del closure (siempre captura el valor inicial). Usar `useRef<boolean>` en su lugar.
-
-**Cómo aplicar**: cuando un hook necesite disparar refetches asíncronos con debounce desde un listener (SSE, WebSocket, polling), usar `useRef` para el timeout y `useRef` para flags de estado que necesitan ser leídos desde closures. No confiar en state variables de `useState` dentro de closures de useEffect.
-
----
-date: 2026-06-04
-agent: claude
-category: pattern
-tags: [react-native, testID, uiautomator, accesibilidad, prop-wiring, state-empty]
-slug: indicador-background-refresh-wiring-y-accesibilidad
----
-
-**Contexto**: depurando por qué el indicador "Sincronizando..." del background refresh nunca aparecía en UIAutomator, a pesar de que los logs y tests confirmaban que la lógica funcionaba.
-
-**Qué pasó**: dos problemas encadenados:
-1. **Prop no conectado**: `App.tsx` destructureaba `isRefreshingBackground` del hook pero no lo pasaba a `AuthorizationList`. El componente usaba el default `false`.
-2. **Estado vacío oculta el indicador**: `AuthorizationList` retorna temprano cuando `requests.length === 0`, antes del JSX condicional del indicador. Para ver el indicador deben existir cards previas.
-3. **testID invisible**: React Native `testID` no expone `resource-id` a UIAutomator sin `accessible={true}`.
-
-**Lección**: 
-- En React Native, `testID` no es suficiente para UIAutomator — agregar `accessible={true}` y `accessibilityLabel` si se necesita detección por accesibilidad.
-- Cuando un componente tiene layout condicional (estado vacío vs con datos), el indicador de "cargando en background" debe renderizarse en AMBAS ramas, no solo en la rama con datos.
-- Los tests de integración (App.test.tsx con mocks de hooks) son esenciales para detectar prop-wiring olvidado.
-
-**Cómo aplicar**: 
-- Siempre agregar un test de integración que verifique que los props se pasan de padre a hijo.
-- Para indicadores/estados que deben persistir entre layouts, renderizarlos fuera del condicional `requests.length === 0`.
-- Para E2E con UIAutomator, usar `accessible={true}` en elementos que necesitan ser detectados por resource-id.
 
 ---
 date: 2026-06-04
@@ -721,92 +620,6 @@ slug: nestjs-build-puede-salir-0-sin-crear-dist-por-tsbuildinfo-stale
 
 ---
 date: 2026-06-04
-agent: qa
-category: pattern
-tags: [portabilidad, harness, podman, docker, settings, hardcodeo]
-slug: despersonalizacion-harness-settings-local
----
-
-**Contexto**: el repositorio contenía hardcodeos de rutas absolutas (`$HOME/...`) y socket Podman en archivos trackeados (`CLAUDE.md`, `LEARNINGS.md`, `.claude/settings.json`, `docker-compose.localstack.yml`), lo que rompía la portabilidad para cualquier otro desarrollador.
-
-**Qué pasó**: se identificaron 8 hardcodeos críticos distribuidos en 5 archivos. Los skills operativos y el Makefile ya tenían detección dinámica Podman/Docker, pero los archivos de harness y documentación no.
-
-**Lección**: separar configuración en dos capas: `settings.json` (trackeado, portable, reglas base que aplican a todos los devs) y `settings.local.json` (no trackeado, personal, rutas absolutas y comandos específicos de la máquina del autor). Para compose files, usar variables de entorno (`${DOCKER_SOCK:-/var/run/docker.sock}`) en lugar de rutas hardcodeadas.
-
-**Cómo aplicar**: al agregar reglas de permisos en Claude Code, preguntarse: "¿esto funcionaría si otro dev clona el repo en otra máquina?" Si la respuesta es no, va en `settings.local.json`. Para comandos de contenedores en documentación, siempre referenciar `make infra` o `$COMPOSE exec <servicio>`, nunca nombres de contenedor ni rutas de socket.
-
-**Leccion**: cuando un build de TypeScript sale 0 y no produce el output esperado, lo primero a sospechar es el `*.tsbuildinfo`. El skill `open-supervisor-infra` (sección E-1) ya documenta este caso pero solo lo cubre para borrar `tsconfig.tsbuildinfo` — también hay que borrar `tsconfig.build.tsbuildinfo` si existe.
-
-**Como aplicar**: si `nest build` sale 0 y `dist/main.js` no existe o tiene fecha vieja, `rm -f tsconfig*.tsbuildinfo` antes de reintentar. Considerar agregar un script `clean` al package.json que borre los buildinfos y `dist/` para tener un build 100% reproducible.
-
----
-date: 2026-06-04
-agent: qa
-category: pattern
-tags: [prevencion, hardcodeo, pre-commit, plugin, seguridad-tooling]
-slug: prevencion-hardcodeos-tres-capas-enforcement
----
-
-**Contexto**: después de corregir 8 hardcodeos de portabilidad en el harness, implementamos un sistema de prevención para que nunca más vuelvan a ocurrir.
-
-**Qué pasó**: los hardcodeos previos (paths absolutos, sockets, nombres de contenedor) entraron al repo sin ninguna validación mecánica. Los agentes de IA tenían reglas escritas contra hardcodeos pero no había enforcement real.
-
-**Lección**: tres capas de defensa son mejor que una. Capa 1 (plugin opencode en tiempo real): el agente recibe feedback inmediato al intentar escribir un hardcodeo. Capa 2 (pre-commit hook): bloquea commits que introduzcan hardcodeos. Capa 3 (script standalone): permite auditorías manuales y CI. Compartir los patrones en un JSON centralizado (`.opencode/pipeline/hardcode-patterns.json`) evita duplicación entre la lógica bash y JS. La allowlist (`# hardcode-ok:`) es esencial para documentación y tests que legítimamente contienen ejemplos de hardcodeos.
-
-**Cómo aplicar**: para todo proyecto con agentes de IA que generan código: (1) definir patrones de hardcodeo en un archivo centralizado, (2) validar en pre-commit, (3) si usás opencode, extender el pipeline-enforcer para feedback en tiempo real, (4) siempre incluir una allowlist para falsos positivos legítimos.
-
----
-date: 2026-06-04
-agent: backend
-category: setup
-tags: [podman, docker, compose, makefile, dev-env]
-slug: podman-compose-delegates-to-docker-compose-breaking-make-dev
----
-
-**Contexto**: `make dev` fallaba en macOS con Podman ya corriendo. El error era `Cannot connect to the Docker daemon at tcp://localhost:2375/...`.
-
-**Qué pasó**: El Makefile detectaba `podman` y usaba `podman compose`, pero `podman compose` tiene una feature de delegación que busca un "external compose provider". En este caso encontró `/usr/local/bin/docker-compose` (Docker Compose v5.1.3, instalado vía Homebrew) y delegó en él. Ese binario es de Docker, no de Podman, e intentó hablar con el Docker daemon en vez de con Podman → falló. Adicionalmente, el Makefile seteaba `DOCKER_HOST` sin prefijo `unix://`, lo que confundía aún más a Docker Compose v5.
-
-Por otro lado, existe `podman-compose` (script Python en `/opt/homebrew/bin/podman-compose`) que habla directo con el CLI de Podman y **no delega** a ningún provider externo.
-
-**Lección**: **Siempre preferir `podman-compose` (Python) sobre `podman compose` (subcomando CLI)** en entornos macOS donde puede coexistir Docker Compose. `podman-compose` no necesita DOCKER_HOST porque usa el CLI de Podman. Si se usa `docker compose` como fallback, DOCKER_HOST debe llevar prefijo `unix://`.
-
-**Cómo aplicar**: en todo Makefile o script de CI que detecte motores de contenedores, el orden de preferencia debe ser: `podman-compose` → `podman compose` → `docker compose`. Verificar con `make help` que COMPOSE resuelva a `podman-compose`. Si hay un `docker-compose` intruso en el PATH y no se necesita, considerar desinstalarlo o renombrarlo para forzar a `podman compose` a usar su propio backend.
-
----
-date: 2026-06-04
-agent: backend
-category: api-gotcha
-tags: [typescript, nestjs, build, incremental, tsbuildinfo]
-slug: tsbuildinfo-stale-blocks-build-emission
----
-
-**Contexto**: `pnpm dev` fallaba con `Cannot find module dist/main` a pesar de que tsc reportaba "Found 0 errors" en watch mode.
-
-**Qué pasó**: `tsconfig.base.json` tiene `incremental: true`. Esto genera archivos `*.tsbuildinfo` que cachean el estado de compilación. Nest CLI tiene `deleteOutDir: true` en `nest-cli.json` que borra `dist/` antes de cada build, pero el `.tsbuildinfo` vive **fuera** de `dist/` (en la raíz del proyecto, junto al `tsconfig`). Cuando `dist/` se borra pero el `.tsbuildinfo` sobrevive, tsc cree que todo está compilado y no emite archivos — resultando en "0 errors" pero sin `dist/main.js`.
-
-**Lección**: El incremental build cache de TypeScript puede desincronizarse del output si el directorio de salida se limpia por un mecanismo externo a tsc (ej. Nest CLI's `deleteOutDir`). Para prevenir esto: **limpiar `tsconfig*.tsbuildinfo` antes de cada `build`/`dev`** en los scripts de package.json.
-
-**Cómo aplicar**: Los scripts `build` y `dev` de los 3 servicios backend ahora empiezan con `rm -rf tsconfig*.tsbuildinfo &&` antes de invocar a nest. Esto garantiza una compilación limpia cada vez, al costo de perder el cache incremental (aceptable en desarrollo; la recompilación completa toma ~2s).
-
----
-date: 2026-06-04
-agent: backend
-category: api-gotcha
-tags: [makefile, nestjs, build, tsbuildinfo, incremental]
-slug: makefile-tsbuildinfo-wrong-filename
----
-
-**Contexto**: `make dev` fallaba con "connection refused" en el `authorization-service`. El log mostraba `Cannot find module dist/main`, pero `nest build` salía con exit 0 y sin errores.
-
-**Qué pasó**: El Makefile usaba `rm -f tsconfig.tsbuildinfo` antes de `nest build`. Pero `authorization-service` tiene `tsconfig.build.json` (no `tsconfig.json`), por lo que TypeScript genera `tsconfig.build.tsbuildinfo`. El archivo a borrar (`tsconfig.tsbuildinfo`) era el equivocado: no existía nunca, y el real (`tsconfig.build.tsbuildinfo`) sobrevivía, haciendo que TypeScript creyera que todo estaba compilado. `deleteOutDir: true` borraba `dist/`, pero al no recompilarse nada, `node dist/main` fallaba.
-
-**Lección**: Al limpiar caches de TypeScript en scripts de build, usar **wildcard** (`tsconfig*.tsbuildinfo`) en lugar de nombres fijos. El nombre del `.tsbuildinfo` deriva del nombre del `tsconfig` usado: `tsconfig.json` → `tsconfig.tsbuildinfo`, `tsconfig.build.json` → `tsconfig.build.tsbuildinfo`, `tsconfig.spec.json` → `tsconfig.spec.tsbuildinfo`. Distintos servicios pueden usar distintos tsconfigs.
-
-**Cómo aplicar**: Los 3 servicios en el Makefile ahora usan `rm -f tsconfig*.tsbuildinfo`. Esto cubre cualquier combinación de tsconfigs sin necesidad de saber cuál usa cada servicio. Misma lógica que ya se aplicó en los scripts `build`/`dev` de package.json (ver entrada anterior).
-
----
-date: 2026-06-04
 agent: bugfix
 category: pattern
 tags: [react-native, state-management, sse, mobile]
@@ -878,61 +691,6 @@ slug: opencode-multi-model-subagents-go
 ---
 
 ---
-date: 2026-06-06
-agent: architect
-category: pattern
-tags: [learnings, skills, self-improvement, pipeline, automation]
-slug: learnings-skills-self-improvement-loop
----
-
-**Contexto**: creando un loop de automejora donde los aprendizajes de LEARNINGS.md se extraen automáticamente en skills específicos por subagente (qa, backend, frontend, architect), evitando que cada agente lea 877 líneas de LEARNINGS.md.
-
-**Qué pasó**: se implementó un sistema de 3 capas:
-1. **Skills por agente** (`.claude/skills/{agent}-learnings/SKILL.md`) con secciones "Reglas activas" (auto-promovidas) y "Lecciones recientes" (últimas 5).
-2. **Script extractor** (`scripts/extract-learnings.ts`) que parsea la última entrada de LEARNINGS.md y actualiza el skill correspondiente. Idempotente: si el slug ya existe, lo promueve a "Reglas activas" en lugar de duplicar.
-3. **Disparadores automáticos**: (a) plugin pipeline-enforcer.js hook `tool.execute.after` spawns el script al detectar close-pending.json, (b) Stop hook en `.claude/settings.json` ejecuta el script condicionalmente, (c) step 4b en close.md como fallback manual.
-
-**Lección**: para que un sistema de auto-mejora sea efectivo, debe ser **automático** (el agente no necesita recordar ejecutarlo), **idempotente** (ejecutar 2 veces no duplica), y **promover** (lecciones que se repiten suben de "reciente" a "regla activa"). La extracción debe ser fault-tolerant: si falla, no bloquea el pipeline — solo loggea un warning.
-
-**Cómo aplicar**: al diseñar cualquier loop de aprendizaje automático en un sistema de agentes: (1) usar skills como caché de conocimiento específico por rol, (2) el trigger debe ser automático vía hooks (plugin + Claude Code Stop), (3) el script extractor debe ser standalone (sin dependencias externas), (4) el fallback manual en el checklist de cierre asegura que el loop nunca se rompa completamente.
-
----
-date: 2026-06-06
-agent: architect
-category: pattern
-tags: [keycloak, openldap, oidc, ropc, nestjs, hexagonal, mobile]
-slug: keycloak-openldap-auth-hexagonal-pattern
----
-
-**Contexto**: implementación de login con Active Directory federado vía Keycloak + OpenLDAP simulado, siguiendo arquitectura hexagonal en el BFF.
-
-**Qué pasó**: el BFF no tenía estructura hexagonal previa para auth. Se creó siguiendo el patrón existente del `authorization-service`:
-- Port `IAuthenticationPort` con método `authenticate(employeeId, password): Promise<AuthResult>`
-- Adapter `KeycloakAuthenticationAdapter` usando `HttpService` de `@nestjs/axios`
-- Binding port→adapter en `auth.module.ts` vía `useFactory` con `HttpService` + `ConfigService` inyectados
-- Excepciones de dominio mapeadas a HTTP en el controller (no en el adapter)
-
-**Lección**: para integrar un proveedor OIDC externo (Keycloak) en un BFF NestJS hexagonal, el adapter debe usar `isAxiosError()` (no `instanceof AxiosError`) porque en tests los mocks son objetos planos. El `KeycloakAuthenticationAdapter` debe recibir `keycloakUrl`, `realm`, `clientId`, `clientSecret` como strings simples inyectados desde `ConfigService`, no hardcodeados en el adapter.
-
-**Cómo aplicar**: al agregar cualquier integración HTTP externa en el BFF o authorization-service: (1) definir port en `domain/ports/`, (2) adapter usa `HttpService` + `isAxiosError`, (3) binding en módulo con `useFactory` + `ConfigService`, (4) test del adapter mockea `httpService.post` con `throwError(() => ({ isAxiosError: true, response: { status, data } }))`.
-
----
-date: 2026-06-06
-agent: frontend
-category: pattern
-tags: [react-native, asyncstorage, session, jwt, gluestack]
-slug: rn-asyncstorage-mock-jest-hoisting
----
-
-**Contexto**: actualización del `SessionContext` para usar token JWT real desde AsyncStorage; los tests de App rompieron.
-
-**Qué pasó**: al mockear `AsyncStorage` en `App.test.tsx` usando una variable externa (`mockGetItem`), el mock no funcionaba porque las factories de `jest.mock` son hoisteadas pero las variables del scope del test no están disponibles en el factory. Esto causaba que `SessionProvider` recibiera `undefined` en lugar del mock, mostrando la pantalla de login en lugar del contenido esperado. Además, `bffClient` pasó de `fetch(url)` a `fetch(url, { headers })` por el header `Authorization` automático, rompiendo los `toHaveBeenCalledWith` que esperaban un solo argumento.
-
-**Lección**: en Jest + React Native, los mocks de módulos nativos (AsyncStorage) deben definirse inline en la factory de `jest.mock`, no referenciando variables externas. Los tests que verifican llamadas a `fetch` deben actualizarse cuando se agregan headers automáticos.
-
-**Cómo aplicar**: al modificar `bffClient` o cualquier utilidad que cambie la firma de `fetch`: (1) buscar todos los `toHaveBeenCalledWith` sobre `global.fetch` en tests, (2) agregar `expect.any(Object)` como segundo argumento si ahora se pasan headers. Para mocks de AsyncStorage: usar `jest.fn().mockResolvedValue(...)` directamente dentro de la factory.
-
----
 date: 2026-06-08
 agent: architect + backend + frontend
 category: pattern
@@ -967,19 +725,6 @@ slug: mejora-pipeline-validacion-empirica
 
 ---
 date: 2026-06-08
-agent: frontend
-category: api-gotcha
-tags: [react-native, android, safe-area, statusbar, edge-to-edge]
-slug: header-solapado-status-bar-android
----
-
-**Contexto**: el header (`☰ Solicitudes`) se dibujaba debajo del reloj/íconos del sistema en Android.
-**Qué pasó**: `SafeAreaView` de `react-native` es un **no-op en Android** (solo iOS aplica insets). Con `targetSdkVersion = 35` (Android 15) la status bar es edge-to-edge y el contenido se dibuja detrás; `StatusBar backgroundColor` no reserva espacio.
-**Lección**: para inset superior en Android sin dependencia nativa, aplicar `paddingTop: StatusBar.currentHeight ?? 0` al contenedor, **leído en tiempo de render** (no en `StyleSheet.create`, que se evalúa una sola vez al importar y rompe la testabilidad). `currentHeight` es Android-only (iOS → `undefined` → `0`, donde el `SafeAreaView` nativo ya resuelve). Cambio JS puro, sin rebuild.
-**Cómo aplicar**: cualquier pantalla con header propio en esta app. Si en el futuro se necesitan insets de notch/cutout/bottom robustos, evaluar `react-native-safe-area-context` (requiere rebuild + linking). Testear con `getByTestId(...).toHaveStyle({ paddingTop })` tras setear `StatusBar.currentHeight` en `beforeEach`.
-
----
-date: 2026-06-08
 agent: claude
 category: setup
 tags: [coordinacion, claude-code, opencode, git, hooks, working-tree]
@@ -990,103 +735,6 @@ slug: coordinacion-sesiones-working-tree-compartido
 **Qué pasó**: no había ningún mecanismo que avisara/bloqueara operaciones git destructivas (`checkout -f`, `reset --hard`, `clean -f`) cuando el árbol compartido tenía cambios pendientes.
 **Lección**: la protección efectiva NO es un lock complejo entre herramientas, sino un guard tool-agnóstico que bloquea operaciones git destructivas **cuando `git status --porcelain` no está vacío**. Como el árbol es compartido, proteger "árbol sucio" protege a ambas sesiones por construcción. Implementado en `.opencode/pipeline/coordination.sh` (`guard-git`), cableado en Claude Code vía `PreToolUse(Bash)` y en opencode vía plugin. Estado compartido en `coordination.json` (gitignored).
 **Cómo aplicar**: para detectar comandos en un string sin parser de shell, anclar el match a posición de comando (`(^|[;&|(])` + comando) para no matchear menciones en comillas; aun así quedan falsos positivos con separadores dentro de comillas → ofrecer override (`COORD_OVERRIDE=1`). Defensa de fondo > precisión perfecta: commitea o `git stash -u` antes de cambiar de contexto. La lección operativa más barata: **commitear temprano** protege contra clobbers de sesiones concurrentes (es lo que cortó la sangría aquí).
-
----
-date: 2026-06-08
-agent: frontend
-category: pattern
-tags: [auth, integracion, merge, react-native, session, gate]
-slug: reintegrar-login-huerfano-en-app-tsx
----
-
-**Contexto**: tras varios merges entre sesiones concurrentes (hamburguesa + login Keycloak), `App.tsx` quedó en la versión hamburguesa y el flujo de login (LoginScreen/useLogin/SessionContext token-based) quedó huérfano: los archivos existían pero nada los usaba. Además `SessionContext` había sido revertido a la versión simple sin `isAuthenticated`.
-**Qué pasó**: integrar = restaurar el `SessionContext` token-based (lee `access_token`, decodifica JWT, expone `isAuthenticated`/`isInitializing`) + un gate `AuthenticatedApp` en `App.tsx` (Spinner mientras inicializa → LoginScreen si no auth → SupervisorApp si auth). Para que login y logout transicionen, se expuso `refresh()` en el contexto y `useLogout` recibió un callback `onLoggedOut`.
-**Lección**: cuando un gate de auth envuelve la app, TODOS los tests que renderizan `<App/>` y esperan la pantalla interna deben mockear sesión autenticada (`AsyncStorage.getItem→token` + `jwtDecode→claims`) y usar `waitFor` (el gate es async por el `useEffect` que lee el token). En emulador, un token viejo en AsyncStorage (de otra sesión) hace que el gate salte directo a la app — usar `adb shell pm clear <pkg>` para validar el estado no-autenticado.
-**Cómo aplicar**: al reconciliar dos features que tocan el mismo entrypoint (`App.tsx`), no basta con que los archivos de ambas existan; hay que verificar el WIRING en el entrypoint. El guard de coordinación de sesiones previene la causa raíz (clobber entre sesiones), pero la auditoría del wiring post-merge sigue siendo manual.
-
----
-date: 2026-06-10
-agent: frontend
-category: test-strategy
-tags: [detox, e2e, testid, mock-server, typescript, react-native]
-slug: detox-e2e-testids-y-mock-server-js-ts-declarations
----
-
-**Contexto**: configurando Detox E2E por primera vez para apps/mobile. Se necesitó agregar testIDs en 4 componentes (AuthorizationList, AuthorizationCard, AuthorizationDetailScreen, App.tsx) y crear un mock server Express en JS para las suites E2E.
-
-**Qué pasó**: 
-1. Los testIDs existentes no cubrían el flujo Detox completo. Falta de `authorize-button`, `reject-button`, `back-button`, `empty-list-text` bloqueaba los tests E2E. El `testID` de `AuthorizationCard` era fijo (`authorization-card`) en vez de dinámico (`card-{correlation_id}`), impidiendo identificar cards individuales.
-2. El mock server (`e2e/mock-server/index.js`) era JS, pero las suites E2E son TypeScript. El typecheck fallaba con `TS7016: Could not find a declaration file for module` hasta que se creó `index.d.ts` con las firmas de `startServer`/`stopServer`.
-
-**Lección**: 
-1. **Siempre** verificar que cada elemento interactivo de la UI que será targeteado por `by.id()` tenga un `testID` único. Para listas dinámicas, usar IDs compuestos (ej. `card-{correlation_id}`), no fijos. Documentar los testIDs esperados en el spec (US-03/04/05 ya los listan).
-2. Cuando se importan módulos JS desde suites TypeScript (mock server, helpers), crear `.d.ts` con las firmas exportadas. Con `strict: true` en tsconfig, TypeScript exige tipos para todo import JS.
-
-**Cómo aplicar**: 
-1. Antes de escribir tests Detox, hacer un audit de testIDs: listar cada `by.id()` del test y confirmar que el componente correspondiente lo declara. Si falta, agregarlo en el mismo scope que el test.
-2. Para cualquier módulo JS importado desde TS en e2e/: crear `index.d.ts` con `export function name(...): ReturnType`. No usar `declare module` — TypeScript lo trata como ambient module y falla con `TS2306: File is not a module`.
-
----
-date: 2026-06-10
-agent: architect
-category: api-gotcha
-tags: [mobile, bff, routing, url-mismatch]
-slug: mobile-hook-url-vs-bff-controller-prefix
----
-
-**Contexto**: implementando historial de autorizaciones. El hook `useRequestHistory` llamaba a `/api/requests/history` (ruta inventada con prefijo `/api/`), pero el BFF expone el endpoint en `/authorization/requests/history` (sin prefijo `/api/`).
-
-**Qué pasó**: La inconsistencia de URL pasó desapercibida porque los tests del hook mockean `bffClient.get` sin verificar la URL exacta. El endpoint funcionaba en desarrollo por algún proxy o porque nunca se probó end-to-end con el BFF real.
-
-**Lección**: **Siempre** validar las rutas de los hooks mobile contra los `@Controller()` prefixes reales del BFF. No asumir prefijos como `/api/`. El architect (ver accionable A5) debe verificar las rutas en el spec leyendo los controllers existentes.
-
-**Cómo aplicar**: 
-1. En el paso de arquitectura, leer `@Controller('prefix')` del BFF y verificar que coincida con las URLs en los hooks mobile.
-2. En los tests del hook, validar la URL exacta esperada (incluyendo el path completo), no solo que `bffClient.get` fue llamado.
-
----
-date: 2026-06-10
-agent: qa
-category: test-strategy
-tags: [typescript, ts-expect-error, test-cleanup, red-phase]
-slug: cleanup-ts-expect-error-after-red-phase
----
-
-**Contexto**: en FASE RED, se usó `@ts-expect-error` en `useRequestHistory.test.ts` porque el parámetro `supervisorId` aún no existía en la firma del hook. Tras implementar en FASE 4, el directive quedó como artifact.
-
-**Qué pasó**: El typecheck falló con `TS2578: Unused '@ts-expect-error' directive` porque el parámetro ya existía y TypeScript ya no suprimía ningún error. Esto bloqueó el avance a FASE GREEN hasta que se eliminó manualmente.
-
-**Lección**: **Siempre** hacer una pasada de limpieza de `@ts-expect-error` después de la implementación. Los directives de FASE RED deben eliminarse en FASE 4. El typecheck es el guardián — si falla con `Unused '@ts-expect-error'`, es señal de que la implementación arregló lo que el directive esperaba.
-
-**Cómo aplicar**:
-1. En FASE 4 (implementación), después de hacer los cambios, hacer `rg '@ts-expect-error'` en los archivos de test modificados y eliminar los directives que ya no aplican.
-2. El agente implementador debe correr typecheck antes de marcar su paso como completado.
-
----
-
----
-date: 2026-06-10
-agent: architect
-category: spec-process
-tags: [multi-scope, parallelization, task-agent, pipeline]
-slug: multi-scope-parallel-coordination
----
-
-**Contexto**: procesando el spec `2026-06-08-mejora-pipeline-validacion-empirica` con 3 USTs (US-01, US-02, US-03). US-01 y US-03 eran capa 1 (independientes), US-02 capa 2 (dependiente de ambas).
-
-**Qué pasó**: Se lanzaron 2 task agents en paralelo sobre la misma rama `feature/mejora-pipeline-validacion-empirica` para capa 1. Ambos trabajaron en archivos diferentes y no hubo conflictos. Para capa 2, un solo task agent secuencial. El cierre (merge a dev, PR, LEARNINGS, archivado de spec) fue coordinado por el agente padre.
-
-**Lección**: La paralelización multi-scope funciona cuando:
-- Cada sub-agente recibe instrucciones explícitas de NO merge a dev, NO push, NO PR
-- Los archivos a modificar no se solapan entre scopes de la misma capa
-- El cierre es coordinado centralmente por el orquestador
-- El working tree debe estar limpio antes de cada merge (stash si es necesario)
-
-**Cómo aplicar**:
-1. Usar `task` tool con `subagent_type: architect` para cada scope de capa 1
-2. Incluir en el prompt: archivos exactos a modificar, instrucción de no cerrar, hash del commit base
-3. Después de que todos los sub-agentes terminen, verificar `git log`, correr `pnpm typecheck`, y coordinar el cierre único
-4. Si hay dirty files de pipeline state/close-pending entre pasos, commitearlos como chores
 
 ---
 date: 2026-06-10
@@ -1112,3 +760,4 @@ slug: pipeline-improvements-2026-06-10
 1. Antes de iniciar cualquier feature, ejecutar `bash .opencode/pipeline/pre-spec.sh` — si falla por feature/fix commits en dev, abrir PR dev→main
 2. Al preparar instrucciones para backend/frontend, validar con `npx tsx scripts/validate-agent-instructions.ts <archivo>` antes de enviar
 3. Escribir specs y prompts de agentes en inglés; mantener conversación con el usuario en el idioma inicial
+
