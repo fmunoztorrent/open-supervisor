@@ -4,12 +4,33 @@
   },
   "scopes": {
     "main": {
-      "active": true,
+      "active": false,
       "type": "feature",
       "step": 6,
       "name": "main",
       "pipelineStep": "Implementación",
       "started_at": "2026-06-11T00:27:23.432Z",
+      "completed_at": "2026-06-11T00:43:28.163Z"
+    },
+    "feature-validacion-empirica": {
+      "active": true,
+      "type": "feature",
+      "step": 2,
+      "started_at": "2026-06-11T00:43:28.167Z",
+      "completed_at": null
+    },
+    "feature-accionables-agentes": {
+      "active": true,
+      "type": "feature",
+      "step": 2,
+      "started_at": "2026-06-11T00:43:28.167Z",
+      "completed_at": null
+    },
+    "feature-automejora-postcierre": {
+      "active": false,
+      "type": null,
+      "step": 0,
+      "started_at": null,
       "completed_at": null
     }
   },
