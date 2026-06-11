@@ -6,6 +6,9 @@
     "ignore": ["spec/archived/**"]
   },
   "default_agent": "pipeline",
+  "permission": {
+    "edit": "allow"
+  },
   "mcp": {
     "figma": {
       "type": "local",
