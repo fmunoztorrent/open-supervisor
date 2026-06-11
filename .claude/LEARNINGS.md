@@ -873,3 +873,27 @@ slug: sonarqube-2026-forceauthentication-default-admin-rejected
 
 **Cómo aplicar**: en cualquier workflow de CI que use SonarQube como service container, agregar `SONAR_FORCEAUTHENTICATION: "false"` al bloque `env` del servicio y eliminar `-Dsonar.login`/`-Dsonar.password` de los comandos del scanner. Para curl a la API, remover `-u admin:admin`.
 
+---
+date: 2026-06-11
+agent: principal
+category: pattern
+tags: [sonarqube, ci, docker, github-actions, authentication]
+slug: sonarqube-ephemeral-bootstrap-create-projects-before-scanner
+---
+
+**Contexto**: después de deshabilitar `forceAuthentication` en SonarQube 2026.x, el scanner seguía fallando con "not authorized to create project". El scanner necesita que el proyecto exista o poder crearlo, pero los usuarios anónimos no tienen permiso `Create Projects` incluso con `forceAuthentication=false`.
+
+**Qué pasó**: `sonar.forceAuthentication=false` permite acceso anónimo de LECTURA a la API (status, quality gates, CE component), pero las operaciones de ESCRITURA como crear proyectos siguen requiriendo autenticación. El scanner intenta crear el proyecto si no existe, y falla como anónimo.
+
+**Lección**: para contenedores efímeros de SonarQube en CI, el patrón completo requiere dos pasos: (1) `forceAuthentication=false` para acceso de lectura a la API, (2) un paso de bootstrap que extrae el password admin de los logs del contenedor y crea los proyectos vía `POST /api/projects/create` antes de ejecutar el scanner. El scanner luego solo necesita analizar proyectos existentes (funciona sin credenciales).
+
+**Cómo aplicar**: 
+1. Agregar `SONAR_FORCEAUTHENTICATION: "false"` al service container
+2. Agregar un paso "Bootstrap SonarQube" que:
+   - Encuentre el container ID: `docker ps -q --filter "expose=9000"`
+   - Extraiga el password: `docker logs $CID | grep -oP 'Default admin password:\s*\K\S+'`
+   - Cree proyectos: `curl -u admin:$PASS -X POST /api/projects/create?name=X&project=X`
+   - Tenga fallback a `admin/admin` si la extracción falla
+3. El scanner se ejecuta sin credenciales (proyectos ya existen)
+4. El Quality Gate polling usa curl sin `-u` (forceAuthentication=false)
+
