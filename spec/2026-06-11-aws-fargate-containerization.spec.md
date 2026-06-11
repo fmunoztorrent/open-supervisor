@@ -131,11 +131,11 @@ The monorepo structure (pnpm workspaces) requires that shared packages (`shared-
 > Como **desarrollador de infraestructura**, quiero **Dockerfiles multi-stage para authorization-service, sse-server y bff**, para que **cada servicio se compile con sus dependencias de monorepo y produzca una imagen de producción mínima**.
 
 **Criterios de aceptación:**
-- [ ] `apps/authorization-service/Dockerfile` — multi-stage (deps → build → production), Node.js 24 Alpine, compila `shared-types` + `shared-messaging` antes de `nest build`
-- [ ] `apps/sse-server/Dockerfile` — mismo patrón, compila `shared-messaging` antes de `nest build`
-- [ ] `apps/bff/Dockerfile` — mismo patrón, compila `shared-types` antes de `nest build`
-- [ ] `.dockerignore` en la raíz del monorepo excluye `node_modules`, `dist`, `.git`, `apps/mobile`, `coverage`, `spec/`, `collections/`
-- [ ] `docker build -f apps/<service>/Dockerfile .` desde la raíz produce una imagen funcional (verificable con `docker run` + curl al health endpoint)
+- [x] `apps/authorization-service/Dockerfile` — multi-stage (deps → build → production), Node.js 24 Alpine, compila `shared-types` + `shared-messaging` antes de `nest build`
+- [x] `apps/sse-server/Dockerfile` — mismo patrón, compila `shared-messaging` antes de `nest build`
+- [x] `apps/bff/Dockerfile` — mismo patrón, compila `shared-types` antes de `nest build`
+- [x] `.dockerignore` en la raíz del monorepo excluye `node_modules`, `dist`, `.git`, `apps/mobile`, `coverage`, `spec/`, `collections/`
+- [x] `docker build -f apps/<service>/Dockerfile .` desde la raíz produce una imagen funcional (verificable con `docker run` + `require()` de shared packages)
 
 **Notas:** El contexto de build es la raíz del monorepo (`.`) porque pnpm necesita `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `tsconfig.base.json` y los packages compartidos. El patrón de capas de caché copia primero `package.json` + `pnpm-lock.yaml` + `pnpm-workspace.yaml`, luego `pnpm install --frozen-lockfile`, luego el código fuente, y finalmente compila. La imagen final solo incluye `dist/` + `node_modules` de producción (sin `devDependencies`). El `CMD` debe ser `["node", "dist/main.js"]`.
 
