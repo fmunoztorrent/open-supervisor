@@ -777,3 +777,51 @@ slug: ci-cd-and-pre-commit-test-validation
 
 **Cómo aplicar**: al agregar validación de tests a hooks de git, nunca correr la suite completa. Mapear `git diff --cached --name-only` contra `pnpm-workspace.yaml` para determinar qué packages están afectados. Si `shared-types` cambia, correr tests en todos los consumers.
 
+---
+date: 2026-06-10
+agent: architect
+category: pattern
+tags: [docker, arm64, sonarqube, apple-silicon, verification]
+slug: verify-multiarch-docker-images-before-recommending
+---
+
+**Contexto**: validando viabilidad de SonarQube Community Edition para desarrollo en Apple Silicon. El spec asumía que sería necesario emular con `--platform linux/amd64` via Rosetta.
+
+**Qué pasó**: la API de Docker Hub (`hub.docker.com/v2/repositories/library/sonarqube/tags`) confirmó que todas las versiones recientes de SonarQube Community Edition (9.x, 25.x, 26.x) tienen imágenes nativas `arm64` con variante `v8`. El workaround de emulación era innecesario. Por otro lado, `sonarsource/sonar-scanner-cli` SÍ es amd64-only — para ese hay que usar el wrapper npm.
+
+**Lección**: antes de asumir que una imagen Docker no tiene soporte arm64, verificar con la API de Docker Hub. La mayoría de imágenes oficiales hoy son multi-arch. Consultar `https://hub.docker.com/v2/repositories/<namespace>/<repo>/tags?name=<filter>&page_size=20` y buscar `"architecture":"arm64"` en los resultados.
+
+**Cómo aplicar**: en el paso de architect, para cualquier nueva dependencia Docker, hacer un `webfetch` a la API de tags de Docker Hub y verificar explícitamente qué arquitecturas están disponibles. Documentar en la sección de viabilidad del spec enriquecido. Si solo amd64 está disponible, especificar el workaround exacto (`--platform linux/amd64` para Docker, o wrapper alternativo como npm package para el scanner).
+
+---
+date: 2026-06-10
+agent: backend
+category: api-gotcha
+tags: [jest, ts-jest, __dirname, path-resolution, sonarqube]
+slug: ts-jest-dirname-resolution-for-fixture-files
+---
+
+**Contexto**: escribiendo tests que validaban la existencia de `sonar-project.properties` usando `fs.existsSync` y `fs.readFileSync` con `resolve(__dirname, '../../', ...)`.
+
+**Qué pasó**: `__dirname` en ts-jest apunta al directorio del archivo fuente `.ts`, no a `dist/` ni a la raíz del proyecto. Usar `resolve(__dirname, '..', 'package.json')` desde `<service>/src/sonar-config.spec.ts` resuelve correctamente a `<service>/package.json`. Usar `resolve(__dirname, '../..', ...)` desde el mismo archivo sube de más (resuelve a `apps/` en lugar del service root).
+
+**Lección**: en ts-jest (transpilación in-memory), `__dirname` siempre es el directorio del archivo `.ts` fuente. Para calcular la raíz de un servicio desde `src/`, usar `resolve(__dirname, '..')`. Un nivel extra de `..` rompe la ruta. Esto difiere de Jest con Babel, donde `__dirname` puede ser `dist/`.
+
+**Cómo aplicar**: al leer archivos del service root desde tests en `src/`, usar `resolve(__dirname, '..', '<archivo>')` — no `resolve(__dirname, '../..', ...)`. Probar con un `existsSync` antes de asumir que la ruta es correcta.
+
+---
+date: 2026-06-10
+agent: backend
+category: pattern
+tags: [sonarqube, quality-gate, spec, architect-contract]
+slug: quality-gate-metric-names-match-architect-contract-over-criteria
+---
+
+**Contexto**: implementando US-03 (Quality Gate) del spec SonarQube. Las condiciones de aceptación en las historias de usuario mencionaban "Blocker Bugs > 0" y "Critical Bugs > 0" sin el prefijo `new_`.
+
+**Qué pasó**: el contrato TypeScript detallado en el spec (sección "Archivos a crear/modificar") usaba `new_blocker_violations` y `new_critical_violations` — con prefijo `new_`. Seguir el contrato del arquitecto vs las criteria de las historias significaba elegir entre dos interpretaciones. El arquitecto tenía razón: en SonarQube, las quality gates operan sobre "New Code" por defecto, y los nombres `new_*` son los que aparecen en el API de quality gates.
+
+**Lección**: cuando hay discrepancia entre las historias de usuario (que usan lenguaje funcional) y el contrato detallado del arquitecto (que especifica nombres de API exactos), el contrato del arquitecto es la fuente autoritativa. Los tests RED deben validar contra los nombres exactos del contrato, no contra la interpretación funcional de las criteria.
+
+**Cómo aplicar**: al escribir tests RED para configuraciones de API (JSON, propiedades, endpoints), leer cuidadosamente la sección "Archivos a crear/modificar" del spec — ahí están los nombres exactos que el arquitecto validó. Actualizar los tests si la sección de criteria usa nombres genéricos que difieren del contrato detallado.
+
