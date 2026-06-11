@@ -65,7 +65,8 @@ COPY --from=build /app/apps/sse-server/dist/ /app/apps/sse-server/dist/
 
 # Deploy production dependencies only
 # pnpm deploy --prod resolves workspace:* as flat copies (no symlinks)
-RUN pnpm --filter @open-supervisor/sse-server deploy --prod --legacy /app/prod
+RUN pnpm --filter @open-supervisor/sse-server deploy --prod --legacy /app/prod \
+    && rm -rf /root/.local/share/pnpm/store /root/.npm /root/.cache /tmp/* /opt/yarn*
 
 # Ensure dist files are present in the deployed directory
 COPY --from=build /app/packages/shared-messaging/dist/ /app/prod/node_modules/@open-supervisor/shared-messaging/dist/

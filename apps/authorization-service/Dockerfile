@@ -70,7 +70,8 @@ COPY --from=build /app/apps/authorization-service/dist/ /app/apps/authorization-
 
 # Deploy production dependencies only
 # pnpm deploy --prod resolves workspace:* as flat copies (no symlinks)
-RUN pnpm --filter @open-supervisor/authorization-service deploy --prod --legacy /app/prod
+RUN pnpm --filter @open-supervisor/authorization-service deploy --prod --legacy /app/prod \
+    && rm -rf /root/.local/share/pnpm/store /root/.npm /root/.cache /tmp/* /opt/yarn*
 
 # Ensure dist files are present in the deployed directory
 # (pnpm deploy copies source files, but dist/ is gitignored and may not exist in source)
