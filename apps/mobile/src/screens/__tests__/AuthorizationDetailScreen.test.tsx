@@ -268,4 +268,86 @@ describe('AuthorizationDetailScreen', () => {
       expect(screen.getByText(/ya rechazada/i)).toBeOnTheScreen();
     });
   });
+
+  // ─── FASE RED: Modo solo-lectura para historial (US-03, Flag #3) ────────
+  describe('modo solo-lectura (readonly)', () => {
+    // Helper para evitar errores de TS: el componente actual no acepta readonly,
+    // pero los tests de FASE RED deben poder pasar la prop para que fallen
+    // en runtime (el comportamiento no existe aún).
+    const DetailScreen = AuthorizationDetailScreen as React.FC<any>;
+
+    it('cuando readonly={true}, los botones Autorizar y Rechazar NO se renderizan — FASE RED', () => {
+      renderWithProvider(
+        <DetailScreen
+          request={basePriceChangeRequest}
+          isLoading={false}
+          onDecide={jest.fn()}
+          readonly={true}
+        />,
+      );
+
+      // En modo readonly, los botones de acción NO deben existir
+      // ← FALLA: el componente actual ignora readonly y renderiza los botones
+      expect(screen.queryByRole('button', { name: /autorizar/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /rechazar/i })).toBeNull();
+    });
+
+    it('cuando readonly={true}, muestra el estado resuelto (badge de estado)', () => {
+      renderWithProvider(
+        <DetailScreen
+          request={{ ...basePriceChangeRequest, resolved: 'APPROVED' }}
+          isLoading={false}
+          onDecide={jest.fn()}
+          readonly={true}
+        />,
+      );
+
+      // En modo readonly, el banner de estado resuelto debe mostrarse
+      expect(screen.getByText(/ya autorizada/i)).toBeOnTheScreen();
+    });
+
+    it('cuando readonly={false} (default), los botones SÍ se renderizan', () => {
+      renderWithProvider(
+        <DetailScreen
+          request={basePriceChangeRequest}
+          isLoading={false}
+          onDecide={jest.fn()}
+          readonly={false}
+        />,
+      );
+
+      // Comportamiento normal: los botones deben estar presentes
+      expect(screen.getByRole('button', { name: /autorizar/i })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: /rechazar/i })).toBeOnTheScreen();
+    });
+
+    it('cuando readonly={true} y la solicitud tiene resolved, muestra quién la resolvió', () => {
+      renderWithProvider(
+        <DetailScreen
+          request={{ ...basePriceChangeRequest, resolved: 'REJECTED', resolved_by: 'supervisor-A' } as any}
+          isLoading={false}
+          onDecide={jest.fn()}
+          readonly={true}
+        />,
+      );
+
+      // En modo readonly, debe mostrar el estado resuelto
+      expect(screen.getByText(/ya rechazada/i)).toBeOnTheScreen();
+    });
+
+    it('cuando readonly={true}, no llama a onDecide aunque se intente interactuar', () => {
+      const onDecide = jest.fn();
+      renderWithProvider(
+        <DetailScreen
+          request={basePriceChangeRequest}
+          isLoading={false}
+          onDecide={onDecide}
+          readonly={true}
+        />,
+      );
+
+      // No debería haber botones para presionar
+      expect(onDecide).not.toHaveBeenCalled();
+    });
+  });
 });

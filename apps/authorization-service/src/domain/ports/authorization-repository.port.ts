@@ -13,5 +13,5 @@ export interface IAuthorizationRepository {
    */
   findByCorrelationId(correlationId: string): Promise<AuthorizationRequest | null>;
   findPendingByStore(storeId: string): Promise<AuthorizationRequest[]>;
-  findResolvedByStore(storeId: string, status?: AuthorizationStatus): Promise<AuthorizationRequest[]>;
+  findResolvedByStore(storeId: string, status?: AuthorizationStatus, supervisorId?: string): Promise<AuthorizationRequest[]>;
 }

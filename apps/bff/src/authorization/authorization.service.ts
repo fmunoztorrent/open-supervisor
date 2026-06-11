@@ -33,10 +33,17 @@ export class AuthorizationService {
     }
   }
 
-  async getHistory(storeId: string, status?: string): Promise<unknown> {
+  async getHistory(storeId: string, status?: string, supervisorId?: string): Promise<unknown> {
     let url = `${this.authServiceUrl}/authorization/store/${storeId}/history`;
+    const params: string[] = [];
     if (status) {
-      url += `?status=${status}`;
+      params.push(`status=${status}`);
+    }
+    if (supervisorId) {
+      params.push(`supervisorId=${supervisorId}`);
+    }
+    if (params.length > 0) {
+      url += `?${params.join('&')}`;
     }
     try {
       const response = await firstValueFrom(this.http.get<unknown>(url));

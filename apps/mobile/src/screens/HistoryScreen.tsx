@@ -26,11 +26,15 @@ const FILTER_OPTIONS: { key: StatusFilter; label: string; testID: string }[] = [
 interface HistoryScreenProps {
   storeId: string;
   onBack: () => void;
+  supervisorId?: string;
+  onSelectRequest?: (request: AuthorizationRequestDto & { status: string }) => void;
 }
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   storeId,
   onBack,
+  supervisorId,
+  onSelectRequest = () => {},
 }) => {
   const {
     requests,
@@ -91,7 +95,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           >
             <AuthorizationCard
               request={request as RequestWithResolved}
-              onPress={() => {}}
+              onPress={() => onSelectRequest(request as AuthorizationRequestDto & { status: string })}
             />
           </Box>
         ))}

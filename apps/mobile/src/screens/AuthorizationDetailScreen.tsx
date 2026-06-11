@@ -19,6 +19,7 @@ interface AuthorizationDetailScreenProps {
   isLoading: boolean;
   onDecide: (decision: 'APPROVE' | 'REJECT') => void;
   error?: string | null;
+  readonly?: boolean;
 }
 
 const TYPE_COLORS: Record<RequestType, string> = {
@@ -74,6 +75,7 @@ export const AuthorizationDetailScreen: React.FC<AuthorizationDetailScreenProps>
   isLoading,
   onDecide,
   error,
+  readonly = false,
 }) => {
   const isDisabled = isLoading || !!request.resolved;
   const typeColor = TYPE_COLORS[request.type] ?? '#607D8B';
@@ -182,36 +184,38 @@ export const AuthorizationDetailScreen: React.FC<AuthorizationDetailScreenProps>
           </Box>
         )}
 
-        {/* Action buttons */}
-        <HStack style={{ padding: 16, gap: 12 }}>
-          <Button
-            testID="authorize-button"
-            accessibilityRole="button"
-            accessibilityLabel="Autorizar"
-            accessibilityState={{ disabled: isDisabled }}
-            isDisabled={isDisabled}
-            onPress={() => onDecide('APPROVE')}
-            style={{ flex: 1, paddingVertical: 14, borderRadius: 8 }}
-          >
-            {isLoading ? (
-              <ButtonSpinner testID="approve-button-spinner" />
-            ) : (
-              <ButtonText>Autorizar</ButtonText>
-            )}
-          </Button>
+        {/* Action buttons — hidden in readonly mode */}
+        {!readonly && (
+          <HStack style={{ padding: 16, gap: 12 }}>
+            <Button
+              testID="authorize-button"
+              accessibilityRole="button"
+              accessibilityLabel="Autorizar"
+              accessibilityState={{ disabled: isDisabled }}
+              isDisabled={isDisabled}
+              onPress={() => onDecide('APPROVE')}
+              style={{ flex: 1, paddingVertical: 14, borderRadius: 8 }}
+            >
+              {isLoading ? (
+                <ButtonSpinner testID="approve-button-spinner" />
+              ) : (
+                <ButtonText>Autorizar</ButtonText>
+              )}
+            </Button>
 
-          <Button
-            testID="reject-button"
-            accessibilityRole="button"
-            accessibilityLabel="Rechazar"
-            accessibilityState={{ disabled: isDisabled }}
-            isDisabled={isDisabled}
-            onPress={() => onDecide('REJECT')}
-            style={{ flex: 1, paddingVertical: 14, borderRadius: 8 }}
-          >
-            <ButtonText>Rechazar</ButtonText>
-          </Button>
-        </HStack>
+            <Button
+              testID="reject-button"
+              accessibilityRole="button"
+              accessibilityLabel="Rechazar"
+              accessibilityState={{ disabled: isDisabled }}
+              isDisabled={isDisabled}
+              onPress={() => onDecide('REJECT')}
+              style={{ flex: 1, paddingVertical: 14, borderRadius: 8 }}
+            >
+              <ButtonText>Rechazar</ButtonText>
+            </Button>
+          </HStack>
+        )}
       </ScrollView>
     </Box>
   );

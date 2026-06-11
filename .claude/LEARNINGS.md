@@ -1025,3 +1025,39 @@ slug: detox-e2e-testids-y-mock-server-js-ts-declarations
 **Cómo aplicar**: 
 1. Antes de escribir tests Detox, hacer un audit de testIDs: listar cada `by.id()` del test y confirmar que el componente correspondiente lo declara. Si falta, agregarlo en el mismo scope que el test.
 2. Para cualquier módulo JS importado desde TS en e2e/: crear `index.d.ts` con `export function name(...): ReturnType`. No usar `declare module` — TypeScript lo trata como ambient module y falla con `TS2306: File is not a module`.
+
+---
+date: 2026-06-10
+agent: architect
+category: api-gotcha
+tags: [mobile, bff, routing, url-mismatch]
+slug: mobile-hook-url-vs-bff-controller-prefix
+---
+
+**Contexto**: implementando historial de autorizaciones. El hook `useRequestHistory` llamaba a `/api/requests/history` (ruta inventada con prefijo `/api/`), pero el BFF expone el endpoint en `/authorization/requests/history` (sin prefijo `/api/`).
+
+**Qué pasó**: La inconsistencia de URL pasó desapercibida porque los tests del hook mockean `bffClient.get` sin verificar la URL exacta. El endpoint funcionaba en desarrollo por algún proxy o porque nunca se probó end-to-end con el BFF real.
+
+**Lección**: **Siempre** validar las rutas de los hooks mobile contra los `@Controller()` prefixes reales del BFF. No asumir prefijos como `/api/`. El architect (ver accionable A5) debe verificar las rutas en el spec leyendo los controllers existentes.
+
+**Cómo aplicar**: 
+1. En el paso de arquitectura, leer `@Controller('prefix')` del BFF y verificar que coincida con las URLs en los hooks mobile.
+2. En los tests del hook, validar la URL exacta esperada (incluyendo el path completo), no solo que `bffClient.get` fue llamado.
+
+---
+date: 2026-06-10
+agent: qa
+category: test-strategy
+tags: [typescript, ts-expect-error, test-cleanup, red-phase]
+slug: cleanup-ts-expect-error-after-red-phase
+---
+
+**Contexto**: en FASE RED, se usó `@ts-expect-error` en `useRequestHistory.test.ts` porque el parámetro `supervisorId` aún no existía en la firma del hook. Tras implementar en FASE 4, el directive quedó como artifact.
+
+**Qué pasó**: El typecheck falló con `TS2578: Unused '@ts-expect-error' directive` porque el parámetro ya existía y TypeScript ya no suprimía ningún error. Esto bloqueó el avance a FASE GREEN hasta que se eliminó manualmente.
+
+**Lección**: **Siempre** hacer una pasada de limpieza de `@ts-expect-error` después de la implementación. Los directives de FASE RED deben eliminarse en FASE 4. El typecheck es el guardián — si falla con `Unused '@ts-expect-error'`, es señal de que la implementación arregló lo que el directive esperaba.
+
+**Cómo aplicar**:
+1. En FASE 4 (implementación), después de hacer los cambios, hacer `rg '@ts-expect-error'` en los archivos de test modificados y eliminar los directives que ya no aplican.
+2. El agente implementador debe correr typecheck antes de marcar su paso como completado.
