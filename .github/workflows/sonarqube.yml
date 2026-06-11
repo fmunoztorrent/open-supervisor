@@ -4,10 +4,11 @@
 # and on push to `main` (to establish baseline for "New Code" comparison).
 #
 # Uses an ephemeral SonarQube Community Edition service container.
-# SonarQube 2026+ generates a random admin password on first startup.
-# A bootstrap step extracts it from container logs to create the three
-# projects via REST API. The scanner then runs without credentials
-# (forceAuthentication=false allows anonymous analysis of existing projects).
+# SonarQube Docker uses admin/admin as default credentials for the REST API.
+# A bootstrap step authenticates via curl -u admin:admin, generates a scanner
+# token (POST /api/user_tokens/generate), and creates the three projects.
+# The scanner uses the token (-Dsonar.token) since sonar.login is deprecated.
+# forceAuthentication=false allows anonymous Quality Gate API polling.
 #
 # Dependencies: sonar-project.properties per service (US-02),
 # Quality Gate definition applied to SonarQube (US-03).
@@ -77,63 +78,48 @@ jobs:
           pnpm --filter sse-server test --collectCoverage
 
       # ── Bootstrap SonarQube projects ────────────────────────────────────────
-      # SonarQube 2026+ generates a random admin password on first startup.
-      # The scanner cannot create projects as an anonymous user (even with
-      # forceAuthentication=false). We extract the password from container logs,
-      # create the three projects via REST API, and then the scanner only needs
-      # to analyze existing projects (works without credentials).
+      # SonarQube Docker image uses admin/admin as default credentials
+      # (docs.sonarsource.com). However, the scanner (sonar-scanner CLI)
+      # deprecated sonar.login/sonar.password in favour of sonar.token.
+      # We authenticate via REST API with admin/admin, generate a user token,
+      # create the three projects, and pass the token to the scanner.
 
-      - name: Bootstrap SonarQube — create projects
+      - name: Bootstrap SonarQube — create projects & generate token
         run: |
           set -e
+          AUTH="admin:admin"
+          BASE="http://localhost:9000"
 
-          echo "🔧 Extracting SonarQube admin password from container logs..."
+          echo "🔑 Generating scanner token..."
+          TOKEN_RESPONSE=$(curl -sf -u "$AUTH" \
+            -X POST "$BASE/api/user_tokens/generate?name=ci-scanner" || echo '{}')
+          SONAR_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.token // ""')
 
-          # Find the SonarQube container
-          CONTAINER_ID=$(docker ps -q --filter "expose=9000" --filter "status=running" | head -1)
-
-          if [ -z "$CONTAINER_ID" ]; then
-            echo "❌ SonarQube container not found"
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "❌ Failed to generate token"
+            echo "   Response: $TOKEN_RESPONSE"
             exit 1
           fi
+          echo "SONAR_TOKEN=$SONAR_TOKEN" >> $GITHUB_ENV
+          echo "✅ Token generated"
 
-          # Extract admin password from container logs
-          # SonarQube 2026+ logs: "Default admin password: <token>" or similar
-          ADMIN_PASSWORD=$(docker logs "$CONTAINER_ID" 2>&1 | \
-            grep -oP '(?:Default admin password|Admin password):\s*\K\S+' | tail -1 || echo "")
-
-          if [ -z "$ADMIN_PASSWORD" ]; then
-            echo "⚠️  Could not extract admin password from logs"
-            echo "   Trying default admin/admin..."
-            ADMIN_PASSWORD="admin"
-          else
-            echo "✅ Admin password extracted"
-          fi
-
-          # Create the three projects via REST API
           echo ""
           echo "📦 Creating SonarQube projects..."
-
           PROJECTS=(
             "open-supervisor-authorization-service"
             "open-supervisor-bff"
             "open-supervisor-sse-server"
           )
-
           for PROJECT in "${PROJECTS[@]}"; do
             echo "  Creating: $PROJECT"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              -u "admin:$ADMIN_PASSWORD" \
-              -X POST \
-              "http://localhost:9000/api/projects/create?name=${PROJECT}&project=${PROJECT}" || echo "000")
-
-            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
-              echo "    ✅ Created (HTTP $HTTP_CODE)"
-            elif [ "$HTTP_CODE" = "400" ]; then
-              echo "    ℹ️  Already exists (HTTP $HTTP_CODE)"
-            else
-              echo "    ⚠️  Unexpected response (HTTP $HTTP_CODE)"
-            fi
+              -u "$AUTH" -X POST \
+              "$BASE/api/projects/create?name=${PROJECT}&project=${PROJECT}" || echo "000")
+            case "$HTTP_CODE" in
+              200|201) echo "    ✅ Created (HTTP $HTTP_CODE)" ;;
+              400)     echo "    ℹ️  Already exists (HTTP $HTTP_CODE)" ;;
+              *)       echo "    ⚠️  HTTP $HTTP_CODE" ;;
+            esac
           done
 
           echo ""
@@ -145,19 +131,22 @@ jobs:
         working-directory: apps/authorization-service
         run: |
           npx sonar-scanner \
-            -Dsonar.host.url=http://localhost:9000
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.token="$SONAR_TOKEN"
 
       - name: SonarScanner — bff
         working-directory: apps/bff
         run: |
           npx sonar-scanner \
-            -Dsonar.host.url=http://localhost:9000
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.token="$SONAR_TOKEN"
 
       - name: SonarScanner — sse-server
         working-directory: apps/sse-server
         run: |
           npx sonar-scanner \
-            -Dsonar.host.url=http://localhost:9000
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.token="$SONAR_TOKEN"
 
       # ── Quality Gate polling ───────────────────────────────────────────────
 
