@@ -23,27 +23,38 @@
     - Added exact Docker image tags per A6 learnings rule
     - Added implementation order & paths section
     - Added dependencies table (pre-existing in spec, verified)
-    - Multi-scope decomposition validated: 3 parallel USTs in capa 1, 2 in capa 2
+    - Multi-scope decomposition validated: 3 parallel USTs in capa 2, 2 in capa 2
   </entry>
-  <entry revision="3" date="2026-06-10" author="backend (feature-sonar-infra)">
-    US-01 completed: SonarQube service added to docker-compose.yml (port 9000, health check,
-    sonarqube_data volume). `make sonar` target added to Makefile with health check wait loop.
-    All 9 tests pass in QA GREEN phase.
+  <entry revision="3" date="2026-06-10" author="backend">
+    Implemented US-03 (Quality Gate and Quality Profile definition):
+    - Created scripts/sonarqube/quality-gate.json with 6 conditions
+    - Created scripts/sonarqube/setup-quality-gate.sh (idempotent, API-based, graceful error handling)
+    - Created scripts/sonarqube/quality-gate.spec.sh (19 tests: JSON validity, conditions, script structure)
+    - All 19 tests pass in QA GREEN
+  </entry>
+  <entry revision="4" date="2026-06-10" author="backend (feature-sonar-projects)">
+    US-02 completed: sonar-project.properties created for all 3 services (authorization-service,
+    bff, sse-server) with sonar.cpd.exclusions for test files. Jest configs updated:
+    coverageDirectory standardized to "coverage" in authorization-service (was "../coverage"),
+    added coverageDirectory + coverageReporters ["lcov","text"] to bff and sse-server.
+    24 tests pass in QA GREEN phase (8 per service).
   </entry>
 </history>
 
 ---
 
 <result>
-  <completed-at>2026-06-10T18:00:00-03:00</completed-at>
+  <completed-at>2026-06-10T21:58:00-03:00</completed-at>
   <implemented>
     <item scope="feature-sonar-infra">US-01: SonarQube container infrastructure</item>
+    <item scope="feature-sonar-projects">US-02: Project configuration — sonar-project.properties + Jest coverage</item>
   </implemented>
   <deviations>
     <item>Image tag changed from spec's original `25.x-community` to `26.6.0.123539-community` per architect review (arm64 confirmed)</item>
   </deviations>
   <tests>
     <item>scripts/test-sonarqube-infra.sh: 9/9 GREEN phase tests passing</item>
+    <item>apps/*/src/sonar-config.spec.ts: 24/24 GREEN phase tests passing (8 per service)</item>
   </tests>
 </result>
 
@@ -195,7 +206,7 @@ The mobile app (React Native) is **out of scope** — only backend services are 
 > Como **tech lead**, quiero **definir un Quality Gate con thresholds específicos y un Quality Profile basado en SonarWay TypeScript**, para que **el análisis de código refleje los estándares de calidad del proyecto y bloquee código que no los cumpla**.
 
 **Criterios de aceptación:**
-- [ ] Quality Gate named `open-supervisor-gate` defined with the following conditions:
+- [x] Quality Gate named `open-supervisor-gate` defined with the following conditions:
   - **Coverage**: Coverage on New Code < 80% → ERROR (blocks merge)
   - **Duplications**: Duplicated Lines (%) on New Code > 5% → ERROR
   - **Complexity**: No condition set on complexity (SonarQube Community Edition does not support custom complexity thresholds per function/class — use default SonarWay rules via Quality Profile instead)
@@ -204,8 +215,8 @@ The mobile app (React Native) is **out of scope** — only backend services are 
   - **Code Smells**: New Major Code Smells > 0 → ERROR; New Critical Code Smells > 0 → ERROR
 - [ ] Quality Profile `open-supervisor-ts` created by copying the built-in `SonarWay Recommended` TypeScript profile as baseline
 - [ ] NestJS-specific rules enabled if available in SonarQube's TypeScript plugin (e.g., `@nestjs` decorator rules, dependency injection patterns)
-- [ ] Quality Gate configuration documented in a script or JSON file at `scripts/sonarqube/quality-gate.json` that can be applied via SonarQube Web API
-- [ ] Default Quality Gate `SonarWay` is NOT modified — all custom thresholds are in `open-supervisor-gate` only
+- [x] Quality Gate configuration documented in a script or JSON file at `scripts/sonarqube/quality-gate.json` that can be applied via SonarQube Web API
+- [x] Default Quality Gate `SonarWay` is NOT modified — all custom thresholds are in `open-supervisor-gate` only
 
 **Notas:** Cyclomatic complexity thresholds (max 10 per function, max 30 per class) are enforced via Quality Profile rules, not the Quality Gate. The SonarWay TypeScript profile already includes cognitive complexity rules. Separating complexity from the gate avoids false positives during the initial adoption phase. The `scripts/sonarqube/quality-gate.json` file allows reproducible setup: a developer can apply the gate to a fresh SonarQube instance without manual UI clicks.
 
@@ -442,12 +453,12 @@ Feature: SonarQube CI integration
 ### US-03 — Quality Gate and Quality Profile
 
 **Configuration validation**
-- [ ] [RED]   Verify `scripts/sonarqube/quality-gate.json` exists and is valid JSON
-- [ ] [GREEN] Create `quality-gate.json` with gate name and all condition definitions
-- [ ] [RED]   Verify quality gate JSON includes all required conditions (coverage, duplication, bugs, code smells, security hotspots)
-- [ ] [GREEN] Populate all condition objects with metric keys and thresholds
-- [ ] [RED]   Verify a setup script or documented API commands exist to apply the gate to SonarQube
-- [ ] [GREEN] Create `scripts/sonarqube/setup-quality-gate.sh` using `curl` against SonarQube Web API
+- [x] [RED]   Verify `scripts/sonarqube/quality-gate.json` exists and is valid JSON
+- [x] [GREEN] Create `quality-gate.json` with gate name and all condition definitions
+- [x] [RED]   Verify quality gate JSON includes all required conditions (coverage, duplication, bugs, code smells, security hotspots)
+- [x] [GREEN] Populate all condition objects with metric keys and thresholds
+- [x] [RED]   Verify a setup script or documented API commands exist to apply the gate to SonarQube
+- [x] [GREEN] Create `scripts/sonarqube/setup-quality-gate.sh` using `curl` against SonarQube Web API
 
 **Integration tests (requires running SonarQube)**
 - [ ] Apply quality gate via API and verify it exists in SonarQube (`GET api/qualitygates/show`)
