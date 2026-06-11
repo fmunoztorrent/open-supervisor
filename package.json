@@ -11,9 +11,6 @@
     "sonar": "bash scripts/sonarqube/run-local-analysis.sh",
     "test:mutation": "pnpm -r test:mutation"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "@nestjs/core"]
-  },
   "devDependencies": {
     "@types/eventsource": "^1.1.15",
     "@types/node": "^20.0.0",
