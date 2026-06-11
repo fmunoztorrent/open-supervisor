@@ -3,9 +3,11 @@
 # Runs SonarQube analysis and Quality Gate evaluation on every PR toward `main`
 # and on push to `main` (to establish baseline for "New Code" comparison).
 #
-# Uses an ephemeral SonarQube Community Edition service container with
-# default admin/admin credentials. No secrets needed — the container is
-# isolated to this job and destroyed afterwards.
+# Uses an ephemeral SonarQube Community Edition service container.
+# SonarQube 2026+ generates a random admin password on first startup.
+# A bootstrap step extracts it from container logs to create the three
+# projects via REST API. The scanner then runs without credentials
+# (forceAuthentication=false allows anonymous analysis of existing projects).
 #
 # Dependencies: sonar-project.properties per service (US-02),
 # Quality Gate definition applied to SonarQube (US-03).
@@ -73,6 +75,69 @@ jobs:
           pnpm --filter authorization-service test --collectCoverage
           pnpm --filter bff test --collectCoverage
           pnpm --filter sse-server test --collectCoverage
+
+      # ── Bootstrap SonarQube projects ────────────────────────────────────────
+      # SonarQube 2026+ generates a random admin password on first startup.
+      # The scanner cannot create projects as an anonymous user (even with
+      # forceAuthentication=false). We extract the password from container logs,
+      # create the three projects via REST API, and then the scanner only needs
+      # to analyze existing projects (works without credentials).
+
+      - name: Bootstrap SonarQube — create projects
+        run: |
+          set -e
+
+          echo "🔧 Extracting SonarQube admin password from container logs..."
+
+          # Find the SonarQube container
+          CONTAINER_ID=$(docker ps -q --filter "expose=9000" --filter "status=running" | head -1)
+
+          if [ -z "$CONTAINER_ID" ]; then
+            echo "❌ SonarQube container not found"
+            exit 1
+          fi
+
+          # Extract admin password from container logs
+          # SonarQube 2026+ logs: "Default admin password: <token>" or similar
+          ADMIN_PASSWORD=$(docker logs "$CONTAINER_ID" 2>&1 | \
+            grep -oP '(?:Default admin password|Admin password):\s*\K\S+' | tail -1 || echo "")
+
+          if [ -z "$ADMIN_PASSWORD" ]; then
+            echo "⚠️  Could not extract admin password from logs"
+            echo "   Trying default admin/admin..."
+            ADMIN_PASSWORD="admin"
+          else
+            echo "✅ Admin password extracted"
+          fi
+
+          # Create the three projects via REST API
+          echo ""
+          echo "📦 Creating SonarQube projects..."
+
+          PROJECTS=(
+            "open-supervisor-authorization-service"
+            "open-supervisor-bff"
+            "open-supervisor-sse-server"
+          )
+
+          for PROJECT in "${PROJECTS[@]}"; do
+            echo "  Creating: $PROJECT"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -u "admin:$ADMIN_PASSWORD" \
+              -X POST \
+              "http://localhost:9000/api/projects/create?name=${PROJECT}&project=${PROJECT}" || echo "000")
+
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+              echo "    ✅ Created (HTTP $HTTP_CODE)"
+            elif [ "$HTTP_CODE" = "400" ]; then
+              echo "    ℹ️  Already exists (HTTP $HTTP_CODE)"
+            else
+              echo "    ⚠️  Unexpected response (HTTP $HTTP_CODE)"
+            fi
+          done
+
+          echo ""
+          echo "✅ SonarQube bootstrap complete"
 
       # ── SonarScanner analysis ──────────────────────────────────────────────
 
