@@ -1,11 +1,26 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, HttpStatus } from '@nestjs/common';
+import { INestApplication, HttpStatus, Logger } from '@nestjs/common';
 import * as request from 'supertest';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { Observable, of, throwError } from 'rxjs';
 import { AuthorizationController } from '../authorization.controller';
 import { AuthorizationService } from '../authorization.service';
+
+// Suppress NestJS Logger output during tests — intentional error
+// status codes (404, 409, 500, 400) from the upstream auth-service
+// produce ERROR logs that look misleading in CI output.
+beforeAll(() => {
+  jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'verbose').mockImplementation(() => {});
+});
+
+afterAll(() => {
+  jest.restoreAllMocks();
+});
 
 function mockHttpPost(status: number, body: unknown = {}) {
   if (status >= 200 && status < 300) {
@@ -54,8 +69,8 @@ async function setupApp(
   return { app, httpMock };
 }
 
-afterEach(() => {
-  jest.restoreAllMocks();
+afterEach(async () => {
+  // Logger mocks are restored in afterAll; only clean up app-level mocks here
 });
 
 describe('AuthorizationController (BFF)', () => {
