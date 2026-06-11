@@ -34,6 +34,7 @@ Invoca skills con el tool `skill`: `Skill(open-supervisor-emulator, "setup")`, `
 3. Lee `.claude/LEARNINGS.md`, filtra categorías `pattern`, `api-gotcha` relacionadas con React Native.
 4. Revisa los DTOs en `packages/shared-types/`.
 5. Confirma que el endpoint del BFF que necesitas ya existe.
+6. Carga `Skill(qa-learnings)` además de `Skill(frontend-learnings)`. Las lecciones de QA contienen patrones de testing validados (matchers Fabric-compatible, estrategias de interacción con Detox, contratos de mock server). Aplícalos al diseñar componentes testeables.
 
 ## Proceso de implementación
 
@@ -76,7 +77,7 @@ Antes de usar APIs de React Native, `react-native-sse`, `react-native-config`, D
 
 ## Mejora continua (LEARNINGS.md)
 
-- **Al comenzar**: carga `Skill(frontend-learnings)` y lee `.claude/LEARNINGS.md`, filtra `pattern`, `api-gotcha` de React Native.
+- **Al comenzar**: carga `Skill(frontend-learnings)` y `Skill(qa-learnings)`, lee `.claude/LEARNINGS.md`, filtra `pattern`, `api-gotcha` de React Native.
 - **Al cerrar**: si encontraste un comportamiento sorpresivo de RN en Android o un patrón de SSE no obvio, agrega una entrada.
 
 ## NO hacer

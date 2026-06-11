@@ -55,7 +55,7 @@ export const AuthorizationCard: React.FC<AuthorizationCardProps> = ({
   const typeColor = TYPE_COLORS[request.type] ?? '#607D8B';
   const testID = isPhysicalPresence
     ? `presence-card-${request.correlation_id}`
-    : 'authorization-card';
+    : `card-${request.correlation_id}`;
   const cardBackground = isPhysicalPresence ? '#FEF3C7' : '#FFFFFF';
 
   return (

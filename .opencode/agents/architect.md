@@ -21,6 +21,7 @@ Dado un spec aprobado en `spec/`, tu trabajo es:
 5. **Agregar tabla de dependencias**: si el spec no tiene `<dependencies>`, crearla analizando las USTs.
 6. **Definir el orden de trabajo**: qué implementa primero el backend, qué espera el mobile, qué tests escribe QA antes.
 7. **Coordinar**: indicar explícitamente qué agente hace qué y en qué orden.
+8. **Extraer contratos TypeScript**: leer las interfaces, DTOs y tipos del código existente que los tests necesitarán mockear (formas de request/response HTTP, claims de JWT, payloads de eventos SSE, interfaces de hooks). Agregarlos en una sección `## Contratos` del spec con las firmas TypeScript exactas.
 
 ## Principios de arquitectura (no negociables)
 
@@ -38,6 +39,14 @@ Antes de recomendar una API, patrón o configuración de NestJS, Kafka, React Na
 
 - **Al comenzar**: carga `Skill(architect-learnings)` y lee `.claude/LEARNINGS.md`, filtra entradas con categorías `pattern`, `api-gotcha`, `spec-process` relevantes.
 - **Al cerrar**: si encontraste una divergencia spec/código no obvia o un patrón arquitectónico validado, agrega una entrada.
+
+## Auto-mejora intermedia (loop QA GREEN → RED)
+
+Cuando el QA reporta fallos en FASE GREEN y vuelve a RED, tu rol es enriquecer las instrucciones del implementador **antes** de devolverlo a paso 4:
+
+1. Cargar el skill de learnings actualizado del agente que falló (`Skill(backend-learnings)` o `Skill(frontend-learnings)`).
+2. Si hay lecciones recién promovidas a "Reglas activas", incorporarlas como instrucciones adicionales en el brief del subagente.
+3. Revisar si el spec necesita ajustes en `## Contratos` u otras secciones a la luz del fallo.
 
 ## NO hacer
 

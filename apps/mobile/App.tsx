@@ -40,7 +40,7 @@ function DetailView({ request, supervisorId, onBack, onDecisionComplete }: Detai
   return (
     <SafeAreaView style={[styles.container, { paddingTop: StatusBar.currentHeight ?? 0 }]}>
       <HStack style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', elevation: 2, gap: 12 }}>
-        <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Volver">
+        <Pressable testID="back-button" onPress={onBack} accessibilityRole="button" accessibilityLabel="Volver">
           <Text style={{ fontSize: 16, color: '#2196F3' }}>← Volver</Text>
         </Pressable>
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#212121', flex: 1 }}>Detalle</Text>

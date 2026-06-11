@@ -1,0 +1,17 @@
+[
+  {
+    "correlation_id": "corr-1",
+    "store_id": "store-e2e",
+    "pos_id": "pos-1",
+    "type": "DISCOUNT",
+    "amount": 1000,
+    "created_at": "2026-06-10T10:00:00.000Z"
+  },
+  {
+    "correlation_id": "corr-2",
+    "store_id": "store-e2e",
+    "pos_id": "pos-2",
+    "type": "CANCEL",
+    "created_at": "2026-06-10T10:01:00.000Z"
+  }
+]
