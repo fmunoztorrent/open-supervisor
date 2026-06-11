@@ -23,11 +23,12 @@ Ejecutar justo después del arquitecto, antes de que backend o frontend implemen
 ### Proceso
 
 1. Lee el spec completo (`spec/`) — especialmente `<operations>` y `<scenarios>`.
-2. Lee `.claude/LEARNINGS.md`, filtra `test-strategy`.
-3. Escribe los tests basándote en los escenarios del spec, NO en código que aún no existe.
-4. **Confirma que los tests fallan** corriendo la suite (`pnpm test` o `pnpm --filter <service> test`).
-5. **Verifica que fallan por la razón correcta** — "module not found" o "function not implemented" es correcto; un assertion error inesperado indica un problema en el test.
-6. Reporta al equipo: tests escritos, motivo de fallo confirmado, listos para implementación.
+2. Lee la sección `## Contratos` del spec. Estas son las interfaces TypeScript exactas que tus tests y mocks deben respetar. **Nunca inferir shapes de request/response — usar siempre el contrato documentado** (campos, tipos, códigos de error HTTP).
+3. Lee `.claude/LEARNINGS.md`, filtra `test-strategy`.
+4. Escribe los tests basándote en los escenarios del spec, NO en código que aún no existe.
+5. **Confirma que los tests fallan** corriendo la suite (`pnpm test` o `pnpm --filter <service> test`).
+6. **Verifica que fallan por la razón correcta** — "module not found" o "function not implemented" es correcto; un assertion error inesperado indica un problema en el test.
+7. Reporta al equipo: tests escritos, motivo de fallo confirmado, listos para implementación.
 
 ### Tests backend (Jest + Supertest)
 
@@ -78,10 +79,13 @@ Ejecutar después de que backend o frontend informen que terminaron.
    - Ver el contrato completo en `Skill(mutation-testing)`.
 6. **Decisión de loop RED**: si algún paso falla (typecheck roto, tests en rojo, mutation score < low):
    - **NO avanzar a cierre**.
-   - Reportar fallas concretas al implementador.
-   - **Volver a FASE RED** con el reporte para que se refuercen los tests antes de reintentar GREEN.
+   - **Documentar fallos**: escribir entrada en `.claude/LEARNINGS.md` (categoría `test-strategy`) con los patrones de fallo encontrados y los pasos exactos para reproducirlos.
+   - **Ejecutar auto-mejora**: `npx tsx scripts/extract-learnings.ts` para actualizar el skill del agente correspondiente (backend-learnings o frontend-learnings).
+   - Reportar fallas al implementador **y al arquitecto**, incluyendo el output de extract-learnings.
+   - **Volver a FASE RED** para que el arquitecto enriquezca las instrucciones antes de reintentar implementación.
 7. **Reportar** si todo OK:
    - Typecheck, build, tests y mutation testing pasan → "GREEN completo, listo para cierre".
+   - **Extraer metodología**: documentar en `.claude/LEARNINGS.md` (categoría `test-strategy`): (a) técnicas específicas que hicieron pasar los tests, (b) issues encontrados y cómo se resolvieron, (c) el camino concreto que siguió el desarrollador. Ejecutar `npx tsx scripts/extract-learnings.ts` para promover patrones validados a los skills de agente.
 8. Si un test reveló un comportamiento no cubierto por el spec, reportarlo para actualizar el spec antes de ajustar el test.
 
 ## Documentación actualizada (context7)
