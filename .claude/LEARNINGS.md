@@ -761,3 +761,19 @@ slug: pipeline-improvements-2026-06-10
 2. Al preparar instrucciones para backend/frontend, validar con `npx tsx scripts/validate-agent-instructions.ts <archivo>` antes de enviar
 3. Escribir specs y prompts de agentes en inglés; mantener conversación con el usuario en el idioma inicial
 
+---
+date: 2026-06-11
+agent: architect
+category: pattern
+tags: [pre-commit, ci-cd, testing, github-actions]
+slug: ci-cd-and-pre-commit-test-validation
+---
+
+**Contexto**: configurando CI/CD + pre-commit hook que ejecuta tests.
+
+**Qué pasó**: un pre-commit que corre todos los tests es muy lento; en cambio, mapear staged files a packages del monorepo y ejecutar solo los tests afectados balancea velocidad y confianza. Para la CI (PR → dev), un job validate (tests unitarios + typecheck + lint) da feedback rápido, y un job e2e (Detox + emulador Android) da validación completa.
+
+**Lección**: dividir en capas: pre-commit → tests solo de packages afectados; CI → validate (rápido, bloqueante) + e2e (lento, opcional). Usar `pnpm --filter` con mapeo explícito de paths a packages, e incluir `--passWithNoTests` para packages sin tests aún.
+
+**Cómo aplicar**: al agregar validación de tests a hooks de git, nunca correr la suite completa. Mapear `git diff --cached --name-only` contra `pnpm-workspace.yaml` para determinar qué packages están afectados. Si `shared-types` cambia, correr tests en todos los consumers.
+
