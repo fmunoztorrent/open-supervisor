@@ -16,7 +16,17 @@
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
     "@open-supervisor/shared-messaging": "workspace:*",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/exporter-trace-otlp-http": "0.219.0",
+    "@opentelemetry/instrumentation-express": "0.67.0",
+    "@opentelemetry/instrumentation-http": "0.219.0",
+    "@opentelemetry/instrumentation-ioredis": "0.67.0",
+    "@opentelemetry/instrumentation-nestjs-core": "0.65.0",
+    "@opentelemetry/sdk-node": "0.219.0",
     "ioredis": "^5.3.2",
+    "nestjs-pino": "4.6.1",
+    "pino": "10.3.1",
+    "pino-http": "11.0.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0"
   },
@@ -52,7 +62,10 @@
       ]
     },
     "coverageDirectory": "coverage",
-    "coverageReporters": ["lcov", "text"],
+    "coverageReporters": [
+      "lcov",
+      "text"
+    ],
     "testEnvironment": "node",
     "moduleNameMapper": {
       "@open-supervisor/shared-messaging": "<rootDir>/../node_modules/@open-supervisor/shared-messaging/src"

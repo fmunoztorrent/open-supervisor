@@ -25,11 +25,22 @@
     "@nestjs/schedule": "^6.1.3",
     "@open-supervisor/shared-messaging": "workspace:*",
     "@open-supervisor/shared-types": "workspace:*",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/exporter-trace-otlp-http": "0.219.0",
+    "@opentelemetry/instrumentation-express": "0.67.0",
+    "@opentelemetry/instrumentation-http": "0.219.0",
+    "@opentelemetry/instrumentation-ioredis": "0.67.0",
+    "@opentelemetry/instrumentation-kafkajs": "0.28.0",
+    "@opentelemetry/instrumentation-nestjs-core": "0.65.0",
+    "@opentelemetry/sdk-node": "0.219.0",
     "axios": "^1.16.1",
     "drizzle-orm": "^0.36.0",
     "ioredis": "^5.3.2",
     "kafkajs": "^2.2.4",
+    "nestjs-pino": "4.6.1",
     "pg": "^8.13.0",
+    "pino": "10.3.1",
+    "pino-http": "11.0.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",
     "uuid": "^9.0.0"
@@ -71,7 +82,10 @@
       ]
     },
     "coverageDirectory": "coverage",
-    "coverageReporters": ["lcov", "text"],
+    "coverageReporters": [
+      "lcov",
+      "text"
+    ],
     "testEnvironment": "node",
     "moduleNameMapper": {
       "@open-supervisor/shared-types": "<rootDir>/../node_modules/@open-supervisor/shared-types/src",
