@@ -455,6 +455,61 @@ El bloque va como sección propia (`## REASONS Canvas`) inmediatamente después 
 
 Revisar la configuración del harness (CLAUDE.md, hooks, skills, .claudeignore, permisos) **cada 3-6 meses** o después de un release mayor del modelo. Las instrucciones escritas para una versión anterior del modelo pueden volverse ruido o restricciones innecesarias cuando el modelo mejora.
 
+## Formato de instrucciones a sub-agentes (XML)
+
+> **REGLA ABSOLUTA — SIN EXCEPCIONES:** Toda instrucción enviada a un sub-agente `backend` o `frontend` via `task` tool **debe** estar en formato XML. El XML debe ser well-formed y contener los elementos requeridos.
+
+**Formato requerido:**
+
+```xml
+<agent-instructions>
+  <meta>
+    <spec>spec/2026-06-10-feature-slug.spec.md</spec>
+    <scope>feature-slug</scope>
+    <usts>UST-01, UST-02</usts>
+  </meta>
+  <context>
+    <description>Brief description of what to implement and why.</description>
+    <dependencies>Satisfied USTs: UST-00 (architect)</dependencies>
+  </context>
+  <tasks>
+    <task id="UST-01">Implement the discount authorization use case in authorization-service</task>
+    <task id="UST-02">Add Kafka response publisher for the new flow</task>
+  </tasks>
+  <contracts>
+    <!-- TypeScript interfaces and DTOs the agent must respect -->
+  </contracts>
+  <constraints>
+    <constraint>Follow hexagonal architecture: use-cases depend only on ports</constraint>
+    <constraint>No direct SDK imports in domain layer</constraint>
+    <constraint>All new code and comments must be in English</constraint>
+  </constraints>
+  <expected-files>
+    <file>packages/shared-types/src/new-dto.ts</file>
+    <file>apps/authorization-service/src/domain/use-cases/new-use-case.ts</file>
+  </expected-files>
+</agent-instructions>
+```
+
+**Validación:** Antes de enviar instrucciones a un sub-agente, el orquestador debe validar el XML:
+
+```bash
+npx tsx scripts/validate-agent-instructions.ts <archivo-o-stdin>
+```
+
+Si la validación falla, **no enviar** las instrucciones al sub-agente. Corregir el XML y re-validar.
+
+## Política de idioma
+
+| Artefacto | Idioma | Regla |
+|---|---|---|
+| **Specs** (`spec/*.spec.md`) | **Inglés** obligatorio | Todo spec, nuevo o modificado, debe estar en inglés. El bloque `<REASONS>`, historias de usuario, escenarios Gherkin, contratos TypeScript — todo en inglés. |
+| **Instrucciones a sub-agentes** | **Inglés** obligatorio | Los prompts enviados a `backend`, `frontend`, `qa` y `architect` via `task` tool deben estar en inglés. |
+| **Agent definitions** (`agents/*.md`) | **Inglés** | Las definiciones de agente son instrucciones; se mantienen en inglés. |
+| **Conversación con el usuario** | **Idioma de interacción inicial** | Si el usuario habla español, responder en español. Si habla inglés, responder en inglés. No cambiar de idioma a mitad de la conversación. |
+| **Código fuente** | **Inglés** | Nombres de variables, funciones, comentarios, mensajes de commit — todo en inglés. |
+| **CLAUDE.md** | Mix español/inglés | Las secciones de pipeline pueden estar en español (son para el orquestador). Las convenciones de código y reglas técnicas en inglés. |
+
 ## Descomposición y paralelización de scopes
 
 **Regla obligatoria al iniciar un pipeline de feature/bugfix cuando el spec tiene muchas USTs:**
