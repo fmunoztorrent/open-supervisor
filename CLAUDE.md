@@ -501,7 +501,7 @@ Revisar la configuración del harness (CLAUDE.md, hooks, skills, .claudeignore, 
 - Spec chico (1-2 USTs) → 1 scope, secuencial
 - Spec grande (≥3 USTs) → descomponer + paralelizar por capas
 
-**Spec de referencia:** `spec/2026-06-04-descomposicion-paralelizacion-scopes.spec.md`
+**Spec de referencia:** `spec/archived/2026-06-04-descomposicion-paralelizacion-scopes.spec.md`
 
 ## Loop QA GREEN → RED
 

@@ -65,7 +65,7 @@ auth/
 
 ## Estado SOLID — Deuda técnica documentada
 
-> ⚠️ El BFF tiene violaciones de DIP y OCP documentadas en `spec/2026-06-05-bff-hexagonal-ports.spec.md`. No agregar código que incremente esta deuda antes de que el spec sea implementado.
+> ⚠️ El BFF tiene violaciones de DIP y OCP documentadas en `spec/archived/2026-06-05-bff-hexagonal-ports.spec.md`. No agregar código que incremente esta deuda antes de que el spec sea implementado.
 
 ### El punto dulce: BFF como thin proxy
 
@@ -83,7 +83,7 @@ El BFF no tiene lógica de dominio — es un proxy puro. El balance SOLID + Nest
 | `authorization/authorization.service.ts` | `fetch()` directo en lugar de `HttpService` | DIP |
 | `stream/stream.service.ts` | `new EventSource()` directo sin abstracción | DIP, OCP |
 
-### Arquitectura objetivo (post-spec `2026-06-05-bff-hexagonal-ports`)
+### Arquitectura objetivo (post-spec `spec/archived/2026-06-05-bff-hexagonal-ports`)
 
 ```
 domain/ports/
