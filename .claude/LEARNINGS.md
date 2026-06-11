@@ -957,13 +957,13 @@ slug: pnpm-v11-deploy-necesita-flag-legacy
 ---
 
 date: 2026-06-11
-agent: bugfix
-category: setup
-tags: [pnpm, ci, github-actions, onlyBuiltDependencies, protobufjs, opentelemetry]
-slug: pnpm-only-built-dependencies-protobufjs
+agent: backend
+category: api-gotcha
+tags: [opentelemetry, instrumentation, kafkajs, ioredis, require-order, import-order]
+slug: otel-sdk-debe-ser-primer-import-en-main-ts
 
-**Contexto**: CI/CD fallaba con `ERR_PNPM_IGNORED_BUILDS: protobufjs@7.6.3` durante `pnpm install --frozen-lockfile`.
-**Qué pasó**: `protobufjs` es dependencia transitiva de `@opentelemetry/sdk-node` (vía `@grpc/grpc-js` → `@grpc/proto-loader`). Tiene un script `postinstall` que pnpm v11 bloquea por defecto. En desarrollo local, el paquete ya estaba instalado (el script ya se ejecutó), por lo que el error no se manifestaba. En CI (fresh install), pnpm lo bloqueaba con exit code 1.
-**Lección**: cuando se usa pnpm v10.4+ en CI, cualquier dependencia (directa o transitiva) con scripts de build debe ser aprobada explícitamente. Agregarla a `only-built-dependencies[]` en `.npmrc`. No usar la sección `pnpm` en `package.json` — pnpm v11 ya no la lee.
-**Cómo aplicar**: toda vez que un `pnpm install` falle en CI con `ERR_PNPM_IGNORED_BUILDS`, identificar el paquete bloqueado y agregarlo a `.npmrc` como `only-built-dependencies[]=<package>`. Para descubrir todas las dependencias con build scripts bloqueados, correr `pnpm install` sin `--frozen-lockfile` en un entorno limpio (sin `node_modules`).
+**Contexto**: implementando OpenTelemetry SDK con auto-instrumentación (`@opentelemetry/instrumentation-kafkajs`, `@opentelemetry/instrumentation-ioredis`, etc.) en servicios NestJS del monorepo open-supervisor.
+**Qué pasó**: la auto-instrumentación funciona mediante monkey-patching de módulos Node.js vía `require-in-the-middle`. Si el SDK se inicializa DESPUÉS de que `kafkajs` o `ioredis` fueron cargados por el module system (porque el import de `AppModule` o cualquier archivo que transitivamente importe esos módulos se ejecuta antes), los hooks de instrumentación nunca se registran y la propagación de trazas falla silenciosamente — sin errores, pero sin trazas.
+**Lección**: el side-effect import de `otel-sdk.ts` DEBE ser la primera línea de `main.ts`, antes de cualquier import de NestJS (`import { NestFactory }`), antes de `import { AppModule }`, y antes de cualquier otro import que pueda cargar `kafkajs`/`ioredis` transitivamente. Alternativa más robusta para producción: usar `node --require ./dist/infrastructure/logging/otel-sdk.js dist/main.js` en el script de `start` del `package.json`.
+**Cómo aplicar**: en todo servicio NestJS que use OpenTelemetry con auto-instrumentación, verificar que `import './infrastructure/logging/otel-sdk'` sea la primera línea de `main.ts`. Agregar un comentario `// MUST be first import — OTel SDK init before any instrumented module loads` para documentar la restricción. Si el orden de imports es incorrecto, las trazas se pierden sin warning.
 
