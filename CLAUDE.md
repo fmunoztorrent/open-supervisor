@@ -134,6 +134,7 @@ Ejemplos de trade-offs resueltos en este repositorio:
 | Notificaciones realtime | Redis pub/sub → SSE (`@Sse()` NestJS) → `react-native-sse` en la app |
 | Monorepo | pnpm workspaces |
 | Orquestación backend | Kubernetes |
+| Calidad de código | SonarQube Community Edition (`make sonar`, port 9000) |
 | Testing backend | Jest + Supertest |
 | Testing mobile | Jest + React Native Testing Library + Detox (E2E) |
 
@@ -160,6 +161,8 @@ pnpm install
 make dev               # infraestructura + servicios backend
 make emulator          # emulador + port forwarding + Metro + app (requiere make dev primero)
 make all               # dev + emulator (stack completo)
+pnpm sonar             # análisis local: tests + coverage + SonarScanner (requiere make sonar primero)
+make sonar             # levanta SonarQube (port 9000, health check, URLs + creds)
 make down              # detiene todo
 make status            # verifica qué está corriendo
 # Override del motor de contenedores: make dev COMPOSE="docker compose"

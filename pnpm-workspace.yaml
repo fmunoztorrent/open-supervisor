@@ -2,7 +2,7 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
-  '@nestjs/core': set this to true or false
+  '@nestjs/core': true
   detox: true
   dtrace-provider: true
   esbuild: true

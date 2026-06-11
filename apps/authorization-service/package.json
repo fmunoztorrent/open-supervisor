@@ -70,7 +70,8 @@
         }
       ]
     },
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["lcov", "text"],
     "testEnvironment": "node",
     "moduleNameMapper": {
       "@open-supervisor/shared-types": "<rootDir>/../node_modules/@open-supervisor/shared-types/src",

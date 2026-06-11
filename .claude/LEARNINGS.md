@@ -777,3 +777,139 @@ slug: ci-cd-and-pre-commit-test-validation
 
 **Cómo aplicar**: al agregar validación de tests a hooks de git, nunca correr la suite completa. Mapear `git diff --cached --name-only` contra `pnpm-workspace.yaml` para determinar qué packages están afectados. Si `shared-types` cambia, correr tests en todos los consumers.
 
+---
+date: 2026-06-10
+agent: architect
+category: pattern
+tags: [docker, arm64, sonarqube, apple-silicon, verification]
+slug: verify-multiarch-docker-images-before-recommending
+---
+
+**Contexto**: validando viabilidad de SonarQube Community Edition para desarrollo en Apple Silicon. El spec asumía que sería necesario emular con `--platform linux/amd64` via Rosetta.
+
+**Qué pasó**: la API de Docker Hub (`hub.docker.com/v2/repositories/library/sonarqube/tags`) confirmó que todas las versiones recientes de SonarQube Community Edition (9.x, 25.x, 26.x) tienen imágenes nativas `arm64` con variante `v8`. El workaround de emulación era innecesario. Por otro lado, `sonarsource/sonar-scanner-cli` SÍ es amd64-only — para ese hay que usar el wrapper npm.
+
+**Lección**: antes de asumir que una imagen Docker no tiene soporte arm64, verificar con la API de Docker Hub. La mayoría de imágenes oficiales hoy son multi-arch. Consultar `https://hub.docker.com/v2/repositories/<namespace>/<repo>/tags?name=<filter>&page_size=20` y buscar `"architecture":"arm64"` en los resultados.
+
+**Cómo aplicar**: en el paso de architect, para cualquier nueva dependencia Docker, hacer un `webfetch` a la API de tags de Docker Hub y verificar explícitamente qué arquitecturas están disponibles. Documentar en la sección de viabilidad del spec enriquecido. Si solo amd64 está disponible, especificar el workaround exacto (`--platform linux/amd64` para Docker, o wrapper alternativo como npm package para el scanner).
+
+---
+date: 2026-06-10
+agent: backend
+category: api-gotcha
+tags: [jest, ts-jest, __dirname, path-resolution, sonarqube]
+slug: ts-jest-dirname-resolution-for-fixture-files
+---
+
+**Contexto**: escribiendo tests que validaban la existencia de `sonar-project.properties` usando `fs.existsSync` y `fs.readFileSync` con `resolve(__dirname, '../../', ...)`.
+
+**Qué pasó**: `__dirname` en ts-jest apunta al directorio del archivo fuente `.ts`, no a `dist/` ni a la raíz del proyecto. Usar `resolve(__dirname, '..', 'package.json')` desde `<service>/src/sonar-config.spec.ts` resuelve correctamente a `<service>/package.json`. Usar `resolve(__dirname, '../..', ...)` desde el mismo archivo sube de más (resuelve a `apps/` en lugar del service root).
+
+**Lección**: en ts-jest (transpilación in-memory), `__dirname` siempre es el directorio del archivo `.ts` fuente. Para calcular la raíz de un servicio desde `src/`, usar `resolve(__dirname, '..')`. Un nivel extra de `..` rompe la ruta. Esto difiere de Jest con Babel, donde `__dirname` puede ser `dist/`.
+
+**Cómo aplicar**: al leer archivos del service root desde tests en `src/`, usar `resolve(__dirname, '..', '<archivo>')` — no `resolve(__dirname, '../..', ...)`. Probar con un `existsSync` antes de asumir que la ruta es correcta.
+
+---
+date: 2026-06-10
+agent: backend
+category: pattern
+tags: [sonarqube, quality-gate, spec, architect-contract]
+slug: quality-gate-metric-names-match-architect-contract-over-criteria
+---
+
+**Contexto**: implementando US-03 (Quality Gate) del spec SonarQube. Las condiciones de aceptación en las historias de usuario mencionaban "Blocker Bugs > 0" y "Critical Bugs > 0" sin el prefijo `new_`.
+
+**Qué pasó**: el contrato TypeScript detallado en el spec (sección "Archivos a crear/modificar") usaba `new_blocker_violations` y `new_critical_violations` — con prefijo `new_`. Seguir el contrato del arquitecto vs las criteria de las historias significaba elegir entre dos interpretaciones. El arquitecto tenía razón: en SonarQube, las quality gates operan sobre "New Code" por defecto, y los nombres `new_*` son los que aparecen en el API de quality gates.
+
+**Lección**: cuando hay discrepancia entre las historias de usuario (que usan lenguaje funcional) y el contrato detallado del arquitecto (que especifica nombres de API exactos), el contrato del arquitecto es la fuente autoritativa. Los tests RED deben validar contra los nombres exactos del contrato, no contra la interpretación funcional de las criteria.
+
+**Cómo aplicar**: al escribir tests RED para configuraciones de API (JSON, propiedades, endpoints), leer cuidadosamente la sección "Archivos a crear/modificar" del spec — ahí están los nombres exactos que el arquitecto validó. Actualizar los tests si la sección de criteria usa nombres genéricos que difieren del contrato detallado.
+
+---
+date: 2026-06-10
+agent: backend
+category: api-gotcha
+tags: [jest, coverage, sonarqube, coverageDirectory, rootDir]
+slug: jest-coverage-directory-relative-to-rootdir-not-project-root
+---
+
+**Contexto**: configurando `sonar.javascript.lcov.reportPaths` para SonarScanner en CI workflow. El valor inicial era `coverage/lcov.info` pero los archivos de cobertura no se generaban ahí.
+
+**Qué pasó**: Jest interpreta `coverageDirectory` como relativo a `rootDir`, no a la raíz del proyecto. Todos los servicios tienen `"rootDir": "src"`, por lo que `"coverageDirectory": "coverage"` produce `src/coverage/lcov.info`, no `coverage/lcov.info`. El `sonar.javascript.lcov.reportPaths` debe ser `src/coverage/lcov.info` para coincidir. authorization-service tenía un `coverage/lcov.info` legacy del viejo `coverageDirectory: "../coverage"` que ocultaba el bug — bff y sse-server mostraban el error claramente (coverage ausente en la raíz).
+
+**Lección**: siempre verificar la ruta real del coverage generado después de configurar Jest. El `coverageDirectory` es relativo a `rootDir` (o al `rootDir` del `projects[]` si se usa arrays). Para SonarQube, el `lcov.reportPaths` es relativo al directorio del `sonar-project.properties`. Si ambos no coinciden, el scanner encontrará un archivo vacío o ausente y reportará 0% coverage.
+
+**Cómo aplicar**: al configurar Jest + SonarQube en un proyecto donde `rootDir` no es el project root, generar un report de coverage y verificar la ubicación real del `lcov.info` antes de hardcodear `sonar.javascript.lcov.reportPaths`. Correr `find . -name lcov.info` después de `jest --coverage` para confirmar.
+
+---
+date: 2026-06-10
+agent: principal
+category: test-strategy
+tags: [sonarqube, jest, tests, config, ci]
+slug: update-config-tests-when-changing-config-files
+---
+
+**Contexto**: corrigiendo `sonar.javascript.lcov.reportPaths` en los 3 archivos `sonar-project.properties` para que apuntaran a `src/coverage/lcov.info` (requerido por `jest rootDir: "src"`).
+
+**Qué pasó**: el cambio en los archivos de configuración fue correcto, pero los tests de validación (`sonar-config.spec.ts`) no fueron actualizados. Seguían esperando `coverage/lcov.info` en vez de `src/coverage/lcov.info`. Esto rompió CI porque el test fallaba.
+
+**Lección**: cuando se modifica un archivo de configuración que tiene un test asociado de validación (`spec.ts`), el paso de implementación DEBE incluir la actualización del test correspondiente. Los tests de configuración son código de proyecto, no solo verificaciones pasivas.
+
+**Cómo aplicar**: al revisar el diff de un commit que cambia config files, buscar `*.spec.ts` en el mismo directorio y verificar que los valores esperados coinciden. Si el spec no tiene test de validación, considerar si debería tenerlo.
+
+---
+date: 2026-06-11
+agent: principal
+category: api-gotcha
+tags: [sonarqube, ci, authentication, docker, github-actions]
+slug: sonarqube-2026-forceauthentication-default-admin-rejected
+---
+
+**Contexto**: configurando SonarQube Community Edition `26.6.0.123539-community` (≈ 2026.6) como contenedor efímero en GitHub Actions para Quality Gate en PRs.
+
+**Qué pasó**: el scanner fallaba con `Not authorized` a pesar de usar `admin:admin`. Las versiones modernas de SonarQube (10+/2025+) ya no aceptan las credenciales default `admin/admin` — el password se genera aleatoriamente en el primer arranque o se fuerza el cambio.
+
+**Lección**: para contenedores efímeros de SonarQube en CI, deshabilitar `sonar.forceAuthentication` vía variable de entorno `SONAR_FORCEAUTHENTICATION=false`. Esto elimina la necesidad de credenciales para scanner y API calls. Es seguro porque el contenedor es efímero (destruido al finalizar el job) y solo accesible dentro de la red del runner.
+
+**Cómo aplicar**: en cualquier workflow de CI que use SonarQube como service container, agregar `SONAR_FORCEAUTHENTICATION: "false"` al bloque `env` del servicio y eliminar `-Dsonar.login`/`-Dsonar.password` de los comandos del scanner. Para curl a la API, remover `-u admin:admin`.
+
+---
+date: 2026-06-11
+agent: principal
+category: pattern
+tags: [sonarqube, ci, docker, github-actions, authentication]
+slug: sonarqube-ephemeral-bootstrap-create-projects-before-scanner
+---
+
+**Contexto**: después de deshabilitar `forceAuthentication` en SonarQube 2026.x, el scanner seguía fallando con "not authorized to create project". El scanner necesita que el proyecto exista o poder crearlo, pero los usuarios anónimos no tienen permiso `Create Projects` incluso con `forceAuthentication=false`.
+
+**Qué pasó**: `sonar.forceAuthentication=false` permite acceso anónimo de LECTURA a la API (status, quality gates, CE component), pero las operaciones de ESCRITURA como crear proyectos siguen requiriendo autenticación. El scanner intenta crear el proyecto si no existe, y falla como anónimo.
+
+**Lección**: para contenedores efímeros de SonarQube en CI, el patrón completo requiere dos pasos: (1) `forceAuthentication=false` para acceso de lectura a la API, (2) un paso de bootstrap que extrae el password admin de los logs del contenedor y crea los proyectos vía `POST /api/projects/create` antes de ejecutar el scanner. El scanner luego solo necesita analizar proyectos existentes (funciona sin credenciales).
+
+**Cómo aplicar**: 
+1. Agregar `SONAR_FORCEAUTHENTICATION: "false"` al service container
+2. Agregar un paso "Bootstrap SonarQube" que:
+   - Encuentre el container ID: `docker ps -q --filter "expose=9000"`
+   - Extraiga el password: `docker logs $CID | grep -oP 'Default admin password:\s*\K\S+'`
+   - Cree proyectos: `curl -u admin:$PASS -X POST /api/projects/create?name=X&project=X`
+   - Tenga fallback a `admin/admin` si la extracción falla
+3. El scanner se ejecuta sin credenciales (proyectos ya existen)
+4. El Quality Gate polling usa curl sin `-u` (forceAuthentication=false)
+
+---
+date: 2026-06-11
+agent: principal
+category: api-gotcha
+tags: [sonarqube, scanner, authentication, token, ci]
+slug: sonarqube-scanner-deprecated-sonar-login-requires-token
+---
+
+**Contexto**: el scanner (`npx sonar-scanner`) seguía fallando con "not authorized to create project" después de deshabilitar `forceAuthentication` y crear los proyectos vía REST API.
+
+**Qué pasó**: SonarQube 2026.x (server 12.37) **deprecó `sonar.login`/`sonar.password`** para el scanner CLI. El scanner rechaza credenciales por password y exige `sonar.token`. Sin embargo, la REST API **sí acepta** HTTP Basic Auth con `admin:admin` (las credenciales default documentadas para Docker). Son dos mecanismos de autenticación distintos: el scanner solo acepta tokens, la REST API acepta Basic Auth.
+
+**Lección**: para CI con SonarQube 2026.x, el flujo correcto es: (1) autenticarse contra la REST API con `curl -u admin:admin`, (2) generar un token vía `POST /api/user_tokens/generate`, (3) pasar el token al scanner con `-Dsonar.token=$TOKEN`. NO usar `-Dsonar.login`/`-Dsonar.password` — están deprecados y el scanner los rechaza aunque las credenciales sean correctas.
+
+**Cómo aplicar**: en el paso de bootstrap, después de autenticarse con `admin:admin`, llamar a `POST /api/user_tokens/generate?name=ci-scanner`, extraer el token del JSON con `jq -r '.token'`, exportarlo a `$GITHUB_ENV`, y usarlo en los pasos del scanner como `-Dsonar.token="$SONAR_TOKEN"`.
+

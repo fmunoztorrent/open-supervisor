@@ -35,7 +35,7 @@ else ifeq ($(findstring podman,$(COMPOSE)),podman)
 endif
 
 # ── Phony targets ────────────────────────────────────────────────────────────
-.PHONY: help dev infra services emulator all down status clean
+.PHONY: help dev infra services sonar emulator all down status clean
 
 # ── Colores para output ──────────────────────────────────────────────────────
 GREEN  := \033[0;32m
@@ -56,6 +56,7 @@ help:
 	@echo ""
 	@echo "$(YELLOW)Targets individuales:$(NC)"
 	@echo "  $(GREEN)infra$(NC)       Levanta contenedores (Kafka, Redis, Zookeeper, Postgres)"
+	@echo "  $(GREEN)sonar$(NC)       Levanta SonarQube (port 9000, solo este servicio)"
 	@echo "  $(GREEN)services$(NC)    Compila y arranca authorization-service, sse-server, bff"
 	@echo "  $(GREEN)detox-build$(NC) Compila el APK debug para tests Detox E2E"
 	@echo "  $(GREEN)detox-test$(NC)  Ejecuta los tests Detox E2E en el emulador"
@@ -106,6 +107,21 @@ infra:
 	@$(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 	@echo ""
 	@echo "$(GREEN)✅ Infraestructura lista$(NC)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# sonar — Levantar SonarQube (solo este servicio)
+# ═══════════════════════════════════════════════════════════════════════════════
+sonar:
+	@echo "$(CYAN)🐳 Starting SonarQube...$(NC)"
+	@$(COMPOSE) up -d sonarqube
+	@echo "$(YELLOW)⏳ Waiting for SonarQube to be ready (may take ~60s on first startup)...$(NC)"
+	@for i in $$(seq 1 30); do \
+		curl -sf http://localhost:9000/api/system/status | grep -q '"status":"UP"' && break; \
+		sleep 5; \
+	done
+	@echo ""
+	@echo "$(GREEN)✅ SonarQube ready: $(NC)http://localhost:9000"
+	@echo "   Default credentials: admin / admin"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # services — Compilar y arrancar los 3 servicios NestJS
