@@ -1,0 +1,76 @@
+{
+  "family": "open-supervisor-sse-server",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::<aws_account_id>:role/open-supervisor-<environment>-ecs-task-execution",
+  "taskRoleArn": "arn:aws:iam::<aws_account_id>:role/open-supervisor-<environment>-task",
+  "containerDefinitions": [
+    {
+      "name": "sse-server",
+      "image": "<aws_account_id>.dkr.ecr.us-east-1.amazonaws.com/open-supervisor/sse-server:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3002,
+          "protocol": "tcp",
+          "name": "sse-http"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3002/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "3002"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "REDIS_HOST",
+          "valueFrom": "arn:aws:ssm:<aws_region>:<aws_account_id>:parameter/open-supervisor/<environment>/REDIS_HOST"
+        },
+        {
+          "name": "REDIS_PORT",
+          "valueFrom": "arn:aws:ssm:<aws_region>:<aws_account_id>:parameter/open-supervisor/<environment>/REDIS_PORT"
+        },
+        {
+          "name": "SSE_SERVER_URL",
+          "valueFrom": "arn:aws:ssm:<aws_region>:<aws_account_id>:parameter/open-supervisor/<environment>/SSE_SERVER_URL"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/sse-server",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "key": "Name",
+      "value": "open-supervisor-sse-server-task"
+    },
+    {
+      "key": "Environment",
+      "value": "<environment>"
+    },
+    {
+      "key": "Project",
+      "value": "open-supervisor"
+    }
+  ]
+}

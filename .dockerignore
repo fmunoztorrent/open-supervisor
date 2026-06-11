@@ -1,0 +1,34 @@
+# Dependencies (rebuilt inside Docker)
+node_modules
+
+# Build output (rebuilt inside Docker)
+dist
+*.tsbuildinfo
+
+# Git metadata
+.git
+
+# Mobile app (not deployed to ECS)
+apps/mobile
+
+# Dev/test artifacts
+coverage
+spec
+collections
+.stryker-tmp
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+
+# Development infrastructure (docker-compose, Keycloak, OpenLDAP)
+.docker
+tmp
+
+# Environment files (supplied at runtime via SSM)
+.env
+.env.*

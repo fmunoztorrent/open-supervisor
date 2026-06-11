@@ -1,0 +1,133 @@
+# =============================================================================
+# ecs-services.yaml
+# ECS Service definitions for open-supervisor backend services.
+# Each service references a task definition, runs in the open-supervisor
+# ECS cluster, and uses private subnets with Service Connect (Cloud Map).
+#
+# Usage:
+#   aws ecs create-service \
+#     --cluster open-supervisor-staging \
+#     --service-name <name> \
+#     --cli-input-json file://<service-entry>
+#
+# Replace placeholders:
+#   <aws_account_id>  → AWS account ID
+#   <aws_region>      → AWS region (default: us-east-1)
+#   <environment>     → Environment name (staging, production)
+#   <task_definition_arn> → Full ARN from register-task-definition output
+# =============================================================================
+
+# ── Cluster Configuration ──────────────────────────────────────────────────────
+cluster: "open-supervisor-<environment>"
+
+# ── Network Configuration (shared by all services) ─────────────────────────────
+networkConfiguration:
+  awsVpcConfiguration:
+    subnets:
+      - "<private_subnet_1_id>"
+      - "<private_subnet_2_id>"
+    securityGroups:
+      - "<service_sg_id>"   # Override per-service below
+    assignPublicIp: "DISABLED"
+
+# ── Service Definitions ────────────────────────────────────────────────────────
+services:
+  # BFF — internet-facing via ALB, port 3000
+  - name: "open-supervisor-<environment>-bff"
+    taskDefinition: "open-supervisor-bff"
+    desiredCount: 2
+    launchType: "FARGATE"
+    healthCheckGracePeriodSeconds: 60
+    platformVersion: "1.4.0"
+    schedulingStrategy: "REPLICA"
+    deploymentConfiguration:
+      maximumPercent: 200
+      minimumHealthyPercent: 100
+      deploymentCircuitBreaker:
+        enable: true
+        rollback: true
+    networkConfiguration:
+      awsVpcConfiguration:
+        subnets:
+          - "<private_subnet_1_id>"
+          - "<private_subnet_2_id>"
+        securityGroups:
+          - "<bff_sg_id>"
+        assignPublicIp: "DISABLED"
+    loadBalancers:
+      - targetGroupArn: "<bff_target_group_arn>"
+        containerName: "bff"
+        containerPort: 3000
+    serviceRegistries:
+      - registryArn: "<bff_service_discovery_arn>"
+    tags:
+      - key: Name
+        value: "open-supervisor-<environment>-bff"
+      - key: Environment
+        value: "<environment>"
+      - key: Project
+        value: "open-supervisor"
+
+  # SSE Server — internal, port 3002
+  - name: "open-supervisor-<environment>-sse-server"
+    taskDefinition: "open-supervisor-sse-server"
+    desiredCount: 2
+    launchType: "FARGATE"
+    healthCheckGracePeriodSeconds: 60
+    platformVersion: "1.4.0"
+    schedulingStrategy: "REPLICA"
+    deploymentConfiguration:
+      maximumPercent: 200
+      minimumHealthyPercent: 100
+      deploymentCircuitBreaker:
+        enable: true
+        rollback: true
+    networkConfiguration:
+      awsVpcConfiguration:
+        subnets:
+          - "<private_subnet_1_id>"
+          - "<private_subnet_2_id>"
+        securityGroups:
+          - "<sse_server_sg_id>"
+        assignPublicIp: "DISABLED"
+    serviceRegistries:
+      - registryArn: "<sse_service_discovery_arn>"
+    tags:
+      - key: Name
+        value: "open-supervisor-<environment>-sse-server"
+      - key: Environment
+        value: "<environment>"
+      - key: Project
+        value: "open-supervisor"
+
+  # Authorization Service — internal, port 3001
+  - name: "open-supervisor-<environment>-authorization-service"
+    taskDefinition: "open-supervisor-authorization-service"
+    desiredCount: 2
+    launchType: "FARGATE"
+    healthCheckGracePeriodSeconds: 60
+    platformVersion: "1.4.0"
+    schedulingStrategy: "REPLICA"
+    deploymentConfiguration:
+      maximumPercent: 200
+      minimumHealthyPercent: 100
+      deploymentCircuitBreaker:
+        enable: true
+        rollback: true
+    networkConfiguration:
+      awsVpcConfiguration:
+        subnets:
+          - "<private_subnet_1_id>"
+          - "<private_subnet_2_id>"
+        securityGroups:
+          - "<auth_service_sg_id>"
+        assignPublicIp: "DISABLED"
+    serviceRegistries:
+      - registryArn: "<auth_service_discovery_arn>"
+    tags:
+      - key: Name
+        value: "open-supervisor-<environment>-authorization-service"
+      - key: Environment
+        value: "<environment>"
+      - key: Project
+        value: "open-supervisor"

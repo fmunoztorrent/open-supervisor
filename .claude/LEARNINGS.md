@@ -583,6 +583,22 @@ slug: redis-pubsub-un-listener-global-mapea-canales-a-handlers
 ---
 
 ---
+date: 2026-06-11
+agent: backend
+category: setup
+tags: [sse-server, supertest, devDependencies, test-setup, http]
+slug: sse-server-carece-de-supertest-en-devdependencies
+---
+
+**Contexto**: implementando health endpoints (US-02 del spec de AWS Fargate). El spec requiere usar supertest + @nestjs/testing para tests de los endpoints HTTP. El sse-server no tenía `supertest` ni `@types/supertest` en su `devDependencies` porque antes no exponía endpoints HTTP propios (solo el SSE endpoint era testeado a través de `@nestjs/testing` sin supertest).
+
+**Qué pasó**: los tests del HealthController del sse-server no compilaban con LSP error `Cannot find module 'supertest'`. Authorization-service y bff ya tenían supertest instalado (porque exponen endpoints REST desde el inicio). El sse-server nunca necesitó hacer requests HTTP en tests.
+
+**Lección**: al agregar un endpoint HTTP a un servicio que antes solo tenía tests unitarios/SSE, verificar que `supertest` y `@types/supertest` estén en `devDependencies`. No asumir que todos los servicios NestJS del monorepo los tienen.
+
+**Cómo aplicar**: antes de escribir tests que usen `import * as request from 'supertest'` en un servicio, revisar su `package.json#devDependencies`. Si falta, agregar `supertest` y `@types/supertest` + `pnpm install --filter <service>` antes de correr los tests.
+
+---
 date: 2026-06-04
 agent: backend
 category: api-gotcha
@@ -899,6 +915,18 @@ slug: sonarqube-ephemeral-bootstrap-create-projects-before-scanner
 
 ---
 date: 2026-06-11
+agent: backend
+category: pattern
+tags: [bash, aws, ssm, testing, spec-test, qa]
+slug: bash-spec-test-dry-run-for-aws-cli-scripts
+---
+**Contexto**: implementando US-06 (SSM Parameter Store script) — un script bash que crea 9 SSM parameters + 1 Secrets Manager secret via AWS CLI.
+**Qué pasó**: el script tiene AWS CLI como prerrequisito (command -v aws), pero el modo --dry-run también lo bloqueaba. Solución: mover el check de prerequisites adentro de `if ! $DRY_RUN; then ... fi`. El modo dry-run solo imprime los comandos AWS sin ejecutarlos — no necesita el CLI instalado.
+**Lección**: para scripts bash que interactúan con APIs externas (AWS, GCP, etc.), el modo --dry-run debe ser el default y debe funcionar SIN el CLI instalado. El check de prerequisites solo se ejecuta en --execute mode. Esto permite CI testing y review sin credenciales ni dependencias externas.
+**Cómo aplicar**: al crear cualquier script bash que llame a AWS CLI, Google Cloud SDK, o similar: (1) --dry-run por defecto, (2) prerequisites check dentro de `if ! $DRY_RUN...`, (3) funciones helper que en dry-run hacen echo de los comandos, en execute los ejecutan. El bash spec test puede así validar la estructura del script completo sin credenciales AWS.
+
+---
+date: 2026-06-11
 agent: principal
 category: api-gotcha
 tags: [sonarqube, scanner, authentication, token, ci]
@@ -912,4 +940,17 @@ slug: sonarqube-scanner-deprecated-sonar-login-requires-token
 **Lección**: para CI con SonarQube 2026.x, el flujo correcto es: (1) autenticarse contra la REST API con `curl -u admin:admin`, (2) generar un token vía `POST /api/user_tokens/generate`, (3) pasar el token al scanner con `-Dsonar.token=$TOKEN`. NO usar `-Dsonar.login`/`-Dsonar.password` — están deprecados y el scanner los rechaza aunque las credenciales sean correctas.
 
 **Cómo aplicar**: en el paso de bootstrap, después de autenticarse con `admin:admin`, llamar a `POST /api/user_tokens/generate?name=ci-scanner`, extraer el token del JSON con `jq -r '.token'`, exportarlo a `$GITHUB_ENV`, y usarlo en los pasos del scanner como `-Dsonar.token="$SONAR_TOKEN"`.
+
+---
+
+date: 2026-06-11
+agent: backend
+category: setup
+tags: [pnpm, docker, deploy, legacy, pnpm-v11, alpine]
+slug: pnpm-v11-deploy-necesita-flag-legacy
+
+**Contexto**: creando Dockerfiles multi-stage para servicios NestJS con pnpm monorepo. Usando `corepack prepare pnpm@11 --activate` (la versión que instala el CI y el `.nvmrc`).
+**Qué pasó**: `pnpm deploy --prod` fallaba con `ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE` porque pnpm v11 cambió el comportamiento del deploy: por defecto solo deploya desde workspaces con `inject-workspace-packages=true`. Sin esa configuración, el comando requiere `--legacy` para usar el comportamiento anterior (deploy sin injected deps).
+**Lección**: en Dockerfiles que usen `pnpm deploy --prod` con pnpm v11+, siempre agregar el flag `--legacy`: `pnpm --filter <pkg> deploy --prod --legacy /app/prod`. Alternativa: setear `force-legacy-deploy=true` en `.npmrc`. El flag `--legacy` es preferible porque no modifica config global del proyecto.
+**Cómo aplicar**: al crear o actualizar Dockerfiles que usen `pnpm deploy` con pnpm v11+, asegurarse de incluir `--legacy`. Si se agrega `force-legacy-deploy=true` al `.npmrc` del proyecto, documentar la desviación porque afecta a todos los comandos `pnpm deploy` en el repo.
 
