@@ -1061,3 +1061,29 @@ slug: cleanup-ts-expect-error-after-red-phase
 **Cómo aplicar**:
 1. En FASE 4 (implementación), después de hacer los cambios, hacer `rg '@ts-expect-error'` en los archivos de test modificados y eliminar los directives que ya no aplican.
 2. El agente implementador debe correr typecheck antes de marcar su paso como completado.
+
+---
+
+---
+date: 2026-06-10
+agent: architect
+category: spec-process
+tags: [multi-scope, parallelization, task-agent, pipeline]
+slug: multi-scope-parallel-coordination
+---
+
+**Contexto**: procesando el spec `2026-06-08-mejora-pipeline-validacion-empirica` con 3 USTs (US-01, US-02, US-03). US-01 y US-03 eran capa 1 (independientes), US-02 capa 2 (dependiente de ambas).
+
+**Qué pasó**: Se lanzaron 2 task agents en paralelo sobre la misma rama `feature/mejora-pipeline-validacion-empirica` para capa 1. Ambos trabajaron en archivos diferentes y no hubo conflictos. Para capa 2, un solo task agent secuencial. El cierre (merge a dev, PR, LEARNINGS, archivado de spec) fue coordinado por el agente padre.
+
+**Lección**: La paralelización multi-scope funciona cuando:
+- Cada sub-agente recibe instrucciones explícitas de NO merge a dev, NO push, NO PR
+- Los archivos a modificar no se solapan entre scopes de la misma capa
+- El cierre es coordinado centralmente por el orquestador
+- El working tree debe estar limpio antes de cada merge (stash si es necesario)
+
+**Cómo aplicar**:
+1. Usar `task` tool con `subagent_type: architect` para cada scope de capa 1
+2. Incluir en el prompt: archivos exactos a modificar, instrucción de no cerrar, hash del commit base
+3. Después de que todos los sub-agentes terminen, verificar `git log`, correr `pnpm typecheck`, y coordinar el cierre único
+4. Si hay dirty files de pipeline state/close-pending entre pasos, commitearlos como chores
