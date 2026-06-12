@@ -954,3 +954,16 @@ slug: pnpm-v11-deploy-necesita-flag-legacy
 **Lección**: en Dockerfiles que usen `pnpm deploy --prod` con pnpm v11+, siempre agregar el flag `--legacy`: `pnpm --filter <pkg> deploy --prod --legacy /app/prod`. Alternativa: setear `force-legacy-deploy=true` en `.npmrc`. El flag `--legacy` es preferible porque no modifica config global del proyecto.
 **Cómo aplicar**: al crear o actualizar Dockerfiles que usen `pnpm deploy` con pnpm v11+, asegurarse de incluir `--legacy`. Si se agrega `force-legacy-deploy=true` al `.npmrc` del proyecto, documentar la desviación porque afecta a todos los comandos `pnpm deploy` en el repo.
 
+---
+
+date: 2026-06-11
+agent: bugfix
+category: setup
+tags: [pnpm, ci, github-actions, onlyBuiltDependencies, protobufjs, opentelemetry]
+slug: pnpm-only-built-dependencies-protobufjs
+
+**Contexto**: CI/CD fallaba con `ERR_PNPM_IGNORED_BUILDS: protobufjs@7.6.3` durante `pnpm install --frozen-lockfile`.
+**Qué pasó**: `protobufjs` es dependencia transitiva de `@opentelemetry/sdk-node` (vía `@grpc/grpc-js` → `@grpc/proto-loader`). Tiene un script `postinstall` que pnpm v11 bloquea por defecto. En desarrollo local, el paquete ya estaba instalado (el script ya se ejecutó), por lo que el error no se manifestaba. En CI (fresh install), pnpm lo bloqueaba con exit code 1.
+**Lección**: cuando se usa pnpm v10.4+ en CI, cualquier dependencia (directa o transitiva) con scripts de build debe ser aprobada explícitamente. Agregarla a `only-built-dependencies[]` en `.npmrc`. No usar la sección `pnpm` en `package.json` — pnpm v11 ya no la lee.
+**Cómo aplicar**: toda vez que un `pnpm install` falle en CI con `ERR_PNPM_IGNORED_BUILDS`, identificar el paquete bloqueado y agregarlo a `.npmrc` como `only-built-dependencies[]=<package>`. Para descubrir todas las dependencias con build scripts bloqueados, correr `pnpm install` sin `--frozen-lockfile` en un entorno limpio (sin `node_modules`).
+
