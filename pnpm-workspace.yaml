@@ -6,7 +6,7 @@ allowBuilds:
   detox: true
   dtrace-provider: true
   esbuild: true
-  protobufjs: set this to true or false
+  protobufjs: true
 esbuild: true
 minimumReleaseAgeExclude:
   - '@opentelemetry/api-logs@0.219.0'
