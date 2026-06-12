@@ -1,3 +1,6 @@
+// Side-effect import: auto-initializes OpenTelemetry BEFORE NestJS bootstrap
+import './infrastructure/logging/otel-sdk';
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 

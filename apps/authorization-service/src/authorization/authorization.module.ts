@@ -2,7 +2,7 @@ import { Module, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { MESSAGE_CONSUMER, IMessageConsumer, MESSAGE_PUBLISHER } from '@open-supervisor/shared-messaging';
+import { MESSAGE_CONSUMER, IMessageConsumer, MESSAGE_PUBLISHER, LOGGER } from '@open-supervisor/shared-messaging';
 import { AuthorizationController } from './authorization.controller';
 import {
   ProcessAuthorizationRequestUseCase,
@@ -22,6 +22,7 @@ import { KafkaConsumerAdapter } from '../infrastructure/messaging/kafka/kafka-co
 import { KafkaPublisherAdapter } from '../infrastructure/messaging/kafka/kafka-publisher.adapter';
 import { KafkaAuthorizationResponsePublisher } from '../infrastructure/messaging/kafka/kafka-authorization-response-publisher.adapter';
 import { RedisPublisherAdapter } from '../infrastructure/events/redis-publisher.adapter';
+import { PinoLoggerAdapter } from '../infrastructure/logging/pino-logger.adapter';
 import { DrizzleModule } from '../infrastructure/persistence/drizzle/drizzle.provider';
 import { DrizzleAuthorizationRepository } from '../infrastructure/persistence/drizzle/drizzle-authorization.repository';
 import { DrizzleOutboxRepository } from '../infrastructure/persistence/drizzle/drizzle-outbox.repository';
@@ -48,6 +49,7 @@ import { AuthorizationRequestDto } from '@open-supervisor/shared-types';
     { provide: AUTHORIZATION_REPOSITORY, useClass: DrizzleAuthorizationRepository },
     { provide: OUTBOX_REPOSITORY, useClass: DrizzleOutboxRepository },
     { provide: UNIT_OF_WORK, useClass: DrizzleUnitOfWork },
+    { provide: LOGGER, useFactory: () => new PinoLoggerAdapter('authorization-service') },
     { provide: MESSAGE_PUBLISHER, useClass: KafkaPublisherAdapter },
     { provide: MESSAGE_CONSUMER, useClass: KafkaConsumerAdapter },
     { provide: AUTHORIZATION_RESPONSE_PUBLISHER, useClass: KafkaAuthorizationResponsePublisher },
