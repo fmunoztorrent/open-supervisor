@@ -993,3 +993,16 @@ slug: kafkajs-consumer-run-blocks-timers
 **Lección**: No usar `setTimeout` dentro del Promise callback de `consumer.run()` de kafkajs en tests e2e — los timers se bloquean. Usar `Promise.race` externo o verificar el return path vía outbox stats (`GET /outbox/stats`) en vez de consumir Kafka directamente. Para consumir mensajes específicos en tests, usar `fromBeginning: false` y limpiar el topic con `admin.deleteTopicRecords()` antes del test.
 **Cómo aplicar**: en tests e2e que necesiten verificar publicación a Kafka, preferir polling de outbox stats sobre consumo directo de Kafka. Si se requiere consumo directo: (1) limpiar el topic con `admin.deleteTopicRecords()`, (2) usar `fromBeginning: false`, (3) nunca poner `setTimeout` dentro del Promise que envuelve `consumer.run()` — usar `Promise.race` externo.
 
+---
+date: 2026-06-19
+agent: main
+category: spec-process
+tags: [harness, enforcement, claude-code, opencode, divergence]
+slug: enforcement-paridad-claude-opencode
+---
+
+**Contexto**: Auditoría de consistencia del harness multi-runtime (Claude Code ↔ opencode). CLAUDE.md afirmaba que un `pre-command` hook ejecutaba `.opencode/pipeline/check.sh` para enforcing del pipeline en Claude Code.
+**Qué pasó**: `check.sh` era código muerto — el único `PreToolUse(Bash)` corría el guard de coordinación, no `check.sh`. Claude Code NO tenía enforcement de pipeline en `edit`/`write`; solo opencode (vía plugin) lo tenía. El único gate compartido era el `pre-commit`. Además los 5 agentes habían divergido 26–60 líneas de cuerpo entre `.claude` y `.opencode`.
+**Lección**: Cuando dos runtimes comparten el mismo working tree y deben cumplir la misma regla, la lógica de enforcement debe vivir en UN core compartido (`pipeline-core.mjs`) que ambos importen — plugin opencode + `pipeline-cli.mjs` para los hooks de Claude Code. Duplicar la lógica garantiza divergencia. Para artefactos con frontmatter por-runtime (agentes), mantener cuerpo canónico único + generador (`sync-agents.ts`) + `--check` en pre-commit.
+**Cómo aplicar**: antes de afirmar en docs que un hook hace X, verificar que el hook esté realmente cableado en `settings.json`/`opencode.json`. Para cualquier regla "se cumple en ambos runtimes": un solo módulo de lógica, wrappers delgados por runtime, y un check de divergencia en el gate compartido (pre-commit). Validar el self-enforcement probando exit codes con payloads JSON simulados.
+

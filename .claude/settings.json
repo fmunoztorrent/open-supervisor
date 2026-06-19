@@ -61,6 +61,24 @@
             "command": "bash .opencode/pipeline/coordination-claude-hook.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .opencode/pipeline/pipeline-cli.mjs guard-edit"
+          }
+        ]
+      },
+      {
+        "matcher": "TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .opencode/pipeline/pipeline-cli.mjs check-activation"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -69,7 +87,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"── Modelo activo: ${CLAUDE_MODEL:-desconocido} ──\""
+            "command": "node .opencode/pipeline/pipeline-cli.mjs sync-todos; echo \"── Modelo activo: ${CLAUDE_MODEL:-desconocido} ──\""
           }
         ]
       }

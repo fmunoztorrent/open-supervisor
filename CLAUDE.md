@@ -2,9 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **⚠️ PIPELINE ENFORCEMENT ACTIVO (opencode):** El plugin `pipeline-enforcer` bloquea cualquier edición de archivos (`edit`/`write`) hasta que se inicie el pipeline con `todowrite`. Si ves el error del plugin, ejecuta primero `todowrite` con los 6 pasos del pipeline. No intentes editar archivos sin pipeline — será bloqueado mecánicamente.
+> **⚠️ PIPELINE ENFORCEMENT ACTIVO (ambos runtimes):** La edición de archivos
+> (`edit`/`write`) está bloqueada mecánicamente hasta que se inicie el pipeline
+> con `todowrite`. Si ves el error de enforcement, ejecuta primero `todowrite`
+> con los pasos del pipeline. No intentes editar archivos sin pipeline — será
+> bloqueado en cualquiera de los dos runtimes.
 >
-> **Claude Code:** El `pre-command` hook y el `git pre-commit hook` también verifican el estado del pipeline. No puedes commitear sin pipeline cerrado.
+> La lógica de enforcement es **única y compartida** (`.opencode/pipeline/pipeline-core.mjs`):
+> - **opencode:** el plugin `pipeline-enforcer` (`.opencode/plugins/pipeline-enforcer.js`) importa el core y bloquea `edit`/`write` en `tool.execute.before`.
+> - **Claude Code:** el hook `PreToolUse(Edit|Write|MultiEdit)` ejecuta `pipeline-cli.mjs guard-edit` (mismo core). `PreToolUse(TodoWrite)` ejecuta `check-activation` (pre-spec gate) y `PostToolUse(TodoWrite)` ejecuta `sync-todos` (actualiza `state.json`).
+> - **Ambos:** el `git pre-commit hook` rechaza commits con pipeline en progreso. No puedes commitear sin pipeline cerrado.
 
 ## Proyecto
 
@@ -279,6 +286,9 @@ Cada vez que se inicia, avanza o termina un paso del pipeline, se DEBE:
                              (c) `adb logcat | grep ReactNativeJS` sin errores críticos
                              (d) Screenshot del emulador confirma UI correcta (sin red screen)
 5. qa agent (GREEN)       → corre la suite completa y reporta
+5b. validación empírica   → leer .opencode/pipeline/validate-empirica.md y ejecutar
+                           los checks. Gate bloqueante: si falla, vuelve a QA RED y
+                           NO se cierra. No es opcional.
 6. cierre                 → leer .opencode/pipeline/close.md y ejecutar todos los pasos
                            incluidos 2b (verificar commits capturados) y 3b (sync dev←main)
 ```
@@ -289,16 +299,19 @@ La herramienta `todowrite` mantendrá el tablero visible. Cada transición se an
 
 ### Pipeline enforcement automático
 
-El plugin `pipeline-enforcer` (`.opencode/plugins/pipeline-enforcer.js`) bloquea mecánicamente cualquier `edit`/`write` hasta que se detecte un pipeline activo via `todowrite`.
+El enforcement vive en un **core compartido** (`.opencode/pipeline/pipeline-core.mjs`) que ambos runtimes consumen, así que el pipeline se cumple **idénticamente** en opencode y Claude Code. Cualquier cambio a la lógica de enforcement va en el core, una sola vez — no se duplica.
+
+- **opencode:** el plugin `pipeline-enforcer` (`.opencode/plugins/pipeline-enforcer.js`) es un wrapper delgado que importa el core y bloquea `edit`/`write` en `tool.execute.before`.
+- **Claude Code:** los hooks de `.claude/settings.json` ejecutan `pipeline-cli.mjs` (mismo core): `guard-edit` en `PreToolUse(Edit|Write|MultiEdit)`, `check-activation` en `PreToolUse(TodoWrite)`, `sync-todos` en `PostToolUse(TodoWrite)`.
 
 **Cómo funciona (multi-scope):**
-1. El hook `todo.updated` parsea cada todo y lo asigna a un **scope** usando el prefijo `[scope:id]`. Los todos sin prefijo van al scope `main`.
-2. Cada scope mantiene su propio estado en `state.json` (`{ scopes: { "feature/x": { active, type, step, ... } } }`)
-3. El hook `tool.execute.before` bloquea `edit`/`write` si **ningún scope** está activo
-4. Cuando un scope completo pasa de activo a completado, el plugin escribe `.opencode/pipeline/close-pending.json` automáticamente
-5. Al marcar todos los todos de todos los scopes como `completed`, el plugin desactiva el bloqueo global
+1. `todowrite` parsea cada todo y lo asigna a un **scope** usando el prefijo `[scope:id]`. Los todos sin prefijo van al scope `main`.
+2. Cada scope mantiene su propio estado en `state.json` (`{ scopes: { "feature-x": { active, type, step, ... } } }`).
+3. El guard de edición bloquea `edit`/`write` si **ningún scope** está activo (excepción: archivos internos del pipeline y resolución de conflictos de merge).
+4. Cuando un scope completo pasa de activo a completado, se escribe `.opencode/pipeline/close-pending.json` automáticamente.
+5. Al marcar todos los todos de todos los scopes como `completed`, se desactiva el bloqueo global.
 
-**Si ves el error del plugin:** ejecuta `todowrite` con los pasos del pipeline. Para tareas múltiples:
+**Si ves el error de enforcement:** ejecuta `todowrite` con los pasos del pipeline. Para tareas múltiples:
 
 ```
 [feature.login-google]
@@ -319,7 +332,32 @@ El plugin `pipeline-enforcer` (`.opencode/plugins/pipeline-enforcer.js`) bloquea
 
 ### Claude Code hooks
 
-El pre-command hook en `.claude/settings.json` ejecuta `.opencode/pipeline/check.sh` antes de cada comando bash. Si no hay pipeline activo, bloquea comandos destructivos.
+`.claude/settings.json` cablea el enforcement de Claude Code al core compartido:
+
+| Hook | Matcher | Comando | Efecto |
+|---|---|---|---|
+| `PreToolUse` | `Edit\|Write\|MultiEdit` | `pipeline-cli.mjs guard-edit` | Bloquea (exit 2) la edición si no hay pipeline activo o si detecta hardcodeos |
+| `PreToolUse` | `TodoWrite` | `pipeline-cli.mjs check-activation` | Bloquea la activación de un scope nuevo si `pre-spec.sh` falla |
+| `PostToolUse` | `TodoWrite` | `pipeline-cli.mjs sync-todos` | Actualiza `state.json` desde la lista de todos |
+| `PreToolUse` | `Bash` | `coordination-claude-hook.sh` | Guard de git destructivo con árbol sucio (coordinación Claude ↔ opencode) |
+
+El `git pre-commit hook` (compartido vía `core.hooksPath`) rechaza commits con pipeline en progreso, hardcodeos, tests rojos, o divergencia entre agentes `.claude` ↔ `.opencode`. El script `check.sh` queda como verificador de estado standalone para uso manual/CI (`bash .opencode/pipeline/check.sh`), no como hook.
+
+### Agentes sin divergencia (claude ↔ opencode)
+
+> **REGLA:** Los agentes `architect`, `backend`, `frontend`, `qa` y `spec` existen
+> en dos archivos (`.claude/agents/<a>.md` y `.opencode/agents/<a>.md`) que **solo
+> pueden diferir en el frontmatter** (Claude Code usa `name/tools/model`; opencode
+> usa `mode/model/permission`). **El cuerpo debe ser idéntico.**
+
+- **Fuente canónica:** `.claude/agents/<a>.md`. Ahí se editan las instrucciones.
+- **Generación:** `npx tsx scripts/sync-agents.ts` copia el cuerpo canónico a cada
+  `.opencode/agents/<a>.md` preservando su frontmatter.
+- **Enforcement:** el `git pre-commit hook` corre `sync-agents.ts --check` cuando hay
+  archivos de agente staged y bloquea el commit si algún cuerpo divergió. Esto aplica
+  desde **ambos** runtimes (hook compartido). Tras editar un agente: regenerar y commitear.
+- **Excepción:** `.opencode/agents/pipeline.md` es el orquestador exclusivo de opencode
+  (Claude Code orquesta desde la sesión principal, sin archivo de agente). No se sincroniza.
 
 ## Git workflow
 
@@ -416,6 +454,8 @@ Al completar la implementación de un spec (siguiendo `close.md`):
 3. architect (opcional)  → si el fix requiere cambios arquitecturales
 4. fix                   → implementar la corrección
 5. verify                → correr suite completa + typecheck
+5b. validación empírica  → leer `.opencode/pipeline/validate-empirica.md`. Gate
+                          bloqueante: si falla, vuelve a reproducir/fix. No es opcional.
 6. cierre                → leer `.opencode/pipeline/close.md` y ejecutar instrucciones
                           incluidos pasos 2b y 3b
 ```
@@ -601,14 +641,19 @@ Skills externas que el harness asume instaladas. Si no están presentes, los age
 
 | Skill | Install | Purpose | Used by |
 |---|---|---|---|
-| `juliusbrussee/caveman@caveman` | `npx skills add juliusbrussee/caveman@caveman -g -y` | Ultra-compressed responses (~75% token savings) in implementation agents. Drops fluff, keeps technical accuracy. | `backend`, `qa`, `frontend` |
+| `juliusbrussee/caveman@caveman` | `npx skills add juliusbrussee/caveman@caveman -g -y` | Ultra-compressed output for **code and XML**; clear prose for markdown and conversation. ~75% token savings on machine-consumed artifacts. | `architect`, `backend`, `qa`, `frontend`, `spec` |
 
 **Verify installation:**
 ```bash
 ls ~/.agents/skills/caveman/SKILL.md && echo "caveman: OK" || echo "caveman: MISSING — run: npx skills add juliusbrussee/caveman@caveman -g -y"
 ```
 
-**Agents with caveman mode:** `.opencode/agents/backend.md`, `.opencode/agents/qa.md`, `.opencode/agents/frontend.md` (and their `.claude/` equivalents). `spec` and `architect` use normal communication (user-facing).
+**Caveman es target-based, no uniforme** (sección `## Output mode (caveman, target-based)` en cada agente):
+
+- **Código y XML** que el agente produce (fuentes, tests, specs XML, `agent-instructions`): caveman en su **máxima expresión** (ultra). Identificadores, términos técnicos, bloques de código y errores citados quedan byte-exactos.
+- **Markdown en prosa y conversación** (narrativa de specs, reportes, LEARNINGS, texto de PRs, mensajes al usuario u orquestador): **nunca** caveman al máximo — lenguaje claro y conciso, gramatical. Se quita relleno, no legibilidad.
+
+Los **cinco** agentes (`architect`, `backend`, `frontend`, `qa`, `spec`) llevan esta sección idéntica. No hay agentes "sin caveman": la diferencia es por tipo de salida.
 
 ---
 
