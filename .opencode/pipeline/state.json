@@ -16,6 +16,13 @@
       "step": 4,
       "started_at": "2026-06-19T17:00:00.000Z",
       "completed_at": "2026-06-19T17:30:00.000Z"
+    },
+    "chore.update-task-command": {
+      "active": false,
+      "type": "chore",
+      "step": 4,
+      "started_at": "2026-06-19T18:00:00.000Z",
+      "completed_at": "2026-06-19T18:05:00.000Z"
     }
   },
   "activeScope": null
