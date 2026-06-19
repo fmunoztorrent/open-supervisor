@@ -30,6 +30,13 @@
       "step": 4,
       "started_at": "2026-06-19T16:20:00.000Z",
       "completed_at": "2026-06-19T16:25:00.000Z"
+    },
+    "chore.detox-ci-shell": {
+      "active": false,
+      "type": "chore",
+      "step": 6,
+      "started_at": "2026-06-19T20:12:22.566Z",
+      "completed_at": "2026-06-19T20:14:29.110Z"
     }
   },
   "activeScope": null
