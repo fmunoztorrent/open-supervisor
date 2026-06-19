@@ -1,70 +1,64 @@
 # PENDIENTE: Job Detox (E2E + Emulator) en CI
 
-> **Estado:** ❌ falla. Aislado para retomar en una sesión dedicada.
-> **No bloquea formalmente el merge a `main`** (ver más abajo), pero deja el job en rojo.
+> **Estado:** ⚠️ avanza hasta el boot del emulador. Las dos causas de código
+> (shell del script y build nativo) están **resueltas y verificadas en CI**.
+> El único blocker restante es **infra del emulador en CI**, no código del repo.
+> **No bloquea formalmente el merge a `main`** (ver más abajo).
 
-## Contexto
+## Progreso (qué se resolvió)
 
-El job `E2E (Detox + Emulator)` de `.github/workflows/ci.yml` **nunca se había
-ejecutado de verdad**: corre `needs: validate`, y el job `validate` siempre moría
-en el step `Run lint` (lint nunca estuvo configurado). Al arreglar lint
-(commit `e09ef19`), `validate` pasó por primera vez y Detox finalmente corrió —
-exponiendo este bug.
+El job `E2E (Detox + Emulator)` de `.github/workflows/ci.yml` falló en tres capas
+sucesivas. Las dos primeras ya están corregidas:
 
-Detox **sí está configurado** en el repo: dependencia `detox@^20.51.3`,
-`apps/mobile/.detoxrc.js`, specs en `apps/mobile/e2e/` (`01-login`, `02-list`,
-`03-decision`), `jest.config.js`, `mock-server` y los scripts
-`detox:build` / `detox:test` en `apps/mobile/package.json`. El problema es del
-**workflow**, no de la configuración de Detox.
+| Capa | Síntoma original | Fix | Estado |
+|---|---|---|---|
+| 1. Shell del script | `[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command "detox:build" not found` — el `cd apps/mobile` no persistía entre líneas | Encadenar en un solo shell: `script: cd apps/mobile && pnpm detox:build && pnpm detox:test` | ✅ resuelto (commit `bea5f76`) — Gradle ahora corre 104 tasks |
+| 2. Build nativo C++ | `no member named 'StyleSizeLength' in namespace 'facebook::yoga'` en `RNSVGLayoutableShadowNode.cpp` | Pin `react-native-svg` `15.15.5` → `15.12.1` (15.13+ dropeó el guard `REACT_NATIVE_MINOR_VERSION`; 15.12.1 mantiene el branch `<0.77` que usa `yoga::value::points`) | ✅ resuelto (commit `4507aff`) — APK compila e instala |
+| 3. Boot del emulador | `##[error]Timeout waiting for emulator to boot.` — `getprop sys.boot_completed` siempre vacío | **pendiente** | ❌ blocker actual |
 
-## Causa raíz
+Run de referencia donde se ve el avance hasta la capa 3: `27847560853`
+(sha `132275b`). Backend E2E pasó en verde en la misma corrida.
 
-El `script:` del step `Build APK + Run Detox tests`
-(`reactivecircus/android-emulator-runner`) corre cada línea en un **shell
-separado**, así que el `cd apps/mobile` no persiste:
+## Causa raíz del blocker actual (capa 3)
 
-```yaml
-script: |
-  cd apps/mobile      # ← este cd se pierde
-  pnpm detox:build    # ← corre en la raíz del repo
-  pnpm detox:test
-```
+El step `Build APK + Run Detox tests` (`reactivecircus/android-emulator-runner@v2`)
+arranca el emulador y hace polling de `sys.boot_completed`. En el runner
+`ubuntu-latest` con la config actual el emulador **nunca completa el boot**:
+arrancó a las `20:45:38` y siguió en polling (respuesta vacía) hasta el timeout
+~15 min después. El log muestra intentos de cargar/guardar el snapshot
+`default_boot`, sospechoso típico de cuelgue de boot.
 
-Resultado en el log de CI:
-
-```
-/usr/bin/sh -c cd apps/mobile
-/usr/bin/sh -c pnpm detox:build
-[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command "detox:build" not found
-Did you mean "pnpm build"?
-##[error]The process '/usr/bin/sh' failed with exit code 1
-```
-
-`pnpm detox:build` se ejecuta desde la raíz (donde no existe ese script) en vez
-de desde `apps/mobile`.
-
-## Fix candidato (1 línea)
-
-Encadenar con `&&` en una sola línea para que el `cd` persista en el mismo shell:
+Config actual del step:
 
 ```yaml
-script: cd apps/mobile && pnpm detox:build && pnpm detox:test
+api-level: 34
+target: google_apis
+arch: x86_64
+avd-name: open_supervisor
+emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
 ```
 
-**Importante:** este fix sólo resuelve el `cd`. Es la **primera ejecución real**
-de Detox en CI, así que el build del APK (Gradle), el boot del emulador, el
-`mock-server` y los specs podrían destapar problemas adicionales. Presupuestar
-varios ciclos (~11 min cada uno) y revisar el log completo en cada iteración.
+## Candidatos a probar (próxima sesión)
+
+Cada ciclo de CI cuesta ~15 min. Probar de a uno, de mayor a menor probabilidad:
+
+1. **Deshabilitar snapshots** (más probable): agregar `-no-snapshot` a
+   `emulator-options` para evitar el cuelgue de carga/guardado de snapshot.
+2. **`disable-animations: true`** como input del action.
+3. **`force-avd-creation: false`** + `cores: 2` para acelerar/estabilizar el boot.
+4. **Cambiar `target: google_apis` → `default`**: la imagen sin Google APIs
+   suele bootear más rápido y la app no requiere GMS para los specs de Detox.
+5. Subir `api-level` a 30/31 (imágenes históricamente más estables en CI).
 
 ## Cómo verificar
 
-1. Aplicar el fix en `.github/workflows/ci.yml` (chore — sin spec).
+1. Aplicar el ajuste en `.github/workflows/ci.yml` (chore — sin spec).
 2. Push a `dev` → dispara el workflow `CI` (corre en `push`/`pull_request` a `dev`).
 3. Seguir el job:
    ```bash
    gh run list --branch dev --workflow CI --limit 1
    gh run view <run-id> --json jobs -q '.jobs[] | "\(.name): \(.status) \(.conclusion // "")"'
-   gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs   # log crudo si falla
+   gh run view --job <job-id> --log-failed   # log del step que falla
    ```
 
 ## Por qué NO bloquea formalmente el merge
@@ -78,10 +72,7 @@ varios ciclos (~11 min cada uno) y revisar el log completo en cada iteración.
 
 ## Referencias
 
-- Rama de trabajo: `dev` (PR #20 → `main`).
-- Commits relacionados de esta tanda:
-  - `e09ef19` — ESLint baseline (causa de que Detox por fin corriera).
-  - `339610d` — de-flake tests de health.
-  - `5673cd1` — barrera de readiness de Kafka en el e2e backend.
-- Checks de PR #20 al momento de aislar esto: Tests+Typecheck+Lint ✅,
-  Backend E2E ✅, Quality Gate ✅, **Detox ❌**.
+- Commits de esta tanda:
+  - `bea5f76` — fix capa 1 (shell del script Detox).
+  - `4507aff` — fix capa 2 (pin react-native-svg para RN 0.76.9).
+- Commit que documentó originalmente el pendiente: `ba4923f`.
