@@ -42,12 +42,14 @@ describe('HealthController — sse-server', () => {
       expect(Number.isNaN(parsed.getTime())).toBe(false);
     });
 
-    it('responds quickly (<50ms)', async () => {
+    it('responds without blocking (well under 1s)', async () => {
       const start = Date.now();
       await request(app.getHttpServer()).get('/health');
       const elapsed = Date.now() - start;
 
-      expect(elapsed).toBeLessThan(50);
+      // Generous bound: catches a hung/blocking handler without flaking on slow
+      // CI runners (a tight <50ms bound flaked under shared-runner load).
+      expect(elapsed).toBeLessThan(1000);
     });
   });
 });
