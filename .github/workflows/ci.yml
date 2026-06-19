@@ -85,3 +85,103 @@ jobs:
             cd apps/mobile
             pnpm detox:build
             pnpm detox:test
+
+  e2e-backend:
+    name: Backend E2E (Kafka + Redis + Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: validate
+
+    services:
+      kafka:
+        # Single-node KRaft Kafka (no Zookeeper — GitHub Actions services: does not support
+        # depends_on or multi-container coordination)
+        image: apache/kafka:3.7.1
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+          KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+          CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+        ports:
+          - 9092:9092
+        options: >-
+          --health-cmd "nc -z localhost 9092 || exit 1"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 10
+          --health-start-period 30s
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: open_supervisor
+          POSTGRES_PASSWORD: dev_password
+          POSTGRES_DB: open_supervisor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages and services
+        run: pnpm -r build
+
+      - name: Apply DB migrations
+        working-directory: apps/authorization-service
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: postgresql://open_supervisor:dev_password@localhost:5432/open_supervisor
+
+      - name: Run backend e2e suite
+        working-directory: apps/authorization-service
+        run: pnpm test:e2e
+        env:
+          KAFKA_BROKERS: localhost:9092
+          REDIS_HOST: localhost
+          REDIS_PORT: "6379"
+          DATABASE_URL: postgresql://open_supervisor:dev_password@localhost:5432/open_supervisor
+          SSE_SERVER_URL: http://localhost:3002
+          AUTH_SERVICE_URL: http://localhost:3001
+          BFF_URL: http://localhost:3000
+          KEYCLOAK_URL: http://localhost:8080
+          KEYCLOAK_REALM: open-supervisor
+          KEYCLOAK_CLIENT_ID: bff-client
+          KEYCLOAK_CLIENT_SECRET: dummy-secret
+          OUTBOX_TICK_INTERVAL_MS: "250"

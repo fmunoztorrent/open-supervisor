@@ -1,8 +1,8 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "rootDir": ".",
+    "outDir": "./dist-e2e",
     "paths": {
       "@open-supervisor/shared-types": ["node_modules/@open-supervisor/shared-types/src"],
       "@open-supervisor/shared-messaging": ["node_modules/@open-supervisor/shared-messaging/src"]
