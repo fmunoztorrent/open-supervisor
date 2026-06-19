@@ -980,3 +980,16 @@ slug: pnpm-only-built-dependencies-protobufjs
 **Lección**: cuando se usa pnpm v10.4+ en CI, cualquier dependencia (directa o transitiva) con scripts de build debe ser aprobada explícitamente. Agregarla a `only-built-dependencies[]` en `.npmrc`. No usar la sección `pnpm` en `package.json` — pnpm v11 ya no la lee.
 **Cómo aplicar**: toda vez que un `pnpm install` falle en CI con `ERR_PNPM_IGNORED_BUILDS`, identificar el paquete bloqueado y agregarlo a `.npmrc` como `only-built-dependencies[]=<package>`. Para descubrir todas las dependencias con build scripts bloqueados, correr `pnpm install` sin `--frozen-lockfile` en un entorno limpio (sin `node_modules`).
 
+---
+date: 2026-06-19
+agent: backend
+category: test-strategy
+tags: [kafka, kafkajs, e2e, consumer-run, setTimeout, outbox, test-harness, jest]
+slug: kafkajs-consumer-run-blocks-timers
+---
+
+**Contexto**: Escribiendo tests e2e que verifican el return path del outbox (resolve → outbox → Kafka `auth.response.{store_id}`). El test usaba `consumer.run()` con `eachMessage` dentro de un `Promise` con `setTimeout` interno para esperar la respuesta.
+**Qué pasó**: El `setTimeout` dentro del Promise constructor NUNCA disparaba (ni siquiera después de 60s de test timeout), mientras que `setTimeout` definidos en el mismo test (fuera del Promise) sí disparaban. `consumer.run()` con `eachMessage` recibía mensajes viejos del topic pero parecía bloquear los timers internos del Promise. Además, con `fromBeginning: true`, el consumer se inundaba de datos históricos de runs anteriores y no recibía nuevos mensajes a tiempo.
+**Lección**: No usar `setTimeout` dentro del Promise callback de `consumer.run()` de kafkajs en tests e2e — los timers se bloquean. Usar `Promise.race` externo o verificar el return path vía outbox stats (`GET /outbox/stats`) en vez de consumir Kafka directamente. Para consumir mensajes específicos en tests, usar `fromBeginning: false` y limpiar el topic con `admin.deleteTopicRecords()` antes del test.
+**Cómo aplicar**: en tests e2e que necesiten verificar publicación a Kafka, preferir polling de outbox stats sobre consumo directo de Kafka. Si se requiere consumo directo: (1) limpiar el topic con `admin.deleteTopicRecords()`, (2) usar `fromBeginning: false`, (3) nunca poner `setTimeout` dentro del Promise que envuelve `consumer.run()` — usar `Promise.race` externo.
+
