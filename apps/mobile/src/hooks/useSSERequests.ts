@@ -66,7 +66,7 @@ export function useSSERequests(storeId: string): UseSSERequestsResult {
         }
       }
     },
-    [storeId], // eslint-disable-line react-hooks/exhaustive-deps (requests is read but used only in catch)
+    [storeId], // eslint-disable-line react-hooks/exhaustive-deps -- requests is read but used only in catch
   );
 
   // Public refetch — triggers a silent GET /pending and updates the list.

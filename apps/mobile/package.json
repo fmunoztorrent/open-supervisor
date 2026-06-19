@@ -6,7 +6,6 @@
     "android": "react-native run-android --no-packager",
     "start": "react-native start",
     "test": "jest",
-    "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "detox:build": "ENVFILE=.env.e2e detox build --configuration android.emu.debug",
     "detox:test": "detox test --configuration android.emu.debug --loglevel verbose",

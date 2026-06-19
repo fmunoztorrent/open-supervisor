@@ -6,7 +6,6 @@
     "dev": "rm -rf tsconfig*.tsbuildinfo && nest start --watch",
     "start": "node dist/main",
     "test": "jest",
-    "lint": "eslint \"{src,test}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test:mutation": "stryker run"
   },
