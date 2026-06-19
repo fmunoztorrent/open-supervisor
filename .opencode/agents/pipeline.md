@@ -28,7 +28,7 @@ Si no está claro, pregunta al usuario.
 
 ### Pipeline feature (6 pasos)
 
-1. **@spec** → spec formal en `spec/<slug>.spec.xml` con REASONS Canvas y versionado
+1. **@spec** → spec formal en `spec/<slug>.spec.md` (contenido XML) con REASONS Canvas y versionado
 2. **@architect** → valida viabilidad técnica, enriquece paths y escenarios de test
 3. **@qa (RED)** → escribe tests que fallan por la razón correcta
 4. **@backend / @frontend** → implementa hasta que los tests pasen en verde
