@@ -23,6 +23,13 @@
       "step": 4,
       "started_at": "2026-06-19T18:00:00.000Z",
       "completed_at": "2026-06-19T18:05:00.000Z"
+    },
+    "chore.document-detox-pending": {
+      "active": false,
+      "type": "chore",
+      "step": 4,
+      "started_at": "2026-06-19T16:20:00.000Z",
+      "completed_at": "2026-06-19T16:25:00.000Z"
     }
   },
   "activeScope": null
