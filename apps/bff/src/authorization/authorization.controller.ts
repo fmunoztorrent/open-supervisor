@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { AuthorizationService, ResolvePayload } from './authorization.service';
 
 @Controller('authorization')
@@ -16,6 +16,7 @@ export class AuthorizationController {
   }
 
   @Post(':id/resolve')
+  @HttpCode(200)
   async resolve(@Param('id') id: string, @Body() payload: ResolvePayload) {
     return this.authService.resolve(id, payload);
   }
