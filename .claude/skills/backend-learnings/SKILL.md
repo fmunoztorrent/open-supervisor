@@ -5,10 +5,9 @@ description: Aprendizajes acumulados del backend engineer. Patrones validados en
 ---
 
 ## Reglas activas (validadas ≥2 veces)
-*Esta sección se llena automáticamente por el script `scripts/extract-learnings.ts` al cierre de cada tarea. Cuando un mismo patrón aparece en ≥2 entradas de LEARNINGS.md, se promueve aquí.*
+- **kafkajs-consumer-run-blocks-timers** (x2, 2026-06-19) — **Lección**: No usar `setTimeout` dentro del Promise callback de `consumer.run()` de kafkajs en tests e2e — los timers s
 
 ## Lecciones recientes
-- [2026-06-19] kafkajs-consumer-run-blocks-timers — **Lección**: No usar `setTimeout` dentro del Promise callback de `consumer.run()` de kafkajs en tests e2e — los timers s
 - [2026-06-10] quality-gate-metric-names-match-architect-contract-over-criteria — **Lección**: cuando hay discrepancia entre las historias de usuario (que usan lenguaje funcional) y el contrato detallad
 - [2026-06-05] specs-independientes-paralelizables-con-task-tool — **Lección**: Antes de lanzar sub-agentes en paralelo, verificar que no haya overlap de archivos entre los specs. Si dos specs modifican el mismo archivo, secuencializarlos.
 - [2026-06-05] specs-tempranos-pueden-carecer-de-cierre-formal — **Lección**: Antes de asumir que un spec viejo está "sin implementar", verificar si el código correspondiente existe en el tree y los tests pasan.
