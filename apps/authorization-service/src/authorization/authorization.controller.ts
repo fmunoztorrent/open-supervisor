@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, ConflictException, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, ConflictException, BadRequestException } from '@nestjs/common';
 import { ResolveAuthorizationUseCase } from '../domain/use-cases/resolve-authorization.use-case';
 import { IAuthorizationRepository, AUTHORIZATION_REPOSITORY } from '../domain/ports/authorization-repository.port';
 import { Inject } from '@nestjs/common';
@@ -61,6 +61,7 @@ export class AuthorizationController {
   }
 
   @Post(':id/resolve')
+  @HttpCode(200)
   async resolve(
     @Param('id') id: string,
     @Body() dto: ResolveAuthorizationDto,

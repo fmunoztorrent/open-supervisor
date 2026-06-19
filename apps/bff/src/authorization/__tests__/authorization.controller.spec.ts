@@ -115,7 +115,7 @@ describe('AuthorizationController (BFF)', () => {
         .post('/authorization/req-001/resolve')
         .send({ decision: 'APPROVE', supervisor_id: 'sup-01' });
 
-      expect(response.status).toBe(HttpStatus.CREATED);
+      expect(response.status).toBe(HttpStatus.OK);
       await app.close();
     });
   });

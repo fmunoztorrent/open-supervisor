@@ -194,7 +194,7 @@ describe('AuthorizationController', () => {
         .post(`/authorization/${fakeRequest.id}/resolve`)
         .send({ decision: 'APPROVE', supervisor_id: 'sup-01' });
 
-      expect(response.status).toBe(HttpStatus.CREATED);
+      expect(response.status).toBe(HttpStatus.OK);
     });
 
     it('responde con snake_case (resolved_by, resolved_at) consistente con AuthorizationResponseDto', async () => {
@@ -206,7 +206,7 @@ describe('AuthorizationController', () => {
         .post(`/authorization/${fakeRequest.id}/resolve`)
         .send({ decision: 'APPROVE', supervisor_id: 'sup-01' });
 
-      expect(response.status).toBe(HttpStatus.CREATED);
+      expect(response.status).toBe(HttpStatus.OK);
       // Campos snake_case esperados
       expect(response.body).toHaveProperty('correlation_id');
       expect(response.body).toHaveProperty('resolved_by');
