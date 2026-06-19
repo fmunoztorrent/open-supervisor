@@ -42,6 +42,30 @@ fi
 
 echo "✓ Pipeline check: OK"
 
+# ── Validación de divergencia de agentes (claude ↔ opencode) ─────────────────
+# Los cuerpos de .opencode/agents/<a>.md deben ser idénticos a los canónicos en
+# .claude/agents/<a>.md (solo difiere el frontmatter por runtime). Bloquea si
+# alguno divergió. Solo corre si hay archivos de agente staged.
+AGENTS_STAGED=$(git diff --cached --name-only | grep -E '^\.(claude|opencode)/agents/' || true)
+if [ -n "$AGENTS_STAGED" ]; then
+  echo ""
+  echo "--- Agent divergence check ---"
+  ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  AGENT_CHECK_OUT=$(cd "$ROOT_DIR" && npx tsx scripts/sync-agents.ts --check 2>&1)
+  AGENT_CHECK_RC=$?
+  echo "$AGENT_CHECK_OUT" | grep -v "npm warn"
+  if [ "$AGENT_CHECK_RC" -ne 0 ]; then
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  COMMIT BLOQUEADO: Agentes claude ↔ opencode divergen      ║"
+    echo "║                                                              ║"
+    echo "║  Regenerá los .opencode desde los canónicos .claude:        ║"
+    echo "║    npx tsx scripts/sync-agents.ts                            ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    exit 1
+  fi
+fi
+
 # ── Validación de hardcodeos ─────────────────────────────────────────────────
 # Escanea archivos staged en busca de paths absolutos, sockets hardcodeados,
 # y nombres de contenedor con prefijo de proyecto.

@@ -4,11 +4,15 @@ Ejecutar **inmediatamente** cuando el último todo de un scope se marca como `co
 
 ## Pasos
 
-> **Precondición:** El paso **5b/6 Validación Empírica** (`.opencode/pipeline/validate-empirica.md`) debe haberse ejecutado y pasado todos los checks antes de iniciar el cierre. Si 5b falló, el pipeline volvió a QA RED y NO se debe cerrar.
+> **Precondición bloqueante — paso 5b del pipeline (Validación Empírica):**
+> Antes de ejecutar CUALQUIER paso de este checklist, el paso **5b Validación
+> Empírica** (`.opencode/pipeline/validate-empirica.md`) debe haberse ejecutado
+> y pasado todos sus checks. Si 5b falló, el pipeline vuelve a QA RED y **NO se
+> cierra**. Es un gate, no un paso opcional.
 
 ### 1. Actualizar spec (si aplica)
 
-- Buscar el spec relacionado en `spec/` por fecha/asunto (formato: `<YYYY-MM-DD>-<slug>.spec.xml`)
+- Buscar el spec relacionado en `spec/` por fecha/asunto (formato: `<YYYY-MM-DD>-<slug>.spec.md`)
 - Agregar entradas en `<result>`:
   - `<completed-at>`: fecha de finalización
   - `<implemented>`: USTs completadas con `[x]`
@@ -119,7 +123,7 @@ slug: descripcion-corta-en-kebab-case
 - Si una lección aparece por tercera vez, el script la agrega a "Accionables bloqueantes" en `.claude/AGENTS.md`
 - La extracción también se ejecuta automáticamente vía hooks del plugin y de Claude Code. Este paso manual es un fallback.
 
-### 4c. Automejora post-cierre (Paso 7)
+### 4c. Automejora post-cierre
 
 El paso 4b ejecuta `extract-learnings.ts`, que implementa 3 niveles de
 promoción automática de aprendizajes:
@@ -146,7 +150,7 @@ El pipeline se vuelve más estricto con cada error que se repite 3 veces:
 la tabla de accionables bloqueantes sirve como referencia para futuros
 agentes y puede integrarse en validaciones automáticas.
 
-### 6. Revisar CLAUDE.md
+### 5. Revisar CLAUDE.md
 
 - ¿Cambió algo en la estructura del proyecto?
 - ¿Nuevos comandos que documentar?
@@ -154,7 +158,7 @@ agentes y puede integrarse en validaciones automáticas.
 - ¿Nuevos skills configurados?
 - Actualizar solo si es relevante
 
-### 7. Limpiar close-pending
+### 6. Limpiar close-pending
 
 - **Eliminar** `.opencode/pipeline/close-pending.json`:
   ```bash
@@ -164,7 +168,7 @@ agentes y puede integrarse en validaciones automáticas.
 - El historial de cierre queda en git (el commit que elimina el archivo) — no se necesita preservar el JSON.
 - Marcar `completed_at` en state.json para el scope cerrado.
 
-### 8. Anunciar cierre
+### 7. Anunciar cierre
 
 ```
 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─

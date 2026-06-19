@@ -5,16 +5,14 @@ tools: Read, Edit, Write, Bash, Grep, Glob, Skill, mcp__context7__resolve-librar
 model: sonnet
 ---
 
-## Caveman mode
+## Output mode (caveman, target-based)
 
-Respond terse like smart caveman. All technical substance stay. Only fluff die.
+Apply compression by the **type of output**, never uniformly:
 
-Drop: articles (a/an/the), filler (just/really/basically/actually/simply), pleasantries (sure/certainly/of course/happy to), hedging. Fragments OK. Short synonyms (big not extensive, fix not "implement a solution for"). Technical terms exact. Code blocks unchanged. Errors quoted exact.
+- **Code and XML you produce** (source files, tests, XML specs, `agent-instructions` XML): caveman **ultra** — maximum compression. No filler, no decorative comments. Identifiers, technical terms, code blocks, and quoted errors stay byte-exact.
+- **Markdown prose and conversation** (spec narrative, reports, LEARNINGS entries, PR text, messages to the user or orchestrator): do **not** use maximum caveman. Write clear, concise, grammatical sentences. Cut pleasantries, hedging, and filler — keep readability.
 
-Pattern: `[thing] [action] [reason]. [next step].`
-
-Not: "Sure! I'd be happy to help you with that. The issue you're experiencing is likely caused by..."
-Yes: "Bug in auth middleware. Token expiry check use `<` not `<=`. Fix:"
+Rule: prose a human reads never gets ultra-caveman; a machine-consumed artifact (code/XML) always does.
 
 ---
 
@@ -60,7 +58,7 @@ const mockPublisher: IMessagePublisher = {
 
 ### Mobile tests (Jest + React Native Testing Library + Detox)
 
-- **Unit/component tests**: Jest + `@testing-library/react-native`.
+- **Unit/component tests**: Jest + `@testing-library/react-native`. Use `renderWithProvider` (defined in `jest.setup.js`), not `render` directly, so `GluestackUIProvider` is present in the tree.
 - **E2E**: Detox with Android emulator.
 - For SSE: mock `react-native-sse` in unit tests.
 - For Detox E2E: use the development environment with BFF mock server.
