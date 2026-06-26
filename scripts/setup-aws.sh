@@ -46,7 +46,7 @@ ${BOLD}Requirements:${NC}
   aws CLI     — brew install awscli
   terraform   — brew install terraform
   jq          — brew install jq
-  dig         — brew install bind
+  dig/nslookup— incluido en macOS y Linux (sin instalar nada extra)
   Container engine (one of): podman, docker, nerdctl, finch, limactl
 
 ${BOLD}Phases:${NC}
@@ -136,7 +136,7 @@ verify_tools() {
   info "Verificando herramientas requeridas..."
 
   local missing=""
-  for tool in aws terraform jq dig; do
+  for tool in aws terraform jq; do
     if ! command -v "$tool" &>/dev/null; then
       missing="$missing $tool"
     fi
@@ -147,12 +147,23 @@ verify_tools() {
     echo -e "${RED}Faltan herramientas:${NC}$missing"
     echo ""
     echo "  Instalá con:"
-    echo "    brew install awscli terraform jq bind"
+    echo "    brew install awscli terraform jq"
     echo ""
     exit 1
   fi
 
-  ok "aws, terraform, jq, dig — OK"
+  # DNS checker: dig (macOS built-in, Linux via dnsutils/bind-utils) or nslookup (fallback)
+  if ! command -v dig &>/dev/null && ! command -v nslookup &>/dev/null; then
+    echo ""
+    echo -e "${RED}Falta herramienta DNS (dig o nslookup).${NC}"
+    echo ""
+    echo "  macOS: ya viene incluido. Si falla, reinstalá Xcode CLI: xcode-select --install"
+    echo "  Linux: sudo apt install dnsutils   (o bind-utils en RHEL)"
+    echo ""
+    exit 1
+  fi
+
+  ok "aws, terraform, jq, DNS tool — OK"
 }
 
 # ── Container engine detection ──────────────────────────────────────────────────
@@ -416,7 +427,15 @@ phase_awaiting_dns() {
 
   show_cname
 
-  info "Verificando propagación DNS con dig..."
+  # Pick DNS tool: dig (preferred) or nslookup (fallback)
+  local dns_tool
+  if command -v dig &>/dev/null; then
+    dns_tool="dig"
+  else
+    dns_tool="nslookup"
+  fi
+
+  info "Verificando propagación DNS con $dns_tool..."
   echo -e "  ${YELLOW}Backoff: 15s × 4 + 30s × 4 (máx ~3 min)${NC}"
   echo ""
 
@@ -428,12 +447,24 @@ phase_awaiting_dns() {
     local sleep_time="${intervals[$i]}"
     local attempt=$((i + 1))
 
-    # Strip trailing dot for dig if present
     local dig_name="${CNAME_NAME%.}"
+    local cname_value_clean="${CNAME_VALUE%.}"
 
-    printf "  [%2d/%2d] dig %s ... " "$attempt" "${#intervals[@]}" "$dig_name"
+    printf "  [%2d/%2d] $dns_tool %s ... " "$attempt" "${#intervals[@]}" "$dig_name"
 
-    if dig +short "$dig_name" CNAME 2>/dev/null | grep -qF "${CNAME_VALUE%.}"; then
+    local resolved=false
+    if [[ "$dns_tool" == "dig" ]]; then
+      if dig +short "$dig_name" CNAME 2>/dev/null | grep -qF "$cname_value_clean"; then
+        resolved=true
+      fi
+    else
+      # nslookup: output line looks like "canonical name = value" or "name = value"
+      if nslookup -type=CNAME "$dig_name" 2>/dev/null | grep -qF "$cname_value_clean"; then
+        resolved=true
+      fi
+    fi
+
+    if $resolved; then
       echo -e "${GREEN}RESUELTO ✓${NC}"
       merge_state '{"phase": "awaiting_acm", "phase_started_at": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"}'
       phase_awaiting_acm
@@ -455,7 +486,7 @@ phase_awaiting_dns() {
   echo "  - El TTL del DNS es muy alto"
   echo "  - Error de tipeo en el nombre/valor del CNAME"
   echo ""
-  echo "  Verificá manualmente: dig ${CNAME_NAME%.} CNAME"
+  echo "  Verificá manualmente: $dns_tool ${dig_name} CNAME"
   echo "  Y volvé a correr: make setup-aws ${ENV:+ENV=$ENV}"
   exit 1
 }
