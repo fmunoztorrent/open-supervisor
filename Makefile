@@ -159,19 +159,19 @@ services: infra
 	@echo "$(CYAN)🔧 Compilando authorization-service...$(NC)"
 	@cd $(ROOT_DIR)/apps/authorization-service && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando authorization-service (puerto 3001)...$(NC)"
-	@cd $(ROOT_DIR)/apps/authorization-service && node dist/main > /tmp/auth-service.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/authorization-service && nohup node dist/main > /tmp/auth-service.log 2>&1 &
 	@echo ""
 	@# ── sse-server (puerto 3002) ──
 	@echo "$(CYAN)🔧 Compilando sse-server...$(NC)"
 	@cd $(ROOT_DIR)/apps/sse-server && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando sse-server (puerto 3002)...$(NC)"
-	@cd $(ROOT_DIR)/apps/sse-server && node dist/main > /tmp/sse-server.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/sse-server && nohup node dist/main > /tmp/sse-server.log 2>&1 &
 	@echo ""
 	@# ── bff (puerto 3000) ──
 	@echo "$(CYAN)🔧 Compilando bff...$(NC)"
 	@cd $(ROOT_DIR)/apps/bff && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando bff (puerto 3000)...$(NC)"
-	@cd $(ROOT_DIR)/apps/bff && node dist/main > /tmp/bff.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/bff && nohup node dist/main > /tmp/bff.log 2>&1 &
 	@echo ""
 	@# ── Verificar que los 3 puertos estén en escucha ──
 	@echo "$(YELLOW)⏳ Esperando que los servicios estén listos...$(NC)"
@@ -281,6 +281,7 @@ e2e: detox-build detox-test
 localstack:
 	@echo "$(YELLOW)🛑 Deteniendo procesos previos...$(NC)"
 	@-pkill -f "node dist/main" 2>/dev/null || true
+	@-lsof -ti :3000 :3001 :3002 2>/dev/null | xargs kill -9 2>/dev/null || true
 	@sleep 1
 	@echo ""
 	@echo "$(CYAN)🐳 Levantando LocalStack Community + infraestructura...$(NC)"
@@ -309,19 +310,19 @@ localstack:
 	@echo "$(CYAN)🔧 Compilando authorization-service...$(NC)"
 	@cd $(ROOT_DIR)/apps/authorization-service && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando authorization-service (puerto 3001)...$(NC)"
-	@cd $(ROOT_DIR)/apps/authorization-service && node dist/main > /tmp/auth-service.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/authorization-service && nohup node dist/main > /tmp/auth-service.log 2>&1 &
 	@echo ""
 	@# ── sse-server (puerto 3002) ──
 	@echo "$(CYAN)🔧 Compilando sse-server...$(NC)"
 	@cd $(ROOT_DIR)/apps/sse-server && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando sse-server (puerto 3002)...$(NC)"
-	@cd $(ROOT_DIR)/apps/sse-server && node dist/main > /tmp/sse-server.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/sse-server && nohup node dist/main > /tmp/sse-server.log 2>&1 &
 	@echo ""
 	@# ── bff (puerto 3000) ──
 	@echo "$(CYAN)🔧 Compilando bff...$(NC)"
 	@cd $(ROOT_DIR)/apps/bff && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando bff (puerto 3000)...$(NC)"
-	@cd $(ROOT_DIR)/apps/bff && node dist/main > /tmp/bff.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/bff && nohup node dist/main > /tmp/bff.log 2>&1 &
 	@echo ""
 	@# ── Verificar puertos ──
 	@echo "$(YELLOW)⏳ Esperando que los servicios estén listos...$(NC)"
