@@ -91,7 +91,11 @@ fail()  { echo -e "${RED}✗${NC} $*"; exit 1; }
 save_state() {
   local tmp
   tmp="$(mktemp)"
-  jq -n \
+  local existing="{}"
+  if [[ -f "$STATE_FILE" ]]; then
+    existing="$(cat "$STATE_FILE")"
+  fi
+  echo "$existing" | jq \
     --arg phase "$1" \
     --arg started_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
     '{
@@ -107,7 +111,7 @@ save_state() {
       acm_certificate_arn: (.acm_certificate_arn // ""),
       cname_name: (.cname_name // ""),
       cname_value: (.cname_value // "")
-    }' "$STATE_FILE" 2>/dev/null > "$tmp" 2>/dev/null || echo '{}' > "$tmp"
+    }' > "$tmp" 2>/dev/null || echo '{}' > "$tmp"
   mv "$tmp" "$STATE_FILE"
 }
 
@@ -607,6 +611,15 @@ phase_complete() {
 # ── Main ─────────────────────────────────────────────────────────────────────────
 
 main() {
+  # Initialize variables (prevent unbound errors when no state file exists)
+  DOMAIN=""
+  REGION=""
+  CONTAINER_ENGINE=""
+  ACM_CERT_ARN=""
+  CNAME_NAME=""
+  CNAME_VALUE=""
+  phase=""
+
   # Trap Ctrl+C — save current state before exiting
   trap 'echo ""; echo -e "${YELLOW}⚠ Interrumpido. El progreso fue guardado en $STATE_FILE.${NC}"; exit 130' INT
 
@@ -616,7 +629,6 @@ main() {
   echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
 
   # Load existing state
-  local phase
   phase="$(read_state '.phase')"
 
   if [[ "$phase" == "complete" ]]; then
