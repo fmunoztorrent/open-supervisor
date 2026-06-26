@@ -44,7 +44,7 @@ ${BOLD}Usage:${NC}
 
 ${BOLD}Requirements:${NC}
   aws CLI     — brew install awscli
-  terraform   — brew install terraform
+  terraform   — brew install hashicorp/tap/terraform
   jq          — brew install jq
   dig/nslookup— incluido en macOS y Linux (sin instalar nada extra)
   Container engine (one of): podman, docker, nerdctl, finch, limactl
@@ -147,7 +147,7 @@ verify_tools() {
     echo -e "${RED}Faltan herramientas:${NC}$missing"
     echo ""
     echo "  Instalá con:"
-    echo "    brew install awscli terraform jq"
+    echo "    brew install awscli hashicorp/tap/terraform jq"
     echo ""
     exit 1
   fi
