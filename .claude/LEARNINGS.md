@@ -1059,3 +1059,25 @@ slug: podman-compose-exec-no-tty-vs-dash-t
 **Leccion**: Los tres motores (`podman-compose`, `podman compose`, `docker compose`) son **tres CLIs diferentes**, no dos. Aunque `podman compose` emula `docker compose`, `podman-compose` (Python) es un proyecto independiente con sus propios flags. Nunca asumir que un flag de `docker compose` funciona en `podman-compose` sin verificarlo.
 
 **Como aplicar**: En el Makefile, cada comando que use flags especificos del motor debe pasar por una variable intermedia (`COMPOSE_EXEC`) que adapte el flag segun la herramienta detectada. Si se agregan nuevos comandos compose (logs, cp, run), verificar los flags contra los tres motores antes de commitear.
+
+---
+date: 2026-06-26
+agent: backend
+category: setup
+tags: [localstack, podman, docker-sock, compose-ps, port-conflict]
+slug: localstack-podman-docker-sock-and-ps-format
+---
+
+**Contexto**: Probando `make localstack` en macOS con Podman. El target fallaba con `statfs /var/run/docker.sock: no such file or directory` y el formato de `ps` daba error de template.
+
+**Que paso**: 
+1. `docker-compose.localstack.yml` monta `${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock` para que LocalStack pueda lanzar contenedores anidados. En macOS con Podman, el socket esta en una ruta temporal (`/var/folders/.../podman-machine-default-api.sock`), no en `/var/run/docker.sock`.
+2. `podman-compose ps --format` usa un template de Go diferente al de `docker compose ps`. El campo `.Name` no existe en `podman-compose` (usa `.Names` plural o simplemente no soporta el flag `--format` con ese template).
+3. Los servicios NestJS se lanzan como procesos en background (`node dist/main &`). Si el target no hace `pkill` previo, puertos 3000-3002 quedan ocupados y los nuevos procesos fallan silenciosamente.
+
+**Leccion**:
+- `DOCKER_SOCK` debe resolverse dinamicamente segun el motor detectado. No hardcodear `/var/run/docker.sock`.
+- `podman-compose ps` y `docker compose ps` tienen templates incompatibles. Separar el flag `--format` en una variable (`COMPOSE_PS`) que lo omita para `podman-compose`.
+- Todo target que lance procesos en background debe hacer `pkill` previo de esos mismos procesos.
+
+**Como aplicar**: Las variables `COMPOSE_EXEC`, `COMPOSE_PS`, `DOCKER_SOCK` son el patron para cualquier comando compose nuevo en el Makefile. Antes de agregar un flag de compose, verificar contra los tres motores.
