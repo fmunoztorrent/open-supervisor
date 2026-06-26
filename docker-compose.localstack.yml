@@ -3,10 +3,17 @@ services:
     image: localstack/localstack:3
     ports:
       - "4566:4566"
+      - "${LOCALSTACK_MSK_PORT:-4510}-${LOCALSTACK_MSK_PORT_MAX:-4559}:4510-4559"
     environment:
-      SERVICES: ec2,ecr,iam,sts,s3
+      SERVICES: ec2,ecr,iam,sts,s3,msk
       DEFAULT_REGION: us-east-1
-      DEBUG: 0
+      DEBUG: ${LOCALSTACK_DEBUG:-0}
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:-}
+      KAFKA_CLUSTER_NAME: ${KAFKA_CLUSTER_NAME:-open-supervisor-local-dev-kafka}
+      KAFKA_CLUSTER_VERSION: ${KAFKA_CLUSTER_VERSION:-3.6.0}
+      KAFKA_BROKER_NODES: 1
+      KAFKA_INSTANCE_TYPE: kafka.m5.xlarge
+      GATEWAY_LISTEN: 0.0.0.0:4566
     volumes:
       - "${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock"
       - localstack_data:/var/lib/localstack
@@ -15,6 +22,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 15s
 
 volumes:
   localstack_data:
