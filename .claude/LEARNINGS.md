@@ -1006,3 +1006,16 @@ slug: enforcement-paridad-claude-opencode
 **Lección**: Cuando dos runtimes comparten el mismo working tree y deben cumplir la misma regla, la lógica de enforcement debe vivir en UN core compartido (`pipeline-core.mjs`) que ambos importen — plugin opencode + `pipeline-cli.mjs` para los hooks de Claude Code. Duplicar la lógica garantiza divergencia. Para artefactos con frontmatter por-runtime (agentes), mantener cuerpo canónico único + generador (`sync-agents.ts`) + `--check` en pre-commit.
 **Cómo aplicar**: antes de afirmar en docs que un hook hace X, verificar que el hook esté realmente cableado en `settings.json`/`opencode.json`. Para cualquier regla "se cumple en ambos runtimes": un solo módulo de lógica, wrappers delgados por runtime, y un check de divergencia en el gate compartido (pre-commit). Validar el self-enforcement probando exit codes con payloads JSON simulados.
 
+---
+date: 2026-06-19
+agent: frontend
+category: api-gotcha
+tags: [react-native, react-native-svg, yoga, fabric, detox, ci, native-build, version-pin]
+slug: rnsvg-yoga-stylesizelength-rn076
+---
+
+**Contexto**: El job Detox de CI por fin corría el build del APK (tras arreglar el `cd` del script) y fallaba en el compile nativo C++ de `react-native-svg@15.15.5`: `no member named 'StyleSizeLength' in namespace 'facebook::yoga'; did you mean 'StyleLength'?` en `RNSVGLayoutableShadowNode.cpp`.
+**Qué pasó**: `react-native-svg` 15.13+ **dropeó el guard `#if REACT_NATIVE_MINOR_VERSION`** en su código Fabric y llama incondicionalmente `yoga::StyleSizeLength::percent(...)`, un símbolo que solo existe en el Yoga de RN ≥0.77. El proyecto está en RN 0.76.9 (Yoga expone `StyleLength` / `yoga::value::points`), así que no compila. La versión 15.12.1 todavía conserva el guard: su branch `<0.77` usa `yoga::value::points`. svg es solo peer laxo (`>=13.4.0`) de `@gluestack-ui/themed` y no se importa en el código de la app → bajar la versión es seguro.
+**Lección**: una dependencia con código nativo Fabric (C++) debe casar con la **minor de React Native**, no basta con que el peer range sea laxo. Si un paquete dropea su guard de versión de RN, su última versión deja de compilar contra RN viejo aunque el `package.json` lo "permita". El síntoma aparece recién en el build nativo (Gradle/CMake/ninja), invisible para typecheck y jest.
+**Cómo aplicar**: al fijar/actualizar paquetes RN con binding nativo (`react-native-svg`, `react-native-reanimated`, `react-native-screens`, etc.), elegir la versión por compatibilidad con la minor de RN del proyecto, no por "la última". Para encontrar la versión-frontera rápido sin clonar: `curl` el `.cpp` relevante desde `cdn.jsdelivr.net/npm/<pkg>@<ver>/...` y `grep` el símbolo de yoga (búsqueda binaria sobre versiones). Pinear exacto (sin `^`) cuando el rango incluye versiones que rompen.
+

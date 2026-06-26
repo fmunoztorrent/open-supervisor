@@ -81,10 +81,9 @@ jobs:
           arch: x86_64
           avd-name: open_supervisor
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: |
-            cd apps/mobile
-            pnpm detox:build
-            pnpm detox:test
+          # android-emulator-runner runs each line in a separate shell, so `cd`
+          # does not persist. Chain with && to keep the working dir in one shell.
+          script: cd apps/mobile && pnpm detox:build && pnpm detox:test
 
   e2e-backend:
     name: Backend E2E (Kafka + Redis + Postgres)

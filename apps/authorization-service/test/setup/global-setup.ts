@@ -90,6 +90,61 @@ function applyMigrations(): void {
   console.log('[e2e:setup] Migrations complete');
 }
 
+// ── Kafka broker-readiness barrier ─────────────────────────────────────────
+// A freshly started single-node KRaft broker accepts TCP connections (the CI
+// service health check is `nc -z localhost 9092`) before it has finished leader
+// election and can host topic-partitions. Booting the auth-service consumer
+// against a not-yet-ready broker fails with
+// `KafkaJSProtocolError: This server does not host this topic-partition`.
+// This barrier connects an admin client and waits until the broker can create
+// the consumer topic with an elected leader.
+const REQUIRED_TOPIC = 'auth.requests';
+const KAFKA_READY_TIMEOUT_MS = 60_000;
+const KAFKA_READY_POLL_MS = 1_000;
+
+async function waitForKafkaReady(): Promise<void> {
+  const brokers = (process.env['KAFKA_BROKERS'] ?? 'localhost:9092').split(',');
+  const kafka = new Kafka({
+    clientId: 'e2e-kafka-readiness',
+    brokers,
+    logLevel: 0,
+    retry: { retries: 2 },
+  });
+  const deadline = Date.now() + KAFKA_READY_TIMEOUT_MS;
+  let lastErr: unknown;
+
+  while (Date.now() < deadline) {
+    const admin: Admin = kafka.admin();
+    try {
+      await admin.connect();
+      // createTopics with waitForLeaders blocks until the partition has an
+      // elected leader — exactly the condition the consumer needs. Idempotent:
+      // returns false if the topic already exists.
+      await admin.createTopics({
+        topics: [{ topic: REQUIRED_TOPIC, numPartitions: 1 }],
+        waitForLeaders: true,
+      });
+      await admin.fetchTopicMetadata({ topics: [REQUIRED_TOPIC] });
+      await admin.disconnect();
+      console.log('[e2e:setup] Kafka broker ready (topic-partition leader elected)');
+      return;
+    } catch (err) {
+      lastErr = err;
+      try {
+        await admin.disconnect();
+      } catch {
+        // ignore disconnect errors during retry
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, KAFKA_READY_POLL_MS));
+    }
+  }
+  throw new Error(
+    `[e2e:setup] Kafka not ready after ${KAFKA_READY_TIMEOUT_MS}ms: ${
+      lastErr instanceof Error ? lastErr.message : String(lastErr)
+    }`,
+  );
+}
+
 // ── Kafka consumer-join barrier ────────────────────────────────────────────
 const CONSUMER_GROUP = 'authorization-service-group';
 const BARRIER_POLL_INTERVAL_MS = 500;
@@ -182,6 +237,10 @@ async function bootBff(): Promise<INestApplication> {
 export default async function globalSetup(): Promise<void> {
   applyEnvDefaults();
   applyMigrations();
+
+  // Wait for the Kafka broker to be able to host topic-partitions before any
+  // service (or barrier) connects a consumer/producer to it.
+  await waitForKafkaReady();
 
   const authPort = parseInt(process.env['AUTH_SERVICE_PORT'] ?? '3001', 10);
   const ssePort = parseInt(process.env['SSE_SERVER_PORT'] ?? '3002', 10);

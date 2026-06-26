@@ -5,23 +5,28 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
+    "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "inject": "tsx scripts/inject-request.ts",
     "sonar": "bash scripts/sonarqube/run-local-analysis.sh",
     "test:mutation": "pnpm -r test:mutation"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/eventsource": "^1.1.15",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "@types/uuid": "^9.0.8",
     "dotenv": "^16.4.5",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eventsource": "^2.0.2",
+    "globals": "^17.6.0",
     "js-yaml": "^4.2.0",
     "kafkajs": "^2.2.4",
     "tsx": "^4.22.4",
     "typescript": "^5.4.0",
+    "typescript-eslint": "^8.61.1",
     "uuid": "^9.0.1"
   }
 }
