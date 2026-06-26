@@ -22,12 +22,13 @@ ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 #   3. docker compose  → último recurso (requiere Docker daemon o DOCKER_HOST apuntando a Podman)
 COMPOSE ?= $(shell command -v podman-compose >/dev/null 2>&1 && echo "podman-compose" || (command -v podman >/dev/null 2>&1 && echo "podman compose" || echo "docker compose"))
 
-# ── Flag de exec sin TTY: podman-compose usa --no-TTY, los demás usan -T ──────
+# ── Flag de exec sin TTY: todos los motores soportan -T ─────────────────────
+COMPOSE_EXEC = $(COMPOSE) exec -T
+
+# ── Formato de ps: podman-compose no soporta --format con template ──────────
 ifeq ($(findstring podman-compose,$(COMPOSE)),podman-compose)
-  COMPOSE_EXEC = $(COMPOSE) exec --no-TTY
   COMPOSE_PS   = $(COMPOSE) ps
 else
-  COMPOSE_EXEC = $(COMPOSE) exec -T
   COMPOSE_PS   = $(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 endif
 
