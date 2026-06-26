@@ -22,6 +22,13 @@ ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 #   3. docker compose  → último recurso (requiere Docker daemon o DOCKER_HOST apuntando a Podman)
 COMPOSE ?= $(shell command -v podman-compose >/dev/null 2>&1 && echo "podman-compose" || (command -v podman >/dev/null 2>&1 && echo "podman compose" || echo "docker compose"))
 
+# ── Flag de exec sin TTY: podman-compose usa --no-TTY, los demás usan -T ──────
+ifeq ($(findstring podman-compose,$(COMPOSE)),podman-compose)
+  COMPOSE_EXEC = $(COMPOSE) exec --no-TTY
+else
+  COMPOSE_EXEC = $(COMPOSE) exec -T
+endif
+
 # ── Socket de Podman en macOS ─────────────────────────────────────────────────
 # podman-compose no necesita DOCKER_HOST — usa el CLI de Podman directamente.
 # Para los fallbacks (podman compose / docker compose) exponemos el socket.
@@ -98,7 +105,7 @@ infra:
 	@echo "$(YELLOW)⏳ Esperando a que Kafka esté healthy...$(NC)"
 	@# Esperar hasta que Kafka responda (máx 60s)
 	@for i in $$(seq 1 30); do \
-		$(COMPOSE) exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 && break; \
+		$(COMPOSE_EXEC) kafka kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 && break; \
 		sleep 2; \
 	done
 	@echo ""
@@ -263,7 +270,7 @@ localstack:
 		sleep 2; \
 	done
 	@for i in $$(seq 1 30); do \
-		$(COMPOSE) exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 && break; \
+		$(COMPOSE_EXEC) kafka kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 && break; \
 		sleep 2; \
 	done
 	@echo ""
