@@ -1019,3 +1019,65 @@ slug: rnsvg-yoga-stylesizelength-rn076
 **Lección**: una dependencia con código nativo Fabric (C++) debe casar con la **minor de React Native**, no basta con que el peer range sea laxo. Si un paquete dropea su guard de versión de RN, su última versión deja de compilar contra RN viejo aunque el `package.json` lo "permita". El síntoma aparece recién en el build nativo (Gradle/CMake/ninja), invisible para typecheck y jest.
 **Cómo aplicar**: al fijar/actualizar paquetes RN con binding nativo (`react-native-svg`, `react-native-reanimated`, `react-native-screens`, etc.), elegir la versión por compatibilidad con la minor de RN del proyecto, no por "la última". Para encontrar la versión-frontera rápido sin clonar: `curl` el `.cpp` relevante desde `cdn.jsdelivr.net/npm/<pkg>@<ver>/...` y `grep` el símbolo de yoga (búsqueda binaria sobre versiones). Pinear exacto (sin `^`) cuando el rango incluye versiones que rompen.
 
+
+---
+date: 2026-06-26
+agent: backend
+category: setup
+tags: [localstack, msk, kafka, docker-compose, terraform, mock-testing]
+slug: localstack-msk-infra-patterns
+---
+
+**Contexto**: Agregando LocalStack MSK a open-supervisor para paridad AWS (dev local con MSK -> produccion con MSK real).
+
+**Que paso**:
+1. MSK es Ultimate tier de LocalStack, no Pro.
+2. LocalStack MSK usa aws_msk_cluster (provisioned) vs produccion con aws_msk_serverless_cluster.
+3. awslocal kafka create-topic/list-topics son APIs de conveniencia de LocalStack -- no existen en AWS real pero simplifican testing.
+4. En tests con mocks bash, la persistencia entre corridas requiere archivos de estado con nombres fijos (no basados en AWSLOCAL_ID).
+5. curl -sf falla con HTTP 503 antes de parsear el body -- usar curl -s sin -f.
+
+**Leccion**:
+- Usar APIs de conveniencia de LocalStack para testing (awslocal kafka create-topic), mantener kafkajs admin para produccion.
+- State files en mocks bash deben ser persistentes cross-run para tests de idempotencia.
+- Health checks HTTP: no usar -f si el script necesita parsear el body de respuestas de error.
+
+**Como aplicar**: Seguir el mismo patron para futuros servicios LocalStack: docker-compose config + bootstrap script con awslocal + mock tests con estado persistente + target Makefile separado.
+
+---
+date: 2026-06-26
+agent: backend
+category: api-gotcha
+tags: [makefile, podman, podman-compose, docker, compose, exec, cli-flags]
+slug: podman-compose-exec-no-tty-vs-dash-t
+---
+
+**Contexto**: Agregando el target `localstack` al Makefile, asumi que `$(COMPOSE) exec -T` funcionaba con cualquier motor. El Makefile ya detectaba `podman-compose` vs `podman compose` vs `docker compose` en la variable `COMPOSE`.
+
+**Que paso**: `podman-compose exec` (el script Python) **no soporta el flag `-T`** — usa `--no-TTY` en su lugar. `podman compose exec` (subcomando nativo) si soporta `-T` igual que `docker compose`. Como el Makefile prefiere `podman-compose` sobre `podman compose`, el flag `-T` rompe silenciosamente en maquinas con `podman-compose` instalado.
+
+**Leccion**: Los tres motores (`podman-compose`, `podman compose`, `docker compose`) son **tres CLIs diferentes**, no dos. Aunque `podman compose` emula `docker compose`, `podman-compose` (Python) es un proyecto independiente con sus propios flags. Nunca asumir que un flag de `docker compose` funciona en `podman-compose` sin verificarlo.
+
+**Como aplicar**: En el Makefile, cada comando que use flags especificos del motor debe pasar por una variable intermedia (`COMPOSE_EXEC`) que adapte el flag segun la herramienta detectada. Si se agregan nuevos comandos compose (logs, cp, run), verificar los flags contra los tres motores antes de commitear.
+
+---
+date: 2026-06-26
+agent: backend
+category: setup
+tags: [localstack, podman, docker-sock, compose-ps, port-conflict]
+slug: localstack-podman-docker-sock-and-ps-format
+---
+
+**Contexto**: Probando `make localstack` en macOS con Podman. El target fallaba con `statfs /var/run/docker.sock: no such file or directory` y el formato de `ps` daba error de template.
+
+**Que paso**: 
+1. `docker-compose.localstack.yml` monta `${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock` para que LocalStack pueda lanzar contenedores anidados. En macOS con Podman, el socket esta en una ruta temporal (`/var/folders/.../podman-machine-default-api.sock`), no en `/var/run/docker.sock`.
+2. `podman-compose ps --format` usa un template de Go diferente al de `docker compose ps`. El campo `.Name` no existe en `podman-compose` (usa `.Names` plural o simplemente no soporta el flag `--format` con ese template).
+3. Los servicios NestJS se lanzan como procesos en background (`node dist/main &`). Si el target no hace `pkill` previo, puertos 3000-3002 quedan ocupados y los nuevos procesos fallan silenciosamente.
+
+**Leccion**:
+- `DOCKER_SOCK` debe resolverse dinamicamente segun el motor detectado. No hardcodear `/var/run/docker.sock`.
+- `podman-compose ps` y `docker compose ps` tienen templates incompatibles. Separar el flag `--format` en una variable (`COMPOSE_PS`) que lo omita para `podman-compose`.
+- Todo target que lance procesos en background debe hacer `pkill` previo de esos mismos procesos.
+
+**Como aplicar**: Las variables `COMPOSE_EXEC`, `COMPOSE_PS`, `DOCKER_SOCK` son el patron para cualquier comando compose nuevo en el Makefile. Antes de agregar un flag de compose, verificar contra los tres motores.

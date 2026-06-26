@@ -301,3 +301,4 @@ describe('waitForSseEvent', () => {
     assert.ok(mockEs.closed, 'eventSource.close() debe haber sido llamado al timeout');
   });
 });
+

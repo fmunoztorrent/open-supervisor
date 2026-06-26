@@ -25,6 +25,7 @@
     "@open-supervisor/shared-messaging": "workspace:*",
     "@open-supervisor/shared-types": "workspace:*",
     "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/core": "^2.8.0",
     "@opentelemetry/exporter-trace-otlp-http": "0.219.0",
     "@opentelemetry/instrumentation-express": "0.67.0",
     "@opentelemetry/instrumentation-http": "0.219.0",

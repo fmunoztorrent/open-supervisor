@@ -3,10 +3,11 @@
 #
 # Uso:
 #   make dev        Levanta infraestructura + servicios backend
-#   make emulator   Lanza emulador Android + port forwarding + app
-#   make all        Hace dev + emulator (full stack)
-#   make down       Detiene todo
-#   make status     Muestra qué está corriendo
+#   make localstack  Levanta infra + LocalStack Community + servicios backend
+#   make emulator    Lanza emulador Android + port forwarding + app
+#   make all         Hace dev + emulator (full stack)
+#   make down        Detiene todo
+#   make status      Muestra qué está corriendo
 #
 # Override del motor de contenedores:
 #   make dev COMPOSE="docker compose"
@@ -21,6 +22,16 @@ ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 #   3. docker compose  → último recurso (requiere Docker daemon o DOCKER_HOST apuntando a Podman)
 COMPOSE ?= $(shell command -v podman-compose >/dev/null 2>&1 && echo "podman-compose" || (command -v podman >/dev/null 2>&1 && echo "podman compose" || echo "docker compose"))
 
+# ── Flag de exec sin TTY: todos los motores soportan -T ─────────────────────
+COMPOSE_EXEC = $(COMPOSE) exec -T
+
+# ── Formato de ps: podman-compose no soporta --format con template ──────────
+ifeq ($(findstring podman-compose,$(COMPOSE)),podman-compose)
+  COMPOSE_PS   = $(COMPOSE) ps
+else
+  COMPOSE_PS   = $(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+endif
+
 # ── Socket de Podman en macOS ─────────────────────────────────────────────────
 # podman-compose no necesita DOCKER_HOST — usa el CLI de Podman directamente.
 # Para los fallbacks (podman compose / docker compose) exponemos el socket.
@@ -34,8 +45,20 @@ else ifeq ($(findstring podman,$(COMPOSE)),podman)
   endif
 endif
 
-# ── Phony targets ────────────────────────────────────────────────────────────
-.PHONY: help dev infra services sonar emulator all down status clean
+# ── Docker socket para montar en contenedores ──────────────────────────────────
+# LocalStack necesita acceso al socket del motor de contenedores para lanzar
+# contenedores anidados (Lambda, etc.). Podman en macOS expone un socket en una
+# ruta temporal, Docker usa /var/run/docker.sock.
+ifeq ($(findstring podman,$(COMPOSE)),podman)
+  ifeq ($(shell uname),Darwin)
+    DOCKER_SOCK ?= $(shell podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null)
+  else
+    DOCKER_SOCK ?= /run/podman/podman.sock
+  endif
+else
+  DOCKER_SOCK ?= /var/run/docker.sock
+endif
+export DOCKER_SOCK
 
 # ── Colores para output ──────────────────────────────────────────────────────
 GREEN  := \033[0;32m
@@ -51,6 +74,7 @@ help:
 	@echo ""
 	@echo "$(YELLOW)Targets principales:$(NC)"
 	@echo "  $(GREEN)dev$(NC)         Levanta infra + compila y arranca los 3 servicios backend"
+	@echo "  $(GREEN)localstack$(NC)  Levanta infra + LocalStack Community + servicios backend"
 	@echo "  $(GREEN)emulator$(NC)    Lanza emulador Android + port forwarding + Metro + app"
 	@echo "  $(GREEN)all$(NC)         Hace dev + emulator (stack completo)"
 	@echo ""
@@ -99,12 +123,12 @@ infra:
 	@echo "$(YELLOW)⏳ Esperando a que Kafka esté healthy...$(NC)"
 	@# Esperar hasta que Kafka responda (máx 60s)
 	@for i in $$(seq 1 30); do \
-		$(COMPOSE) exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 && break; \
+		$(COMPOSE_EXEC) kafka kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 && break; \
 		sleep 2; \
 	done
 	@echo ""
 	@echo "$(CYAN)🐳 Contenedores:$(NC)"
-	@$(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+	@$(COMPOSE_PS)
 	@echo ""
 	@echo "$(GREEN)✅ Infraestructura lista$(NC)"
 
@@ -135,19 +159,19 @@ services: infra
 	@echo "$(CYAN)🔧 Compilando authorization-service...$(NC)"
 	@cd $(ROOT_DIR)/apps/authorization-service && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando authorization-service (puerto 3001)...$(NC)"
-	@cd $(ROOT_DIR)/apps/authorization-service && node dist/main > /tmp/auth-service.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/authorization-service && nohup node dist/main > /tmp/auth-service.log 2>&1 &
 	@echo ""
 	@# ── sse-server (puerto 3002) ──
 	@echo "$(CYAN)🔧 Compilando sse-server...$(NC)"
 	@cd $(ROOT_DIR)/apps/sse-server && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando sse-server (puerto 3002)...$(NC)"
-	@cd $(ROOT_DIR)/apps/sse-server && node dist/main > /tmp/sse-server.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/sse-server && nohup node dist/main > /tmp/sse-server.log 2>&1 &
 	@echo ""
 	@# ── bff (puerto 3000) ──
 	@echo "$(CYAN)🔧 Compilando bff...$(NC)"
 	@cd $(ROOT_DIR)/apps/bff && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
 	@echo "$(GREEN)🚀 Iniciando bff (puerto 3000)...$(NC)"
-	@cd $(ROOT_DIR)/apps/bff && node dist/main > /tmp/bff.log 2>&1 &
+	@cd $(ROOT_DIR)/apps/bff && nohup node dist/main > /tmp/bff.log 2>&1 &
 	@echo ""
 	@# ── Verificar que los 3 puertos estén en escucha ──
 	@echo "$(YELLOW)⏳ Esperando que los servicios estén listos...$(NC)"
@@ -206,7 +230,7 @@ down:
 	@echo "$(YELLOW)🛑 Deteniendo emulador...$(NC)"
 	@-adb devices 2>/dev/null | grep emulator | awk '{print $$1}' | xargs -I {} adb -s {} emu kill 2>/dev/null || true
 	@echo "$(YELLOW)🛑 Deteniendo contenedores...$(NC)"
-	@$(COMPOSE) down
+	@$(COMPOSE) -f docker-compose.yml -f docker-compose.localstack.yml down
 	@echo ""
 	@echo "$(GREEN)✅ Todo detenido$(NC)"
 
@@ -250,6 +274,84 @@ detox-test:
 e2e: detox-build detox-test
 	@echo ""
 	@echo "$(GREEN)✅ Pipeline E2E completo$(NC)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# localstack — Levanta LocalStack Community + infra standalone + servicios
+# ═══════════════════════════════════════════════════════════════════════════════
+localstack:
+	@echo "$(YELLOW)🛑 Deteniendo procesos previos...$(NC)"
+	@-pkill -f "node dist/main" 2>/dev/null || true
+	@-lsof -ti :3000 :3001 :3002 2>/dev/null | xargs kill -9 2>/dev/null || true
+	@sleep 1
+	@echo ""
+	@echo "$(CYAN)🐳 Levantando LocalStack Community + infraestructura...$(NC)"
+	@$(COMPOSE) -f docker-compose.yml -f docker-compose.localstack.yml up -d
+	@echo ""
+	@echo "$(YELLOW)⏳ Esperando LocalStack healthy + Kafka ready...$(NC)"
+	@for i in $$(seq 1 30); do \
+		curl -sf http://localhost:4566/_localstack/health >/dev/null 2>&1 && break; \
+		sleep 2; \
+	done
+	@for i in $$(seq 1 30); do \
+		$(COMPOSE_EXEC) kafka kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 && break; \
+		sleep 2; \
+	done
+	@echo ""
+	@echo "$(CYAN)🐳 Contenedores:$(NC)"
+	@$(COMPOSE_PS)
+	@echo ""
+	@echo "$(GREEN)✅ Infraestructura lista (LocalStack Community + Kafka + Redis + Postgres)$(NC)"
+	@echo ""
+	@echo "$(CYAN)📦 Compilando paquetes compartidos...$(NC)"
+	@cd $(ROOT_DIR)/packages/shared-types && node_modules/.bin/tsc
+	@cd $(ROOT_DIR)/packages/shared-messaging && node_modules/.bin/tsc
+	@echo ""
+	@# ── authorization-service (puerto 3001) ──
+	@echo "$(CYAN)🔧 Compilando authorization-service...$(NC)"
+	@cd $(ROOT_DIR)/apps/authorization-service && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
+	@echo "$(GREEN)🚀 Iniciando authorization-service (puerto 3001)...$(NC)"
+	@cd $(ROOT_DIR)/apps/authorization-service && nohup node dist/main > /tmp/auth-service.log 2>&1 &
+	@echo ""
+	@# ── sse-server (puerto 3002) ──
+	@echo "$(CYAN)🔧 Compilando sse-server...$(NC)"
+	@cd $(ROOT_DIR)/apps/sse-server && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
+	@echo "$(GREEN)🚀 Iniciando sse-server (puerto 3002)...$(NC)"
+	@cd $(ROOT_DIR)/apps/sse-server && nohup node dist/main > /tmp/sse-server.log 2>&1 &
+	@echo ""
+	@# ── bff (puerto 3000) ──
+	@echo "$(CYAN)🔧 Compilando bff...$(NC)"
+	@cd $(ROOT_DIR)/apps/bff && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
+	@echo "$(GREEN)🚀 Iniciando bff (puerto 3000)...$(NC)"
+	@cd $(ROOT_DIR)/apps/bff && nohup node dist/main > /tmp/bff.log 2>&1 &
+	@echo ""
+	@# ── Verificar puertos ──
+	@echo "$(YELLOW)⏳ Esperando que los servicios estén listos...$(NC)"
+	@for i in $$(seq 1 15); do \
+		count=$$(lsof -i :3000 -i :3001 -i :3002 -P 2>/dev/null | grep -c LISTEN || echo 0); \
+		[ $$count -ge 3 ] && break; \
+		sleep 2; \
+	done
+	@echo ""
+	@echo "$(CYAN)🔍 Verificación de endpoints:$(NC)"
+	@for port in 3000 3001 3002; do \
+		code=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$$port/health 2>/dev/null || echo "FAIL"); \
+		if [ "$$code" = "200" ] || [ "$$code" = "404" ]; then \
+			echo "   http://localhost:$$port/health → $$code ✓"; \
+		else \
+			echo "   http://localhost:$$port/health → $$code ✗ (revisar /tmp/*.log)"; \
+		fi; \
+	done
+	@echo ""
+	@echo "$(GREEN)✅ Stack backend listo (LocalStack Community).$(NC)"
+	@echo "   bff:                   http://localhost:3000"
+	@echo "   authorization-service: http://localhost:3001"
+	@echo "   sse-server:            http://localhost:3002"
+	@echo "   LocalStack API:        http://localhost:4566"
+	@echo ""
+	@echo "   Para inyectar requests:  $(YELLOW)pnpm inject --type DISCOUNT --store-id store-1 --pos-id pos-1$(NC)"
+
+# ── Phony targets ────────────────────────────────────────────────────────────
+.PHONY: help dev infra services sonar emulator all down status clean localstack
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # clean — Limpiar builds y archivos temporales
