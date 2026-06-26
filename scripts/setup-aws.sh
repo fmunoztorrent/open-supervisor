@@ -36,6 +36,27 @@ ${BOLD}What it does:${NC}
   5. Polls DNS and ACM until the certificate is issued
   6. Updates infra/terraform/envs/<env>/terraform.tfvars with the cert ARN
 
+${BOLD}Before you run — what you'll need:${NC}
+
+  ${CYAN}AWS credentials${NC}
+    Configure them before running this script:
+      aws configure                    # IAM user (access key + secret key)
+      aws sso login                    # AWS Identity Center / SSO
+      aws login                        # temp creds from browser session
+    Or export env vars:
+      export AWS_ACCESS_KEY_ID=...
+      export AWS_SECRET_ACCESS_KEY=...
+      export AWS_SESSION_TOKEN=...     # (optional, for temp creds)
+
+  ${CYAN}Domain${NC}
+    The full domain for the API (e.g. api-supervisor.fmunoz.cl).
+    This domain must be registered in Route 53 or an external provider.
+    You'll create a CNAME validation record there later.
+
+  ${CYAN}AWS region${NC}
+    Where to deploy. Default: us-east-1.
+    Available: aws ec2 describe-regions --query 'Regions[].RegionName'
+
 ${BOLD}Usage:${NC}
   make setup-aws              # defaults to ENV=dev
   make setup-aws ENV=prod     # production environment
@@ -208,23 +229,36 @@ detect_container_engine() {
 
 validate_aws_creds() {
   info "Validando credenciales AWS..."
-  if ! aws sts get-caller-identity --region "$REGION" &>/dev/null; then
-    echo ""
-    echo -e "${RED}Credenciales AWS inválidas o no configuradas.${NC}"
-    echo ""
-    echo "  Configurá tus credenciales:"
-    echo "    aws configure"
-    echo "  O setea las variables de entorno:"
-    echo "    export AWS_ACCESS_KEY_ID=..."
-    echo "    export AWS_SECRET_ACCESS_KEY=..."
-    echo ""
-    exit 1
+
+  if aws sts get-caller-identity --region "$REGION" &>/dev/null; then
+    local identity
+    identity="$(aws sts get-caller-identity --region "$REGION" --output json)"
+    local account_id
+    account_id="$(echo "$identity" | jq -r '.Account')"
+    ok "AWS autenticado — Account: $account_id"
+    return
   fi
-  local identity
-  identity="$(aws sts get-caller-identity --region "$REGION" --output json)"
-  local account_id
-  account_id="$(echo "$identity" | jq -r '.Account')"
-  ok "AWS autenticado — Account: $account_id"
+
+  echo ""
+  echo -e "${RED}Credenciales AWS no configuradas o inválidas.${NC}"
+  echo ""
+  echo "  Configuralas con ${BOLD}una${NC} de estas opciones:"
+  echo ""
+  echo "    ${GREEN}# Opción 1: IAM user (access key + secret)${NC}"
+  echo "    aws configure"
+  echo ""
+  echo "    ${GREEN}# Opción 2: AWS Identity Center / SSO${NC}"
+  echo "    aws sso login"
+  echo ""
+  echo "    ${GREEN}# Opción 3: credenciales temporales desde la consola${NC}"
+  echo "    aws login"
+  echo ""
+  echo "    ${GREEN}# Opción 4: variables de entorno${NC}"
+  echo "    export AWS_ACCESS_KEY_ID=AKIA..."
+  echo "    export AWS_SECRET_ACCESS_KEY=..."
+  echo "    export AWS_SESSION_TOKEN=...      # solo si son temporales"
+  echo ""
+  exit 1
 }
 
 # ── SSM password ────────────────────────────────────────────────────────────────
@@ -347,16 +381,21 @@ phase_init() {
   echo -e "${CYAN}═══ Fase: init ═══${NC}"
   echo ""
 
-  # Prompt for inputs
+  # Prompt for inputs with context
   if [[ -z "$DOMAIN" ]]; then
-    read -r -p "Dominio completo (ej: api-supervisor.fmunoz.cl): " DOMAIN
+    echo -e "  ${YELLOW}El dominio completo donde estará la API (ej: api.mi-dominio.com).${NC}"
+    echo -e "  ${YELLOW}Debe ser un dominio que controles (Route 53, Cloudflare, etc.).${NC}"
+    read -r -p "  Dominio: " DOMAIN
     if [[ -z "$DOMAIN" ]]; then
       fail "Dominio requerido."
     fi
   fi
 
   if [[ -z "$REGION" ]]; then
-    read -r -p "Región AWS [us-east-1]: " input_region
+    echo ""
+    echo -e "  ${YELLOW}Región AWS donde se desplegarán los recursos.${NC}"
+    echo -e "  ${YELLOW}Listá las disponibles con: aws ec2 describe-regions --query 'Regions[].RegionName'${NC}"
+    read -r -p "  Región [us-east-1]: " input_region
     REGION="${input_region:-us-east-1}"
   fi
 
