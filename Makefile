@@ -25,8 +25,10 @@ COMPOSE ?= $(shell command -v podman-compose >/dev/null 2>&1 && echo "podman-com
 # ── Flag de exec sin TTY: podman-compose usa --no-TTY, los demás usan -T ──────
 ifeq ($(findstring podman-compose,$(COMPOSE)),podman-compose)
   COMPOSE_EXEC = $(COMPOSE) exec --no-TTY
+  COMPOSE_PS   = $(COMPOSE) ps
 else
   COMPOSE_EXEC = $(COMPOSE) exec -T
+  COMPOSE_PS   = $(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 endif
 
 # ── Socket de Podman en macOS ─────────────────────────────────────────────────
@@ -41,6 +43,21 @@ else ifeq ($(findstring podman,$(COMPOSE)),podman)
     endif
   endif
 endif
+
+# ── Docker socket para montar en contenedores ──────────────────────────────────
+# LocalStack necesita acceso al socket del motor de contenedores para lanzar
+# contenedores anidados (Lambda, etc.). Podman en macOS expone un socket en una
+# ruta temporal, Docker usa /var/run/docker.sock.
+ifeq ($(findstring podman,$(COMPOSE)),podman)
+  ifeq ($(shell uname),Darwin)
+    DOCKER_SOCK ?= $(shell podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null)
+  else
+    DOCKER_SOCK ?= /run/podman/podman.sock
+  endif
+else
+  DOCKER_SOCK ?= /var/run/docker.sock
+endif
+export DOCKER_SOCK
 
 # ── Colores para output ──────────────────────────────────────────────────────
 GREEN  := \033[0;32m
@@ -110,7 +127,7 @@ infra:
 	done
 	@echo ""
 	@echo "$(CYAN)🐳 Contenedores:$(NC)"
-	@$(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+	@$(COMPOSE_PS)
 	@echo ""
 	@echo "$(GREEN)✅ Infraestructura lista$(NC)"
 
@@ -261,6 +278,10 @@ e2e: detox-build detox-test
 # localstack — Levanta LocalStack Community + infra standalone + servicios
 # ═══════════════════════════════════════════════════════════════════════════════
 localstack:
+	@echo "$(YELLOW)🛑 Deteniendo procesos previos...$(NC)"
+	@-pkill -f "node dist/main" 2>/dev/null || true
+	@sleep 1
+	@echo ""
 	@echo "$(CYAN)🐳 Levantando LocalStack Community + infraestructura...$(NC)"
 	@$(COMPOSE) -f docker-compose.yml -f docker-compose.localstack.yml up -d
 	@echo ""
@@ -275,7 +296,7 @@ localstack:
 	done
 	@echo ""
 	@echo "$(CYAN)🐳 Contenedores:$(NC)"
-	@$(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+	@$(COMPOSE_PS)
 	@echo ""
 	@echo "$(GREEN)✅ Infraestructura lista (LocalStack Community + Kafka + Redis + Postgres)$(NC)"
 	@echo ""
@@ -307,6 +328,16 @@ localstack:
 		count=$$(lsof -i :3000 -i :3001 -i :3002 -P 2>/dev/null | grep -c LISTEN || echo 0); \
 		[ $$count -ge 3 ] && break; \
 		sleep 2; \
+	done
+	@echo ""
+	@echo "$(CYAN)🔍 Verificación de endpoints:$(NC)"
+	@for port in 3000 3001 3002; do \
+		code=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$$port/health 2>/dev/null || echo "FAIL"); \
+		if [ "$$code" = "200" ] || [ "$$code" = "404" ]; then \
+			echo "   http://localhost:$$port/health → $$code ✓"; \
+		else \
+			echo "   http://localhost:$$port/health → $$code ✗ (revisar /tmp/*.log)"; \
+		fi; \
 	done
 	@echo ""
 	@echo "$(GREEN)✅ Stack backend listo (LocalStack Community).$(NC)"
