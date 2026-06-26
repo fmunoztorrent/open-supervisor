@@ -230,7 +230,7 @@ down:
 	@echo "$(YELLOW)🛑 Deteniendo emulador...$(NC)"
 	@-adb devices 2>/dev/null | grep emulator | awk '{print $$1}' | xargs -I {} adb -s {} emu kill 2>/dev/null || true
 	@echo "$(YELLOW)🛑 Deteniendo contenedores...$(NC)"
-	@$(COMPOSE) down
+	@$(COMPOSE) -f docker-compose.yml -f docker-compose.localstack.yml down
 	@echo ""
 	@echo "$(GREEN)✅ Todo detenido$(NC)"
 
