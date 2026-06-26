@@ -147,7 +147,11 @@ read_state() {
 merge_state() {
   local tmp
   tmp="$(mktemp)"
-  jq -s '.[0] * .[1]' "$STATE_FILE" <(echo "$1") > "$tmp"
+  if [[ -f "$STATE_FILE" ]]; then
+    jq -s '.[0] * .[1]' "$STATE_FILE" <(echo "$1") > "$tmp" 2>/dev/null
+  else
+    echo "$1" > "$tmp"
+  fi
   mv "$tmp" "$STATE_FILE"
 }
 
