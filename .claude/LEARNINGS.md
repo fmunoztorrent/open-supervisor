@@ -1043,3 +1043,19 @@ slug: localstack-msk-infra-patterns
 - Health checks HTTP: no usar -f si el script necesita parsear el body de respuestas de error.
 
 **Como aplicar**: Seguir el mismo patron para futuros servicios LocalStack: docker-compose config + bootstrap script con awslocal + mock tests con estado persistente + target Makefile separado.
+
+---
+date: 2026-06-26
+agent: backend
+category: api-gotcha
+tags: [makefile, podman, podman-compose, docker, compose, exec, cli-flags]
+slug: podman-compose-exec-no-tty-vs-dash-t
+---
+
+**Contexto**: Agregando el target `localstack` al Makefile, asumi que `$(COMPOSE) exec -T` funcionaba con cualquier motor. El Makefile ya detectaba `podman-compose` vs `podman compose` vs `docker compose` en la variable `COMPOSE`.
+
+**Que paso**: `podman-compose exec` (el script Python) **no soporta el flag `-T`** — usa `--no-TTY` en su lugar. `podman compose exec` (subcomando nativo) si soporta `-T` igual que `docker compose`. Como el Makefile prefiere `podman-compose` sobre `podman compose`, el flag `-T` rompe silenciosamente en maquinas con `podman-compose` instalado.
+
+**Leccion**: Los tres motores (`podman-compose`, `podman compose`, `docker compose`) son **tres CLIs diferentes**, no dos. Aunque `podman compose` emula `docker compose`, `podman-compose` (Python) es un proyecto independiente con sus propios flags. Nunca asumir que un flag de `docker compose` funciona en `podman-compose` sin verificarlo.
+
+**Como aplicar**: En el Makefile, cada comando que use flags especificos del motor debe pasar por una variable intermedia (`COMPOSE_EXEC`) que adapte el flag segun la herramienta detectada. Si se agregan nuevos comandos compose (logs, cp, run), verificar los flags contra los tres motores antes de commitear.
