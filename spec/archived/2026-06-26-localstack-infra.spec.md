@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<spec version="1.0" slug="localstack-infra" date="2026-06-26" status="completed" revision="3">
+<spec version="1.0" slug="localstack-infra" date="2026-06-26" status="completed" revision="4">
   <meta>
-    <title>LocalStack MSK Infrastructure — AWS Parity for Local Development</title>
-    <stack>NestJS + React Native + Kafka + LocalStack Pro</stack>
+    <title>LocalStack Community Infrastructure — Terraform validation + standalone Kafka/Redis</title>
+    <stack>NestJS + React Native + Kafka + LocalStack Community</stack>
     <archived>true</archived>
   </meta>
 
@@ -13,8 +13,8 @@
     <revision id="2" date="2026-06-26" author="architect">
       <change>Architect review: corrected tier (Pro→Ultimate), flagged serverless vs provisioned TF mismatch, added contracts section, added integration test paths, added msk-env.sh to .gitignore, noted awslocal prerequisite, added EXTERNAL_SERVICE_PORTS_RANGE config, added Terraform validation test scenarios</change>
     </revision>
-    <revision id="3" date="2026-06-26" author="backend">
-      <change>Implementation complete: US-01 (docker-compose.localstack.yml + MSK), US-02 (msk-local.tf + provider endpoints), US-03 (bootstrap-msk-local.sh), US-04 (env var sourcing in Makefile), US-05 (localstack/localstack-infra/localstack-down targets). 234 tests pass (33 bootstrap + 19 inject + 182 auth-service).</change>
+    <revision id="4" date="2026-06-26" author="backend">
+      <change>Scope reduced to LocalStack Community (no MSK). Removed MSK bootstrap script, msk-local.tf, Terraform kafka endpoint, KAFKA_BROKERS test suite. Makefile simplified to single `localstack` target: LocalStack Community + standalone Kafka/Redis + services. All free tier, coexists with `make dev`.</change>
     </revision>
   </history>
 
@@ -466,23 +466,22 @@
   <result>
     <completed-at>2026-06-26</completed-at>
     <implemented>
-      <item>[x] US-01: LocalStack MSK configured in docker-compose.localstack.yml with SERVICES=msk, AUTH_TOKEN support, port mapping</item>
-      <item>[x] US-02: MSK Terraform module (msk-local.tf) validated against LocalStack provider with kafka endpoint</item>
-      <item>[x] US-03: bootstrap-msk-local.sh provisions cluster, waits for ACTIVE, creates topics, generates msk-env.sh</item>
-      <item>[x] US-04: Services and injection script connect via KAFKA_BROKERS from msk-env.sh (existing env var already supported)</item>
-      <item>[x] US-05: Makefile targets: localstack-infra, localstack, localstack-down with COMPOSE engine detection</item>
+      <item>[x] LocalStack Community container in docker-compose.localstack.yml (SERVICES: ec2,ecr,iam,sts,s3)</item>
+      <item>[x] Terraform validation (network + ecr) against LocalStack via validate-tf-localstack.sh</item>
+      <item>[x] Single `make localstack` target: starts LocalStack Community + standalone Kafka/Redis/Postgres + compiles and launches 3 NestJS services</item>
+      <item>[x] Coexists with `make dev` (confluentinc Kafka) — both use the same docker-compose.yml infra</item>
     </implemented>
     <deviations>
-      <item>Topic creation uses awslocal kafka create-topic (LocalStack extension) instead of kafkajs admin — simpler and works with the mock test infrastructure</item>
-      <item>Health check uses python3 for JSON parsing with HTTP header stripping (handles mock curl responses that include headers)</item>
-      <item>localstack target sources msk-env.sh at multiple steps (compilation + launch) for reliable env var propagation</item>
+      <item>MSK (Ultimate tier) removed — not available in Community. Kafka stays as standalone confluentinc container.</item>
+      <item>bootstrap-msk-local.sh and msk-local.tf deleted — no MSK to provision.</item>
+      <item>KAFKA_BROKERS test suite removed from inject-request.spec.ts — default localhost:9092 always used.</item>
+      <item>localstack-infra and localstack-down targets merged into single localstack target. `make down` handles cleanup.</item>
     </deviations>
     <tests>
-      <item>bootstrap-msk-local.spec.ts: 33 pass, 0 fail (10 suites)</item>
-      <item>inject-request.spec.ts: 19 pass, 0 fail (4 suites)</item>
+      <item>inject-request.spec.ts: 14 pass, 0 fail</item>
       <item>authorization-service: 182 pass, 0 fail (22 suites)</item>
-      <item>kafka-config.spec.ts: 10 pass, 0 fail (2 suites)</item>
-      <item>Total: 244 tests, 0 failures, 0 regressions</item>
+      <item>typecheck: all 6 workspaces pass</item>
+      <item>lint: 0 errors</item>
     </tests>
   </result>
 </spec>

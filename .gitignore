@@ -60,6 +60,3 @@ temp/
 
 # Estado de coordinación de sesiones (transitorio, por máquina — contiene PIDs)
 .opencode/pipeline/coordination.json
-
-# Generated LocalStack MSK env file (contains dynamic bootstrap broker port)
-scripts/msk-env.sh
