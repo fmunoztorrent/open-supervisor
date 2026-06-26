@@ -24,7 +24,6 @@ provider "aws" {
     iam   = var.localstack_endpoint
     sts   = var.localstack_endpoint
     s3    = var.localstack_endpoint
-    kafka = var.localstack_endpoint
   }
 
   default_tags {

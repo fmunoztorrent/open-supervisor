@@ -3,7 +3,7 @@
 #
 # Uso:
 #   make dev        Levanta infraestructura + servicios backend
-#   make localstack  Levanta servicios backend sobre LocalStack MSK (Pro/Ultimate)
+#   make localstack  Levanta infra + LocalStack Community + servicios backend
 #   make emulator    Lanza emulador Android + port forwarding + app
 #   make all         Hace dev + emulator (full stack)
 #   make down        Detiene todo
@@ -49,14 +49,12 @@ help:
 	@echo ""
 	@echo "$(YELLOW)Targets principales:$(NC)"
 	@echo "  $(GREEN)dev$(NC)         Levanta infra + compila y arranca los 3 servicios backend"
-	@echo "  $(GREEN)localstack$(NC)  Levanta servicios backend sobre LocalStack MSK (Pro/Ultimate)"
+	@echo "  $(GREEN)localstack$(NC)  Levanta infra + LocalStack Community + servicios backend"
 	@echo "  $(GREEN)emulator$(NC)    Lanza emulador Android + port forwarding + Metro + app"
 	@echo "  $(GREEN)all$(NC)         Hace dev + emulator (stack completo)"
 	@echo ""
 	@echo "$(YELLOW)Targets individuales:$(NC)"
 	@echo "  $(GREEN)infra$(NC)       Levanta contenedores (Kafka, Redis, Zookeeper, Postgres)"
-	@echo "  $(GREEN)ls-infra$(NC)    Levanta LocalStack MSK + bootstrap (sin servicios)"
-	@echo "  $(GREEN)ls-down$(NC)      Detiene LocalStack + servicios lanzados via make localstack"
 	@echo "  $(GREEN)sonar$(NC)       Levanta SonarQube (port 9000, solo este servicio)"
 	@echo "  $(GREEN)services$(NC)    Compila y arranca authorization-service, sse-server, bff"
 	@echo "  $(GREEN)detox-build$(NC) Compila el APK debug para tests Detox E2E"
@@ -253,44 +251,36 @@ e2e: detox-build detox-test
 	@echo "$(GREEN)✅ Pipeline E2E completo$(NC)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# localstack-infra — LocalStack MSK + bootstrap (sin servicios backend), uses $(COMPOSE)
+# localstack — Levanta LocalStack Community + infra standalone + servicios
 # ═══════════════════════════════════════════════════════════════════════════════
-localstack-infra:
-	@echo "$(CYAN)🐳 Levantando LocalStack con MSK...$(NC)"
-	@$(COMPOSE) -f docker-compose.yml -f docker-compose.localstack.yml up -d localstack
-	@echo "$(YELLOW)⏳ Esperando a que LocalStack esté healthy (MSK puede tardar)...$(NC)"
-	@for i in $$(seq 1 40); do \
-		health=$$(curl -sf http://localhost:4566/_localstack/health 2>/dev/null || echo ""); \
-		if echo "$$health" | grep -q '"msk"\s*:\s*"available"'; then \
-			break; \
-		fi; \
-		sleep 3; \
+localstack:
+	@echo "$(CYAN)🐳 Levantando LocalStack Community + infraestructura...$(NC)"
+	@$(COMPOSE) -f docker-compose.yml -f docker-compose.localstack.yml up -d
+	@echo ""
+	@echo "$(YELLOW)⏳ Esperando LocalStack healthy + Kafka ready...$(NC)"
+	@for i in $$(seq 1 30); do \
+		curl -sf http://localhost:4566/_localstack/health >/dev/null 2>&1 && break; \
+		sleep 2; \
+	done
+	@for i in $$(seq 1 30); do \
+		$(COMPOSE) exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 && break; \
+		sleep 2; \
 	done
 	@echo ""
-	@echo "$(CYAN)🔧 Provisionando MSK cluster y topics...$(NC)"
-	@bash "$(ROOT_DIR)/scripts/bootstrap-msk-local.sh"
+	@echo "$(CYAN)🐳 Contenedores:$(NC)"
+	@$(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 	@echo ""
-	@echo "$(GREEN)✅ LocalStack MSK infraestructura lista$(NC)"
-	@echo "   Bootstrap brokers: $$(grep KAFKA_BROKERS "$(ROOT_DIR)/scripts/msk-env.sh" 2>/dev/null | cut -d= -f2- | tr -d '"' || echo 'unknown')"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# localstack — LocalStack MSK + servicios backend
-# ═══════════════════════════════════════════════════════════════════════════════
-localstack: localstack-infra
+	@echo "$(GREEN)✅ Infraestructura lista (LocalStack Community + Kafka + Redis + Postgres)$(NC)"
 	@echo ""
 	@echo "$(CYAN)📦 Compilando paquetes compartidos...$(NC)"
 	@cd $(ROOT_DIR)/packages/shared-types && node_modules/.bin/tsc
 	@cd $(ROOT_DIR)/packages/shared-messaging && node_modules/.bin/tsc
 	@echo ""
-	@# Source the MSK env file so KAFKA_BROKERS points to LocalStack MSK
-	@set -a && . "$(ROOT_DIR)/scripts/msk-env.sh" && set +a && \
-		echo "$(GREEN)🐳 KAFKA_BROKERS=$$KAFKA_BROKERS$(NC)"
-	@echo ""
 	@# ── authorization-service (puerto 3001) ──
 	@echo "$(CYAN)🔧 Compilando authorization-service...$(NC)"
 	@cd $(ROOT_DIR)/apps/authorization-service && rm -f tsconfig*.tsbuildinfo && node_modules/.bin/nest build
-	@set -a && . "$(ROOT_DIR)/scripts/msk-env.sh" && set +a && \
-		cd $(ROOT_DIR)/apps/authorization-service && node dist/main > /tmp/auth-service.log 2>&1 &
+	@echo "$(GREEN)🚀 Iniciando authorization-service (puerto 3001)...$(NC)"
+	@cd $(ROOT_DIR)/apps/authorization-service && node dist/main > /tmp/auth-service.log 2>&1 &
 	@echo ""
 	@# ── sse-server (puerto 3002) ──
 	@echo "$(CYAN)🔧 Compilando sse-server...$(NC)"
@@ -312,27 +302,16 @@ localstack: localstack-infra
 		sleep 2; \
 	done
 	@echo ""
-	@echo "$(GREEN)✅ Stack backend sobre LocalStack MSK listo.$(NC)"
+	@echo "$(GREEN)✅ Stack backend listo (LocalStack Community).$(NC)"
 	@echo "   bff:                   http://localhost:3000"
 	@echo "   authorization-service: http://localhost:3001"
 	@echo "   sse-server:            http://localhost:3002"
+	@echo "   LocalStack API:        http://localhost:4566"
 	@echo ""
-	@echo "   Para inyectar requests:  $(YELLOW)source scripts/msk-env.sh && pnpm inject --type DISCOUNT --store-id store-1 --pos-id pos-1$(NC)"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# localstack-down — Detener LocalStack + servicios, stops containers with down/pkill
-# ═══════════════════════════════════════════════════════════════════════════════
-localstack-down:
-	@echo "$(YELLOW)🛑 Deteniendo servicios backend...$(NC)"
-	@-pkill -f "node dist/main" 2>/dev/null || true
-	@sleep 1
-	@echo "$(YELLOW)🛑 Deteniendo LocalStack y contenedores...$(NC)"
-	@$(COMPOSE) -f docker-compose.yml -f docker-compose.localstack.yml down
-	@echo ""
-	@echo "$(GREEN)✅ LocalStack detenido$(NC)"
+	@echo "   Para inyectar requests:  $(YELLOW)pnpm inject --type DISCOUNT --store-id store-1 --pos-id pos-1$(NC)"
 
 # ── Phony targets ────────────────────────────────────────────────────────────
-.PHONY: help dev infra services sonar emulator all down status clean localstack localstack-infra localstack-down
+.PHONY: help dev infra services sonar emulator all down status clean localstack
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # clean — Limpiar builds y archivos temporales
