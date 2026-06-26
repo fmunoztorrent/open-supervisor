@@ -356,20 +356,33 @@ request_acm_cert() {
 }
 
 extract_cname() {
-  info "Extrayendo registro CNAME de validación DNS..."
+  info "Extrayendo registro CNAME de validacion DNS..."
 
-  local cert_desc
-  cert_desc="$(aws acm describe-certificate \
-    --certificate-arn "$ACM_CERT_ARN" \
-    --region "$REGION" \
-    --output json 2>/dev/null || echo "{}")"
+  local cert_desc cname_name cname_value
+  for i in $(seq 1 5); do
+    cert_desc="$(aws acm describe-certificate \
+      --certificate-arn "$ACM_CERT_ARN" \
+      --region "$REGION" \
+      --output json 2>/dev/null || echo "{}")"
 
-  CNAME_NAME="$(echo "$cert_desc" | jq -r '.Certificate.DomainValidationOptions[0].ResourceRecord.Name // ""')"
-  CNAME_VALUE="$(echo "$cert_desc" | jq -r '.Certificate.DomainValidationOptions[0].ResourceRecord.Value // ""')"
+    cname_name="$(echo "$cert_desc" | jq -r '.Certificate.DomainValidationOptions[0].ResourceRecord.Name // ""')"
+    cname_value="$(echo "$cert_desc" | jq -r '.Certificate.DomainValidationOptions[0].ResourceRecord.Value // ""')"
 
-  if [[ -z "$CNAME_NAME" || "$CNAME_NAME" == "null" || -z "$CNAME_VALUE" || "$CNAME_VALUE" == "null" ]]; then
-    fail "No se pudo extraer el registro CNAME del certificado. Verificá: aws acm describe-certificate --certificate-arn $ACM_CERT_ARN --region $REGION"
-  fi
+    if [[ -n "$cname_name" && "$cname_name" != "null" && -n "$cname_value" && "$cname_value" != "null" ]]; then
+      CNAME_NAME="$cname_name"
+      CNAME_VALUE="$cname_value"
+      ok "CNAME extraido: $CNAME_NAME"
+      return
+    fi
+
+    if (( i < 5 )); then
+      sleep 3
+    fi
+  done
+
+  fail "No se pudo extraer el registro CNAME del certificado despues de 15s.
+  Verifica manualmente: aws acm describe-certificate --certificate-arn $ACM_CERT_ARN --region $REGION
+  Si el CNAME ya aparece, volve a correr: make setup-aws ${ENV:+ENV=$ENV}"
 }
 
 show_cname() {
@@ -434,6 +447,24 @@ phase_init() {
       }')"
     return 2  # signal to go to complete
   fi
+
+  # Save state with cert ARN before extracting CNAME (idempotent re-entry)
+  merge_state "$(jq -n \
+    --arg env "$ENV" \
+    --arg domain "$DOMAIN" \
+    --arg region "$REGION" \
+    --arg ce "$CONTAINER_ENGINE" \
+    --arg arn "$ACM_CERT_ARN" \
+    --arg phase "init" \
+    '{
+      environment: $env,
+      domain: $domain,
+      region: $region,
+      container_engine: $ce,
+      acm_certificate_arn: $arn,
+      phase: $phase,
+      phase_started_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ"))
+    }')"
 
   extract_cname
   show_cname
