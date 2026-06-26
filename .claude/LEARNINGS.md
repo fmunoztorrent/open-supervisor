@@ -1019,3 +1019,27 @@ slug: rnsvg-yoga-stylesizelength-rn076
 **Lección**: una dependencia con código nativo Fabric (C++) debe casar con la **minor de React Native**, no basta con que el peer range sea laxo. Si un paquete dropea su guard de versión de RN, su última versión deja de compilar contra RN viejo aunque el `package.json` lo "permita". El síntoma aparece recién en el build nativo (Gradle/CMake/ninja), invisible para typecheck y jest.
 **Cómo aplicar**: al fijar/actualizar paquetes RN con binding nativo (`react-native-svg`, `react-native-reanimated`, `react-native-screens`, etc.), elegir la versión por compatibilidad con la minor de RN del proyecto, no por "la última". Para encontrar la versión-frontera rápido sin clonar: `curl` el `.cpp` relevante desde `cdn.jsdelivr.net/npm/<pkg>@<ver>/...` y `grep` el símbolo de yoga (búsqueda binaria sobre versiones). Pinear exacto (sin `^`) cuando el rango incluye versiones que rompen.
 
+
+---
+date: 2026-06-26
+agent: backend
+category: setup
+tags: [localstack, msk, kafka, docker-compose, terraform, mock-testing]
+slug: localstack-msk-infra-patterns
+---
+
+**Contexto**: Agregando LocalStack MSK a open-supervisor para paridad AWS (dev local con MSK -> produccion con MSK real).
+
+**Que paso**:
+1. MSK es Ultimate tier de LocalStack, no Pro.
+2. LocalStack MSK usa aws_msk_cluster (provisioned) vs produccion con aws_msk_serverless_cluster.
+3. awslocal kafka create-topic/list-topics son APIs de conveniencia de LocalStack -- no existen en AWS real pero simplifican testing.
+4. En tests con mocks bash, la persistencia entre corridas requiere archivos de estado con nombres fijos (no basados en AWSLOCAL_ID).
+5. curl -sf falla con HTTP 503 antes de parsear el body -- usar curl -s sin -f.
+
+**Leccion**:
+- Usar APIs de conveniencia de LocalStack para testing (awslocal kafka create-topic), mantener kafkajs admin para produccion.
+- State files en mocks bash deben ser persistentes cross-run para tests de idempotencia.
+- Health checks HTTP: no usar -f si el script necesita parsear el body de respuestas de error.
+
+**Como aplicar**: Seguir el mismo patron para futuros servicios LocalStack: docker-compose config + bootstrap script con awslocal + mock tests con estado persistente + target Makefile separado.
