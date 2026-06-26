@@ -83,6 +83,6 @@ if $CLEAN; then
 fi
 
 echo ""
-pass "Validation complete — modules network and ecr passed against LocalStack."
+pass "Validation complete — modules network, ecr, and msk passed against LocalStack."
 echo "  Plan saved: $TF_DIR/localstack.tfplan"
 echo "  To destroy:  bash scripts/validate-tf-localstack.sh --clean"

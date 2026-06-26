@@ -19,11 +19,12 @@ provider "aws" {
   skip_requesting_account_id  = true
 
   endpoints {
-    ec2 = var.localstack_endpoint
-    ecr = var.localstack_endpoint
-    iam = var.localstack_endpoint
-    sts = var.localstack_endpoint
-    s3  = var.localstack_endpoint
+    ec2   = var.localstack_endpoint
+    ecr   = var.localstack_endpoint
+    iam   = var.localstack_endpoint
+    sts   = var.localstack_endpoint
+    s3    = var.localstack_endpoint
+    kafka = var.localstack_endpoint
   }
 
   default_tags {
