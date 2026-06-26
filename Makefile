@@ -85,6 +85,7 @@ help:
 	@echo "  $(GREEN)detox-build$(NC) Compila el APK debug para tests Detox E2E"
 	@echo "  $(GREEN)detox-test$(NC)  Ejecuta los tests Detox E2E en el emulador"
 	@echo "  $(GREEN)e2e$(NC)         Pipeline completo E2E (detox-build + detox-test)"
+	@echo "  $(GREEN)aws-verify$(NC)  Despliega en AWS, verifica que funciona, y destruye todo (costo ~\$$1-2)"
 	@echo "  $(GREEN)down$(NC)        Detiene servicios backend + contenedores + emulador"
 	@echo "  $(GREEN)status$(NC)      Muestra estado de contenedores, puertos y emulador"
 	@echo ""
@@ -350,8 +351,14 @@ localstack:
 	@echo ""
 	@echo "   Para inyectar requests:  $(YELLOW)pnpm inject --type DISCOUNT --store-id store-1 --pos-id pos-1$(NC)"
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# aws-verify — Despliega en AWS, verifica, y destruye
+# ═══════════════════════════════════════════════════════════════════════════════
+aws-verify:
+	@bash $(ROOT_DIR)/scripts/aws-verify.sh $(or $(ENV),dev)
+
 # ── Phony targets ────────────────────────────────────────────────────────────
-.PHONY: help dev infra services sonar emulator all down status clean localstack
+.PHONY: help dev infra services sonar emulator all down status clean localstack aws-verify
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # clean — Limpiar builds y archivos temporales
