@@ -117,7 +117,7 @@ resource "aws_security_group_rule" "ecs_from_alb" {
   protocol                 = "tcp"
   source_security_group_id = var.alb_sg_id
   security_group_id        = var.ecs_task_sg_id
-  description              = "ALB → ECS tasks"
+  description              = "ALB to ECS tasks"
 }
 
 # ── AWS Cloud Map (internal service discovery) ────────────────────────────────
