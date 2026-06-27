@@ -39,14 +39,22 @@ ${BOLD}What it does:${NC}
 ${BOLD}Before you run — what you'll need:${NC}
 
   ${CYAN}AWS credentials${NC}
-    Configure them before running this script:
+    Este script (setup-aws) necesita permisos minimos: SSM + ACM.
+    El usuario IAM debe tener al menos esta politica:
+      ssm:GetParameter, ssm:PutParameter
+      acm:RequestCertificate, acm:DescribeCertificate, acm:ListCertificates
+
+    ${YELLOW}IMPORTANTE: make aws-verify (el siguiente paso) necesita permisos mucho${NC}
+    ${YELLOW}mas amplios (EC2, ECS, ECR, RDS, IAM, CloudWatch, MSK, ElastiCache, etc).${NC}
+    ${YELLOW}La forma mas simple: attach AdministratorAccess al usuario IAM.${NC}
+
+    Como configurar las credenciales:
       aws configure                    # IAM user (access key + secret key)
       aws sso login                    # AWS Identity Center / SSO
       aws login                        # temp creds from browser session
-    Or export env vars:
+    O export env vars:
       export AWS_ACCESS_KEY_ID=...
       export AWS_SECRET_ACCESS_KEY=...
-      export AWS_SESSION_TOKEN=...     # (optional, for temp creds)
 
   ${CYAN}Domain${NC}
     The full domain for the API (e.g. api-supervisor.fmunoz.cl).
@@ -244,11 +252,15 @@ validate_aws_creds() {
   fi
 
   echo ""
-  echo -e "${RED}Credenciales AWS no configuradas o inválidas.${NC}"
+  echo -e "${RED}Credenciales AWS no configuradas o invalidas.${NC}"
   echo ""
-  echo -e "  El script necesita permisos para:"
+  echo -e "  ${BOLD}Este script (setup-aws) solo necesita:${NC}"
   echo -e "    ssm:PutParameter, ssm:GetParameter"
   echo -e "    acm:RequestCertificate, acm:DescribeCertificate, acm:ListCertificates"
+  echo ""
+  echo -e "  ${YELLOW}El usuario IAM tambien necesitara permisos mucho mas amplios${NC}"
+  echo -e "  ${YELLOW}para make aws-verify (EC2, ECS, ECR, RDS, IAM, CloudWatch, etc).${NC}"
+  echo -e "  ${YELLOW}Recomendacion: attach AdministratorAccess al usuario.${NC}"
   echo ""
   echo -e "  ${BOLD}Opciones para configurar credenciales:${NC}"
   echo ""
